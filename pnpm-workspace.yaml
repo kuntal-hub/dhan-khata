@@ -1,0 +1,8 @@
+# Project lives inside OneDrive: hoisted node_modules avoids symlink/junction problems.
+nodeLinker: hoisted
+saveExact: true
+autoInstallPeers: true
+
+ignoredBuiltDependencies:
+  - sharp
+  - unrs-resolver
