@@ -12,6 +12,7 @@ import {
   type Godown,
   type PullChange,
   type PullResponse,
+  type Reminder,
   type User,
   type Voucher,
 } from "@/domain/schemas";
@@ -65,6 +66,9 @@ async function applyChange(c: PullChange): Promise<boolean> {
       return true;
     case "dayStatus":
       await d.dayStatus.put(c.doc as DayStatus);
+      return true;
+    case "reminder":
+      await d.reminders.put(c.doc as Reminder);
       return true;
     case "user": {
       const session = await getMeta<SessionMeta>(META.session);

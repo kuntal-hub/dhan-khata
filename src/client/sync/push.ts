@@ -9,6 +9,7 @@ import {
   type PushOp,
   type PushOpResult,
   type PushResponse,
+  type Reminder,
   type Voucher,
 } from "@/domain/schemas";
 import { authedCall } from "../auth/session";
@@ -150,6 +151,10 @@ async function acceptServerVersion(op: OutboxRow, r: PushOpResult): Promise<void
       const before = await dexieDerivedStore.readDerived(doc._id);
       await replaceDerivedRows(before, { lines: r.lines, moves: r.moves });
     }
+    return;
+  }
+  if (op.entity === "reminder") {
+    if (!stillPending && r.doc) await d.reminders.put(r.doc as Reminder);
     return;
   }
   if (op.entity === "godownSettings") {

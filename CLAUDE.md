@@ -66,6 +66,11 @@ Keep this list up to date.
 - Scope: `src/domain/scope.ts` provides `collectRefs`, `checkSameGodown` and `assertGodownUnchanged`.
 - i18n: `useI18n()` / `useT()` from `src/i18n/I18nProvider.tsx`, plus framework-free `translate()` (`src/i18n/translate.ts`) and formatters (`src/i18n/format.ts`). Cross-script search lives in `src/i18n/translit.ts`.
 - Test factories: `tests/helpers/factory.ts` (`mk`, `line`) and `tests/property/arbitraries.ts`.
+## Key building blocks (Phases 2–3)
+- Writes: `src/client/repo` only. Single vouchers `createVoucher`/`editVoucher`/`voidVoucher`; screens use `savePurchase`/`saveSale`/`saveLoad`/`saveMoney`/`saveMillSettlement` (built on `saveVoucherWithLinked`). Masters: `upsertMaster`. Errors: `RepoError` → `t(errorKey(e))`.
+- Reads: `src/client/queries/*` (all take `godownId`) + Dexie `useLiveQuery`; hooks in `src/client/hooks.ts` (`useActiveGodown`, `useGodownRole`).
+- UI kit: `src/components/forms/*` (`FormShell`, pickers, fields), `src/components/money/*`, `src/components/lists/common.tsx`, `src/components/system/page.tsx` (`Fresh`, `PageSuspense`, `useParam`, `useWriteGodown`).
+- Routes are static; ids via `?id=`. Wrap entry-form routes in `<Fresh>` (Next keeps visited routes alive with React Activity). In e2e use `vis(page, testId)`.
 
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**

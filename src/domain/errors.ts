@@ -29,7 +29,8 @@ export type DomainErrorCode =
   | "TYPE_IMMUTABLE"
   | "EDIT_WINDOW_EXPIRED"
   | "VALIDATION_FAILED"
-  | "NOT_SIGNED_IN";
+  | "NOT_SIGNED_IN"
+  | "LINKED_READ_ONLY";
 
 export class DomainError extends Error {
   constructor(

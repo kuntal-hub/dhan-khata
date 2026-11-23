@@ -54,9 +54,12 @@ export function GodownSwitcher() {
 
   return (
     <>
-      <DropdownMenu>
+      <DropdownMenu modal={false}>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" className="h-11 max-w-[60vw] justify-start gap-2 px-2 text-base">
+          <Button
+            variant="ghost"
+            className="h-11 min-w-0 flex-1 shrink justify-start gap-2 px-2 text-base"
+          >
             <Warehouse className="size-5 shrink-0" aria-hidden />
             <span className="truncate font-semibold">{label}</span>
             <span aria-hidden>▾</span>

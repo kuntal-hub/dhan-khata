@@ -61,10 +61,9 @@ export function mongoDerivedStore(db: Db, session: ClientSession): MongoDerivedS
     },
 
     async readDerived(voucherId): Promise<Derived> {
-      const [lines, moves] = await Promise.all([
-        k.ledgerLines.find({ voucherId }, { session }).toArray(),
-        k.stockMoves.find({ voucherId }, { session }).toArray(),
-      ]);
+      // Sequential within a transaction session (no concurrent operations on one session).
+      const lines = await k.ledgerLines.find({ voucherId }, { session }).toArray();
+      const moves = await k.stockMoves.find({ voucherId }, { session }).toArray();
       return { lines: lines.map(fromDbLine), moves: moves.map(fromDbMove) };
     },
 
@@ -97,10 +96,12 @@ export async function readVoucherDerived(
   const k = cols(db);
   const out = new Map<string, Derived>(voucherIds.map((id) => [id, { lines: [], moves: [] }]));
   if (voucherIds.length === 0) return out;
-  const [lines, moves] = await Promise.all([
-    k.ledgerLines.find({ voucherId: { $in: [...voucherIds] } }, { session }).toArray(),
-    k.stockMoves.find({ voucherId: { $in: [...voucherIds] } }, { session }).toArray(),
-  ]);
+  const lines = await k.ledgerLines
+    .find({ voucherId: { $in: [...voucherIds] } }, { session })
+    .toArray();
+  const moves = await k.stockMoves
+    .find({ voucherId: { $in: [...voucherIds] } }, { session })
+    .toArray();
   for (const l of lines) out.get(l.voucherId)?.lines.push(fromDbLine(l));
   for (const m of moves) out.get(m.voucherId)?.moves.push(fromDbMove(m));
   return out;

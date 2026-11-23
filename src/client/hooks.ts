@@ -4,7 +4,7 @@
  */
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback } from "react";
-import { canConsolidate } from "@/domain/rbac";
+import { canConsolidate, roleIn, type EffectiveRole } from "@/domain/rbac";
 import type { Godown } from "@/domain/schemas";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
 import { db } from "./db/dexie";
@@ -67,4 +67,12 @@ export function useBootstrapped(): boolean | undefined {
       return false; // DB not openable: ClientRuntime shows the recovery screen
     }
   }, []);
+}
+
+/** The signed-in user's role in the active godown (null = no access / no godown). */
+export function useGodownRole(): EffectiveRole | null {
+  const session = useSessionMeta();
+  const godownId = useAppSelector((s) => s.activeGodown.godownId);
+  if (!session || !godownId) return null;
+  return roleIn(session.user, godownId);
 }

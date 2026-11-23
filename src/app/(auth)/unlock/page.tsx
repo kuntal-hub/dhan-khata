@@ -16,6 +16,7 @@ import {
   setPin,
   verifyPin,
 } from "@/client/auth/pin";
+import { markUnlocked } from "@/client/auth/unlock";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
@@ -56,7 +57,9 @@ export default function UnlockPage() {
 
   const waitLeft = Math.max(0, Math.ceil((waitUntil - nowTick) / 1000));
 
+  const userId = useAppSelector((s) => s.session.userId);
   const done = () => {
+    if (userId) markUnlocked(userId);
     dispatch(actions.session.unlocked());
     router.replace("/");
   };

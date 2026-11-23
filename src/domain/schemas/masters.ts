@@ -59,6 +59,8 @@ export const PartySchema = z.strictObject({
   tags: z.array(z.string().max(40)).optional(),
   /** Set only for role "godown": the godown this party represents. */
   linkedGodownId: Id.optional(),
+  /** Set when the owner merged this duplicate into another party (status becomes void). */
+  mergedInto: Id.optional(),
 });
 export type Party = z.infer<typeof PartySchema>;
 

@@ -1,79 +1,88 @@
 /**
- * Cold-offline acceptance (spec §13, Phase 2 scope): log in online → close the browser →
- * network off → open the start URL → unlock with PIN → visit every route via the UI and by
- * direct URL → reload → still works.
+ * Cold-offline acceptance (spec §13): log in online → close the browser → network off → open the
+ * start URL → unlock with PIN → visit every route via the UI and by direct URL → reload → works.
  */
-import { mkdtempSync } from "node:fs";
-import { tmpdir } from "node:os";
-import path from "node:path";
-import { chromium, devices, expect, test, type BrowserContext, type Page } from "@playwright/test";
+import { expect, test } from "@playwright/test";
+import { expectNoHorizontalScroll, loginFresh, openBrowser, unlockIfAsked } from "./helpers";
 
-const PORT = Number(process.env.E2E_PORT ?? 3100);
-const BASE = `http://localhost:${PORT}`;
-const OWNER = { phone: "9830012345", password: "e2e-owner-pass" };
-const PIN = "1234";
-const ROUTES = ["/", "/sync", "/login", "/unlock", "/~offline"];
-
-async function open(dir: string): Promise<{ ctx: BrowserContext; page: Page }> {
-  const { defaultBrowserType: _b, ...device } = devices["Pixel 7"];
-  const ctx = await chromium.launchPersistentContext(dir, { ...device, baseURL: BASE });
-  const page = ctx.pages()[0] ?? (await ctx.newPage());
-  return { ctx, page };
-}
-
-async function unlockIfAsked(page: Page) {
-  const pin = page.locator("#pin");
-  const badge = page.getByTestId("sync-badge");
-  await expect(pin.or(badge).first()).toBeVisible();
-  if (await pin.isVisible()) {
-    await pin.fill(PIN);
-    await page.getByTestId("pin-submit").click();
-  }
-  await expect(badge).toBeVisible();
-}
+/** Every static app route (Phase 3 adds the trade screens). */
+const ROUTES = [
+  "/",
+  "/sync",
+  "/login",
+  "/unlock",
+  "/~offline",
+  "/purchase",
+  "/purchase/new",
+  "/purchase/view?id=x",
+  "/purchase/edit?id=x",
+  "/sale",
+  "/sale/new",
+  "/sale/view?id=x",
+  "/sale/edit?id=x",
+  "/sale/settle?id=x",
+  "/load",
+  "/load/new",
+  "/load/view?id=x",
+  "/load/edit?id=x",
+  "/payment/new?type=RECEIPT",
+  "/payment/view?id=x",
+  "/payment/edit?id=x",
+  "/party",
+  "/party/new",
+  "/party/view?id=x",
+  "/party/edit?id=x",
+  "/due",
+  "/more",
+  "/settings",
+  "/settings/masters?tab=banks",
+  "/print/voucher?id=x",
+  "/print/statement?partyId=x",
+];
 
 test("cold offline start: every route works from the device", async () => {
-  const dir = mkdtempSync(path.join(tmpdir(), "dk-e2e-"));
-
   // 1. Online: log in, set PIN, first download, service worker installed.
-  let { ctx, page } = await open(dir);
-  await page.goto("/");
-  await page.waitForURL(/\/login/);
-  await page.locator("#phone").fill(OWNER.phone);
-  await page.locator("#password").fill(OWNER.password);
-  await page.getByTestId("login-submit").click();
-  await page.waitForURL(/\/unlock/);
-  await page.locator("#pin").fill(PIN);
-  await page.locator("#pin2").fill(PIN);
-  await page.getByTestId("pin-submit").click();
-  await expect(page.getByTestId("sync-badge")).toBeVisible({ timeout: 60_000 });
+  const first = await openBrowser();
+  const dir = first.dir;
+  let { ctx, page } = first;
+  await loginFresh(page);
   await expect(page.getByText(/Rampur|Sonapur/).first()).toBeVisible();
   await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.ready;
     return Boolean(reg.active);
   });
-  // Visit each route once online too (warms nothing extra: all routes are precached).
   await ctx.close();
 
   // 2. Browser closed; network off; cold start from the start URL.
-  ({ ctx, page } = await open(dir));
+  ({ ctx, page } = await openBrowser(dir));
   await ctx.setOffline(true);
   await page.goto("/?source=pwa");
   await unlockIfAsked(page);
+  await expectNoHorizontalScroll(page);
 
-  // 3. Navigate via the UI.
-  await page.getByRole("button", { name: /মেনু|Menu/ }).click();
-  await page.getByRole("menuitem", { name: /সিঙ্ক|Sync/ }).click();
-  await expect(page.getByRole("heading", { name: /সিঙ্ক|Sync/ })).toBeVisible();
-  await page.getByRole("button", { name: /মেনু|Menu/ }).click();
-  await page.getByRole("menuitem", { name: /হোম|Home/ }).click();
-  await expect(page.getByText("ধান খাতা").first()).toBeVisible();
+  // 3. Navigate via the UI (bottom tabs + links), all client-side and offline.
+  for (const tab of ["tab-purchase", "tab-sale", "tab-party", "tab-more", "tab-home"]) {
+    await page.getByTestId(tab).click();
+    await expect(page.getByTestId(tab)).toHaveAttribute("aria-current", "page");
+  }
+  await page.getByTestId("tab-party").click();
+  await page.getByTestId("go-due").click();
+  await page.waitForURL(/\/due/);
+  await page.getByTestId("tab-sale").click();
+  await page.getByTestId("go-load").click();
+  await page.waitForURL(/\/load$/);
+  await page.getByTestId("tab-home").click();
+  await page.getByTestId("qa-purchase").click();
+  await expect(page.getByTestId("purchase-form")).toBeVisible();
 
-  // 4. Every route by direct URL, offline.
+  // 4. Every route by direct URL, offline: served by the service worker, never the fallback.
   for (const r of ROUTES) {
     const res = await page.goto(r);
-    expect(res?.ok() ?? true).toBe(true);
-    await expect(page.locator("body")).not.toBeEmpty();
+    expect(res?.ok() ?? true, r).toBe(true);
+    if (r !== "/~offline") {
+      await expect(page.locator("body")).not.toBeEmpty();
+      await expect(page.getByText(/ইন্টারনেট নেই|No internet/)).toHaveCount(0);
+    }
   }
 
   // 5. Reload → still works.

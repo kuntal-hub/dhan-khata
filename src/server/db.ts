@@ -14,6 +14,7 @@ import type {
   Party,
   Place,
   PushOpResult,
+  Reminder,
   User,
   Variety,
   Vehicle,
@@ -134,6 +135,7 @@ export interface Collections {
   expenseCategories: Collection<WithMeta<ExpenseCategory>>;
   godownSettings: Collection<WithMeta<GodownSettings>>;
   dayStatus: Collection<DayStatus>;
+  reminders: Collection<WithMeta<Reminder>>;
   ledgerLines: Collection<DbLedgerLine>;
   stockMoves: Collection<DbStockMove>;
   changelog: Collection<ChangeLogDoc>;
@@ -220,6 +222,7 @@ export function cols(db: Db): Collections {
     expenseCategories: c("expenseCategories"),
     godownSettings: c("godownSettings"),
     dayStatus: c("dayStatus"),
+    reminders: c("reminders"),
     ledgerLines: c("ledgerLines"),
     stockMoves: c("stockMoves"),
     changelog: c("changelog"),
@@ -276,6 +279,10 @@ export async function ensureIndexes(db: Db): Promise<void> {
     k.places.createIndexes([{ key: { godownId: 1 } }]),
     k.expenseCategories.createIndexes([{ key: { godownId: 1, code: 1 }, unique: true }]),
     k.dayStatus.createIndexes([{ key: { godownId: 1, date: 1 } }]),
+    k.reminders.createIndexes([
+      { key: { godownId: 1, dueDate: 1 } },
+      { key: { godownId: 1, status: 1 } },
+    ]),
     k.audit.createIndexes([{ key: { godownId: 1, at: -1 } }]),
     k.conflicts.createIndexes([{ key: { godownId: 1, at: -1 } }]),
     k.refreshTokens.createIndexes([

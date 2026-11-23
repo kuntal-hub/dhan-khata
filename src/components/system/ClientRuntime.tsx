@@ -3,6 +3,7 @@
 import { useEffect, useState, type ReactNode } from "react";
 import { DbOpenError, openDb } from "@/client/db/dexie";
 import { getSession } from "@/client/db/meta";
+import { clearUnlocked, isUnlockedThisTab } from "@/client/auth/unlock";
 import { restoreActiveGodown } from "@/client/godown/activeGodown";
 import { useBootstrapped } from "@/client/hooks";
 import { getSyncEngine } from "@/client/sync/instance";
@@ -33,12 +34,15 @@ export function ClientRuntime({ children }: { children: ReactNode }) {
       await openDb();
       const session = await getSession();
       if (session) {
+        const who = {
+          userId: session.user._id,
+          userName: session.user.name,
+          isOwner: session.user.isOwner,
+        };
         dispatch(
-          actions.session.sessionFound({
-            userId: session.user._id,
-            userName: session.user.name,
-            isOwner: session.user.isOwner,
-          }),
+          isUnlockedThisTab(session.user._id)
+            ? actions.session.signedIn(who)
+            : actions.session.sessionFound(who),
         );
         const g = await restoreActiveGodown();
         if (g) dispatch(actions.activeGodown.godownSelected(g));
@@ -81,7 +85,10 @@ export function ClientRuntime({ children }: { children: ReactNode }) {
           lastError: s.lastError,
         }),
       );
-      if (s.deviceRevoked) dispatch(actions.session.revoked());
+      if (s.deviceRevoked) {
+        clearUnlocked();
+        dispatch(actions.session.revoked());
+      }
     });
   }, [dispatch]);
 

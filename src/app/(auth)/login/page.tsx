@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { hasPin } from "@/client/auth/pin";
 import { login } from "@/client/auth/session";
+import { markUnlocked } from "@/client/auth/unlock";
 import { errorKey } from "@/client/errors";
 import { restoreActiveGodown } from "@/client/godown/activeGodown";
 import { requestPersistentStorage } from "@/client/pwa/browser";
@@ -43,6 +44,7 @@ export default function LoginPage() {
           isOwner: session.user.isOwner,
         }),
       );
+      markUnlocked(session.user._id);
       void requestPersistentStorage();
       const g = await restoreActiveGodown();
       if (g) dispatch(actions.activeGodown.godownSelected(g));

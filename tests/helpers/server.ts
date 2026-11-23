@@ -12,6 +12,7 @@ import { setTransport, setAccessToken } from "@/client/sync/transport";
 import { cols, getDb } from "@/server/db";
 import * as authRoutes from "@/server/routes/auth";
 import * as godownRoutes from "@/server/routes/godowns";
+import * as partyRoutes from "@/server/routes/parties";
 import * as syncRoutes from "@/server/routes/sync";
 
 export function useTestServer(dbName: string): void {
@@ -32,6 +33,7 @@ const ROUTES: Record<string, Handler> = {
   "GET /api/sync/pull": syncRoutes.pull,
   "POST /api/godowns": godownRoutes.create,
   "POST /api/godowns/archive": godownRoutes.archive,
+  "POST /api/parties/merge": partyRoutes.merge,
 };
 
 export class TestDevice {

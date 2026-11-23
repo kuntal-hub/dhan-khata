@@ -75,6 +75,7 @@ function collectionFor(db: Db, entity: PushOp["entity"]): Collection<AnyDoc> {
     place: k.places,
     expenseCategory: k.expenseCategories,
     godownSettings: k.godownSettings,
+    reminder: k.reminders,
   } as const;
   return map[entity] as unknown as Collection<AnyDoc>;
 }

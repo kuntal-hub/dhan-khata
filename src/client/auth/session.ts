@@ -6,6 +6,7 @@
 import { DomainError } from "@/domain/errors";
 import type { User } from "@/domain/schemas";
 import { db, writeTables } from "../db/dexie";
+import { clearUnlocked } from "./unlock";
 import {
   META,
   deleteMeta,
@@ -179,6 +180,7 @@ export async function logout(): Promise<void> {
     // Offline logout still clears the device; the refresh token expires on its own.
   }
   setAccessToken(null);
+  clearUnlocked();
   await wipeLocalData();
   await deleteMeta(META.session);
   await deleteMeta(META.pin);

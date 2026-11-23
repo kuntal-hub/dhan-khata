@@ -120,6 +120,10 @@ export const ReminderSchema = z.strictObject({
   snoozeUntil: YmdStr.optional(),
   rev: z.number().int().min(1),
   updatedAt: IsoTimestamp,
+  createdAt: IsoTimestamp.optional(),
+  createdBy: Id.optional(),
+  updatedBy: Id.optional(),
+  serverSeq: z.number().int().min(0).optional(),
 });
 export type Reminder = z.infer<typeof ReminderSchema>;
 

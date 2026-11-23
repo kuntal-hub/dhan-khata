@@ -6,7 +6,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done (exit criteria green + c
 |---|---|---|---|
 | 1 | Foundations & Domain Core | P0 + P1 | ✅ |
 | 2 | Offline Data, Auth, Sync & PWA Shell | P2 + P3 + P4 | ✅ |
-| 3 | Masters, Parties & Trade Flow | P5 + P6 | ⬜ |
+| 3 | Masters, Parties & Trade Flow | P5 + P6 | ✅ |
 | 4 | Daily Money, Dashboard, Vehicles, Stock & Godowns | P7 + P8 | ⬜ |
 | 5 | Reminders, Reports, Export, Ops & Hardening | P9 + P10 + P11 (automatable) | ⬜ |
 
@@ -140,3 +140,45 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - `pnpm build` ✅ (all pages static; SW precaches 36 URLs incl. `/`, `/login`, `/unlock`, `/sync`, `/~offline`)
 - `pnpm test:e2e` ✅ 1/1 cold-offline acceptance (persistent Chromium, Pixel 7 viewport)
 - Scripted two-godown offline create/edit/void → sync → server totals == device totals: `tests/sync/isolation.test.ts` "exit criterion" ✅
+
+### Phase 3 — Masters, Parties & Trade Flow — 2026-11-24
+**Built:**
+- App layout: header (godown switcher, search placeholder, sync badge, user menu with language + digit toggles, sync, settings, logout), mobile bottom tabs (হোম · ক্রয় · বিক্রি/লোড · খাতা · আরও), desktop sidebar, Home quick actions + FAB sheet, "আরও" menu with coming-soon badges. `src/components/layout/{AppShell,nav}.tsx`.
+- Shared UI: `FormShell` (full-screen form, godown in title, sticky totals bar, leave confirm, `RestoreDraftBanner`), draft autosave (`useFormDraft`, Dexie `meta` `formDraft:<key>`), back-button stack for sheets (`src/client/ui/backStack.ts`, `useBackClose`), `BottomSheet`, `EntityPicker` + party/variety/vehicle/place/bank pickers with inline offline create, money inputs (`AmountInput`, `WeightInput` with bags × avg helper, `RateInput`, `PercentInput`, `CountInput`), `Money`/`Qty`/`Balance`/`Computed` (formula on tap), `VirtualList`, `SyncIcon`, `EmptyState`, `Fresh` (bfcacheId key), `useWriteGodown`/`ReadOnlyNotice`.
+- Repo: `saveVoucherWithLinked` (primary + linked members matched by type; changed → new rev, missing → voided `LINKED_REMOVED`; reminders; extra writes), `savePurchase` / `saveSale` / `saveLoad` / `saveMoney` (`src/client/repo/trade.ts`), `saveMillSettlement`, read-only linked members (`LINKED_READ_ONLY`), cascade void (group + settlements; voiding a settlement returns the sale to PENDING), settlements refreshed when their sale changes, reminder records (`src/client/repo/reminders.ts`), last-used per party (`lastUsed:<godown>:<party>`).
+- Queries: `src/client/queries/parties.ts` (search, balances, statement with running balance + bank filter, bills via FIFO/manual `settleBills`, aging, due list, purchase history), `src/client/queries/vouchers.ts` (lists, day list, 30-day average rate + ±25 % band, load register).
+- Screens: purchase/sale/load/payment new·edit·view, `sale/settle`, purchase & sale lists with filters, load register with daily totals + Excel (`src/client/export/excel.ts`, exceljs lazy), parties list/form (copy from another godown)/profile (summary, khata, purchases, sales, payments, loads, reminders; call, WhatsApp, তাগাদা bn/en, merge), due/advance page, settings (preferences + owner deduction defaults/rounding) and masters (varieties, categories, banks, vehicles, places), print views `(print)/print/{voucher,statement}` (letterhead, bn/en/both, amount in words, `window.print()`, PNG share via html-to-image + Web Share, download fallback).
+- Server: reminders collection + sync entity `reminder`; owner-only `/api/parties/merge` (`src/server/partyMerge.ts`, one transaction: re-point vouchers/vehicles/reminders, re-derive lines, void duplicate with `mergedInto`, changelog, audit).
+- Tests: `tests/repo/trade.test.ts` (load → exactly one SALE, load edit propagation, read-only links, AGENT commission, paid-now atomicity + payment void on removal, reminders, FIFO/manual statuses + advance, sale linked vouchers, settlement difference/shortage/void, hand-computed trade flow), `tests/sync/merge.test.ts`; Playwright `tests/e2e/trade-flow.spec.ts` (bn + en, identical numbers) and the offline spec extended to all 31 routes; helpers in `tests/e2e/helpers.ts`.
+
+**Deviations from spec/plan:**
+1. Forms use controlled React state + the shared parse helpers (`src/client/ui/parse.ts`) instead of react-hook-form: every field is a decimal string parsed exactly to bigint, which fits the money rules better than RHF's value model.
+2. Reminders are a synced master-like entity (`reminder`, field-level merge) with deterministic ids `<voucherId>:<kind>`; auto reminders store `title: ""` (rendered from the kind). The reminder centre UI is Phase 5. Advance given → COLLECT_DUE, advance taken → PAY_DUE, cheque receipt → CHEQUE.
+3. Party merge needs a server round trip and then a sync; devices with pending edits of affected vouchers get normal conflict items.
+4. Void is owner-only in the UI (spec §9). The server still allows a manager to void on open days (§2), which is needed when a manager's edit removes a linked member (e.g. paid-now).
+5. The hardware back button closes sheets; on whole form pages it is not intercepted (it would race with navigation after save). The in-app back asks first, a tab-close warning shows, and draft autosave restores the form.
+6. Next 16 keeps up to 3 visited routes alive with React Activity: entry-form routes are wrapped in `Fresh` (key = `router.bfcacheId`) so a new form starts empty; e2e tests must target `:visible` elements (`vis()` helper).
+7. "Unlocked" is remembered per tab in `sessionStorage` (`src/client/auth/unlock.ts`), so an offline client navigation that falls back to a full page load doesn't ask for the PIN again; a new tab/app start still does.
+8. Header dropdowns are non-modal (`modal={false}`) and the godown switcher shrinks to fit; a 19 px header overflow at 412 px was zooming the whole page on phones (now guarded by `expectNoHorizontalScroll` in e2e).
+9. Excel money/weight cells are written as formulas holding the exact decimal text (no JS float on amounts).
+10. Home shows a "হাতে নগদ" (cash in hand) card and today's list as stubs; the dashboard cards are Phase 4. Expense and trip quick actions show "coming soon".
+11. Bank-account opening balance is stored on the master only; it is posted through the OPENING voucher in the go-live wizard (Phase 5).
+12. Manifest shortcuts now open `/purchase/new` and `/sale/new`; expense still opens Home (Phase 4).
+
+**Known issues / TODO carried forward:**
+- Bengali conjunct rendering on receipts relies on browser shaping (HTML print and html-to-image) — check ক্ষ, ন্দ্র, স্ব, ত্ত on a real phone during UAT.
+- The rate sanity band uses this godown's purchases of the last 30 days on this device.
+- `dueList` computes bills per party on every render (fine for a few hundred parties; revisit with dailyAgg-style caching if slow).
+- Party merge is online-only and owner-only; there is no un-merge (the dropped party stays visible as "merged").
+
+**Notes for next phase (Phase 4):**
+- New entry screens: build with `FormShell` + `useFormDraft` + pickers; wrap the route in `<Fresh>`; save through a `saveVoucherWithLinked` plan; give inputs `testId`s and use `vis()` in e2e.
+- Expense/trip quick actions are in `QUICK_ACTIONS` (`src/app/(app)/page.tsx`, `href: null`); the "আরও" items in `src/app/(app)/more/page.tsx`.
+- Dashboard cards can replace the Home cash stub; `dailyAgg` and `src/client/queries/{ledger,stock}.ts` are ready.
+- Reminder records already exist for due dates (query `openReminders`).
+
+**Exit criteria results:**
+- `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅
+- `pnpm test` ✅ 189/189 (15 files)
+- `pnpm build` ✅ (every route static; SW precaches 102 URLs)
+- `pnpm test:e2e` ✅ 3/3 — cold-offline (31 routes by direct URL + tab navigation), trade flow in bn and en (F −₹12,000, F2 −₹42,000, mill +₹17,770, cash ₹32,000, shortage 10 kg; same numbers in both languages)

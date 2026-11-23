@@ -6,7 +6,7 @@ const both = (key: Parameters<typeof translate>[1]) =>
 
 /**
  * Web App Manifest (spec §13). Shortcuts open in the last active godown (the app restores it).
- * Phase 3 points them at the real entry screens (/purchase/new, /sale/new, /expense/new).
+ * Purchase and sale open their entry screens; expense opens Home until Phase 4 adds its screen.
  */
 export default function manifest(): MetadataRoute.Manifest {
   return {
@@ -31,12 +31,12 @@ export default function manifest(): MetadataRoute.Manifest {
     shortcuts: [
       {
         name: both("pwa.shortcutPurchase"),
-        url: "/?shortcut=purchase",
+        url: "/purchase/new",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },
       {
         name: both("pwa.shortcutSale"),
-        url: "/?shortcut=sale",
+        url: "/sale/new",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },
       {

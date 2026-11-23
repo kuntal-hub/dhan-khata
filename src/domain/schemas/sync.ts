@@ -12,7 +12,7 @@ import {
   VarietySchema,
   VehicleSchema,
 } from "./masters";
-import { GodownSettingsSchema, type LedgerLine, type StockMove } from "./system";
+import { GodownSettingsSchema, ReminderSchema, type LedgerLine, type StockMove } from "./system";
 import { VoucherSchema } from "./vouchers";
 
 /** Godown-scoped master entities written through the outbox (field-level LWW on conflict). */
@@ -27,7 +27,7 @@ export const MASTER_ENTITIES = [
 export type MasterEntity = (typeof MASTER_ENTITIES)[number];
 
 /** Everything a device may push. */
-export const PUSH_ENTITIES = ["voucher", ...MASTER_ENTITIES, "godownSettings"] as const;
+export const PUSH_ENTITIES = ["voucher", ...MASTER_ENTITIES, "godownSettings", "reminder"] as const;
 export type PushEntity = (typeof PUSH_ENTITIES)[number];
 
 /** Everything a device may receive. `godown` and `user` are global (godownId = null). */
@@ -43,6 +43,7 @@ export const PUSH_SCHEMAS = {
   place: PlaceSchema,
   expenseCategory: ExpenseCategorySchema,
   godownSettings: GodownSettingsSchema,
+  reminder: ReminderSchema,
 } as const;
 
 export function isMasterEntity(e: string): e is MasterEntity {

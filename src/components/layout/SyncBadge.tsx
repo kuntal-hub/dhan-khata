@@ -41,7 +41,7 @@ export function SyncBadge() {
       data-testid="sync-badge"
     >
       {icon}
-      <span className="max-w-[30vw] truncate">{text}</span>
+      <span className="max-w-[18vw] truncate">{text}</span>
     </Link>
   );
 }
