@@ -49,13 +49,15 @@ Don't pull work forward from later phases (each phase file has a "Do NOT do in t
 ## Commands
 Keep this list up to date.
 - `pnpm dev`: dev server (http://localhost:3000)
-- `pnpm build` / `pnpm start`: production build and server
+- `pnpm build` / `pnpm start`: production build (`next build && serwist build serwist.config.mjs`, writes `public/sw.js`) and server
 - `pnpm typecheck`: `tsc --noEmit`
 - `pnpm lint`: ESLint, including the no-float rule (`src/domain`) and the no-JSX-literal rule (`src/app`, `src/components`)
 - `pnpm check:no-float`: grep guard over `src/domain`. A line may opt out only with `// float-ok: <reason>`, and only for non-money integer indices.
 - `pnpm test`: Vitest (unit + property). Component tests opt in with `// @vitest-environment jsdom`.
 - `pnpm format` / `pnpm format:check`: Prettier
-- `pnpm test:e2e`: Playwright (added in Phase 2)
+- `pnpm test:e2e`: Playwright cold-offline test (run `pnpm build` first; boots an in-memory MongoDB + `next start` on :3100 via `tests/e2e/server.ts`)
+- `pnpm seed --owner-phone=… --owner-name=… [--owner-password=…] [--godown-name=… --godown-code=…]`: first-run seed (reads `.env`/`.env.local`)
+- `pnpm icons`: regenerate PWA icons in `public/icons`
 
 ## Key building blocks (from Phase 1)
 - Money and weight: `src/domain/{money,weight,decimal,rounding,digits}.ts`, plus `divRoundHalfUp` and `allocateProportional`.

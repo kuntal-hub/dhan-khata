@@ -1,7 +1,7 @@
 // @vitest-environment jsdom
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeAll, describe, expect, it } from "vitest";
-import HomePage from "@/app/page";
+import HomePage from "@/app/(app)/page";
 import { Providers } from "@/app/providers";
 
 beforeAll(() => {

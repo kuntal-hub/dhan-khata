@@ -5,7 +5,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done (exit criteria green + c
 | Phase | Title | Spec phases | Status |
 |---|---|---|---|
 | 1 | Foundations & Domain Core | P0 + P1 | ✅ |
-| 2 | Offline Data, Auth, Sync & PWA Shell | P2 + P3 + P4 | ⬜ |
+| 2 | Offline Data, Auth, Sync & PWA Shell | P2 + P3 + P4 | ✅ |
 | 3 | Masters, Parties & Trade Flow | P5 + P6 | ⬜ |
 | 4 | Daily Money, Dashboard, Vehicles, Stock & Godowns | P7 + P8 | ⬜ |
 | 5 | Reminders, Reports, Export, Ops & Hardening | P9 + P10 + P11 (automatable) | ⬜ |
@@ -28,6 +28,7 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 ```
 
 <!-- entries below -->
+
 
 ### Phase 1 — Foundations & Domain Core — 2026-11-23
 **Built:**
@@ -91,3 +92,51 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - `pnpm build` ✅ (`/` static)
 - `pnpm start` smoke test: HTTP 200, self-hosted fonts.
 - Language switch without reload: verified by `tests/unit/shell.test.tsx`.
+
+### Phase 2 — Offline Data, Auth, Sync & PWA Shell — 2026-11-24
+**Built:**
+- Local DB `src/client/db`: `dexie.ts` (schema v1 exactly §8.6, multiple named DBs for tests via `selectDatabase`, `openDb` + `classifyOpenError` → `DbOpenError`, `exportRawDatabase` for the recovery screen), `migrations.ts` (`SCHEMA_V1`, `assertAdditive`, `applyVersions`), `meta.ts` (cursor, deviceId, deviceCode, session, PIN, access snapshot, `voucherSeq:*`, `godownSettings:<id>`).
+- Shared domain additions: `src/domain/rbac.ts` (`can`, `roleIn`, `canConsolidate`, `entryMayChange`, `isDayLocked`), `src/domain/posting/derive.ts` (storage-agnostic `DerivedStore`, `ordOf`, `applyVoucherDerived`, `repostAfter`), `src/domain/schemas/sync.ts` (wire protocol + API error codes), `src/domain/phone.ts`, `collectMasterRefs`/`checkRefs` in `scope.ts`, new `DomainErrorCode`s.
+- Local write path `src/client/repo`: `createVoucher`, `createVoucherGroup` (shared `groupId`, pre-assigned `_id`s may link siblings), `editVoucher`, `voidVoucher`, `voidVoucherGroup`, `upsertMaster` (party `searchKey`, vehicle normalization, `fields` for merges), `updateGodownSettings`, `rebuildDailyAgg`. One Dexie tx each; `emitLocalWrite` after commit (BroadcastChannel).
+- Queries `src/client/queries/{ledger,stock}.ts` and read-only `queries/consolidated`.
+- Server `src/server`: `db.ts` (cached client, `useBigInt64`, §8.5 indexes, `nextServerSeq`), `auth.ts` (argon2id, jose JWT 15 min, rotating refresh cookie with reuse detection + 30 s concurrent-refresh grace, login rate limit), `rbac.ts`, `users.ts` (create, `setGodownAccess` → accessVersion, device codes), `godownService.ts` (create/archive), `apply/applyOp.ts` + `apply/mongoStore.ts`, `pull.ts`, `routes/*` (plain Request/Response; route files under `src/app/api` delegate). `scripts/seed.ts`, `.env.example`, `/api/health`.
+- Client sync `src/client/sync`: `transport.ts`, `push.ts`, `pull.ts` (access reconcile, per-godown bootstrap, purge), `engine.ts` (backoff, single flight), `locks.ts`, `triggers.ts`, `resolve.ts` (retry, keep server, apply mine, discard failed, export unsynced), `instance.ts`. Auth: `src/client/auth/{pin,session}.ts`.
+- UI: `(auth)/login`, `(auth)/unlock`, `(app)/layout` (ClientRuntime → AuthGate → AppShell), `(app)/page` (Home), `(app)/sync`, `~offline`; components `GodownSwitcher`, `SyncBadge`, `Banners`, `BootstrapScreen`, `DbRecovery`, `PwaRuntime`, `InstallButton`.
+- PWA: `src/app/sw.ts`, `serwist.config.mjs` (configurator mode, `next build && serwist build serwist.config.mjs`), `src/app/manifest.ts`, icons in `public/icons` (`pnpm icons`), CSP + security headers in `next.config.ts`.
+- Tests: `tests/repo/*` (repo, property at stored-lines level, DB/migrations/PIN), `tests/sync/{sync,isolation}.test.ts` (memory replica set via `tests/setup/mongo.global.ts`, real route handlers via `tests/helpers/server.ts` `TestDevice`), Playwright `tests/e2e/offline.spec.ts` (+ `tests/e2e/server.ts`).
+
+**Deviations from spec/plan:**
+1. **Server is the cost arbiter, and the client re-posts too.** Both sides post through the shared `applyVoucherDerived`: the stock position comes from stored moves ordered by `ord` (= date|createdAt|_id, the `voucherOrder` key), and every later voucher on an affected stock key is re-posted. Stored lines therefore always equal a full `replay` (property-tested). `StockMove` gained an optional `ord`. Applied push results and pulls carry the server's lines and moves, and the client adopts them.
+2. Money in Mongo: **derived** collections (ledgerLines, stockMoves) store Int64 (`bigint` via `useBigInt64`). Voucher and master documents keep decimal strings (exact round-trip of the synced document).
+3. `GodownSettings` live in Dexie `meta` (`godownSettings:<id>`), because §8.6 v1 has no table for them. Server-only extras: collections `accounts` (seeded chart), `locations` (TRANSIT), `conflicts`, `refreshTokens`, `loginAttempts`; `_m.fieldRev` on master docs (stripped before sending).
+4. Rejected ops are NOT stored in `appliedOps`, so a retry re-evaluates them (e.g. after access is restored). Infrastructure errors fail the whole push request (HTTP 500), and the client retries as a network error.
+5. Master conflicts: field-level merge using per-field revs. An overlapping field keeps the server value; the loser goes to `conflicts` and the result is still `applied` (with `conflictFields`).
+6. The `entry` role server-side: own entry plus a 30-minute window (device clock). "Not yet synced" is enforced on the client only.
+7. Revoked godown with ops still queued: the device keeps everything (`pendingPurge`); those ops fail with FORBIDDEN, and the user can export and then discard them on the Sync screen. Purge runs once the godown has no outbox ops.
+8. Cold start always asks for the PIN (session status `locked`). A password login skips the PIN once if a PIN already exists.
+9. Logout (blocked while the outbox is non-empty) wipes local business data and the PIN, but keeps deviceId and voucher sequences. Logging in as a different user is blocked while ops are pending.
+10. Locale stays in localStorage (instant first paint). Moving it to the synced user record needs a prefs API, which is deferred to Phase 5 (Settings).
+11. Manifest shortcuts point to `/?shortcut=purchase|sale|expense` until the Phase 3 screens exist.
+12. CSP uses `'unsafe-inline'` for scripts, because pages are static prerenders with no per-request nonce.
+13. Dexie 4 opens a DB left at a higher version without error (data kept). Version/Upgrade errors are still mapped to the recovery screen, which has deliberately no reset button.
+
+**Known issues / TODO carried forward:**
+- A back-dated stock voucher re-posts every later voucher on the same variety, which is slow for very old dates. Acceptable for now; revisit if profiling shows a problem.
+- The update prompt checks `sync.running` (not per-op "sending") and dirty forms. Phase 3 forms must dispatch `ui.formDirtied`/`formCleaned`.
+- Server logs are JSON lines on stdout (`DK_QUIET_LOGS=1` silences non-errors in tests).
+- E2E covers the cold-offline shell only. The §13 "create purchase/payment/load/expense offline → drain → identical totals" e2e needs the Phase 3 screens (it is covered at the Vitest level by the isolation suite's exit-criterion test).
+
+**Notes for next phase (Phase 3):**
+- Write ONLY through `src/client/repo`. Build drafts as `VoucherDraft` (derived fields can be placeholders; recompute fills them). For linked groups, pre-assign `_id` with `newId()` and call `createVoucherGroup`.
+- Errors: catch `RepoError` (`code`, `codes`, `issues` for form fields) and show `t(errorKey(e))` (`src/client/errors.ts`).
+- Read with `useLiveQuery` (`src/client/hooks.ts`: `useActiveGodown`, `useAccessibleGodowns`, `useOutbox`). Never mix godowns outside `queries/consolidated`. Respect `consolidated` mode (hide + buttons).
+- Search params: wrap `useSearchParams` users in `<Suspense>` (Cache Components). Keep pages static.
+- Point the manifest shortcuts at `/purchase/new`, `/sale/new`, `/expense/new`.
+- Phase-2 e2e: `pnpm build` first, then `pnpm test:e2e` (server: `tests/e2e/server.ts`, owner 9830012345 / e2e-owner-pass, godowns Rampur RP + Sonapur SP).
+
+**Exit criteria results:**
+- `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅
+- `pnpm test` ✅ 177/177 (13 files: repo, repo property, DB/PIN, sync, isolation + RBAC, plus Phase 1 suites)
+- `pnpm build` ✅ (all pages static; SW precaches 36 URLs incl. `/`, `/login`, `/unlock`, `/sync`, `/~offline`)
+- `pnpm test:e2e` ✅ 1/1 cold-offline acceptance (persistent Chromium, Pixel 7 viewport)
+- Scripted two-godown offline create/edit/void → sync → server totals == device totals: `tests/sync/isolation.test.ts` "exit criterion" ✅

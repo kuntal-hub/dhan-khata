@@ -126,6 +126,32 @@ export function assertSameGodown(v: Voucher, lookup: GodownLookup): void {
   if (!r.ok) throw new DomainError(r.code, `${r.ref.kind}:${r.ref.id}`);
 }
 
+/** Same-godown references made by master records (e.g. a vehicle's owner/driver party). */
+export function collectMasterRefs(entity: string, doc: Record<string, unknown>): Ref[] {
+  const refs: Ref[] = [];
+  const add = (kind: RefKind, id: unknown) => {
+    if (typeof id === "string" && id.length > 0) refs.push({ kind, id });
+  };
+  if (entity === "vehicle") {
+    add("party", doc.ownerPartyId);
+    add("party", doc.driverPartyId);
+  }
+  return refs;
+}
+
+export function checkRefs(
+  godownId: string,
+  refs: readonly Ref[],
+  lookup: GodownLookup,
+): ScopeCheck {
+  for (const ref of refs) {
+    const g = lookup(ref);
+    if (g === undefined) return { ok: false, code: "INVALID_REFERENCE", ref };
+    if (g !== godownId) return { ok: false, code: "CROSS_GODOWN_REFERENCE", ref };
+  }
+  return { ok: true };
+}
+
 /** `godownId` is immutable: an edit may never move a record to another godown. */
 export function assertGodownUnchanged(
   before: { godownId: string },

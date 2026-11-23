@@ -3,6 +3,7 @@
 import { Languages } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { InstallButton } from "@/components/pwa/InstallButton";
 import { amountInWords } from "@/domain/amountInWords";
 import { todayIST } from "@/domain/dates";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -11,11 +12,12 @@ import { useI18n } from "@/i18n/I18nProvider";
 const SAMPLE_PAISE = 2606875n;
 const SAMPLE_GRAMS = 1212500n;
 
+/** Home (the dashboard arrives in Phase 4). */
 export default function HomePage() {
   const { t, lang, digits, setLang, setDigits, money, weightOf, date } = useI18n();
 
   return (
-    <main className="mx-auto flex w-full max-w-md flex-1 flex-col gap-4 p-4">
+    <div className="flex flex-1 flex-col gap-4">
       <header className="flex items-center justify-between gap-2">
         <div className="min-w-0">
           <h1 className="text-primary text-2xl font-semibold">{t("common.appName")}</h1>
@@ -31,6 +33,8 @@ export default function HomePage() {
           {lang === "bn" ? t("lang.en") : t("lang.bn")}
         </Button>
       </header>
+
+      <InstallButton />
 
       <Card>
         <CardHeader>
@@ -63,7 +67,7 @@ export default function HomePage() {
       </div>
 
       <p className="text-muted-foreground text-sm">{t("shell.phaseNote")}</p>
-    </main>
+    </div>
   );
 }
 

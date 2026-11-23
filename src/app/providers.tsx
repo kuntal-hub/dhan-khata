@@ -3,8 +3,9 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Provider as ReduxProvider } from "react-redux";
 import { ThemeProvider } from "next-themes";
-import { Loader2 } from "lucide-react";
 import { Toaster } from "@/components/ui/sonner";
+import { PwaRuntime } from "@/components/pwa/PwaRuntime";
+import { Splash } from "@/components/system/Splash";
 import { I18nProvider } from "@/i18n/I18nProvider";
 import { translate } from "@/i18n/translate";
 import { makeStore } from "@/store";
@@ -23,7 +24,7 @@ export function Providers({ children }: { children: ReactNode }) {
     () => true,
     () => false,
   );
-  if (!isClient) return <Splash />;
+  if (!isClient) return <Splash label={translate("bn", "common.loading")} />;
   return <AppProviders>{children}</AppProviders>;
 }
 
@@ -34,22 +35,12 @@ function AppProviders({ children }: { children: ReactNode }) {
     <ReduxProvider store={store}>
       <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
         <I18nProvider>
-          {children}
-          <Toaster position="top-center" />
+          <PwaRuntime>
+            {children}
+            <Toaster position="top-center" />
+          </PwaRuntime>
         </I18nProvider>
       </ThemeProvider>
     </ReduxProvider>
-  );
-}
-
-function Splash() {
-  return (
-    <div
-      role="status"
-      aria-label={translate("bn", "common.loading")}
-      className="flex min-h-dvh flex-1 items-center justify-center"
-    >
-      <Loader2 className="text-primary size-8 animate-spin" aria-hidden />
-    </div>
   );
 }

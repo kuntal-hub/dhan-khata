@@ -8,3 +8,6 @@ test-results
 pnpm-lock.yaml
 *.md
 next-env.d.ts
+public/sw*
+public/swe-worker*
+blob-report

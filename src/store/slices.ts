@@ -11,32 +11,50 @@ export interface SessionState {
   userId: string | null;
   userName: string | null;
   isOwner: boolean;
-  /** "locked" = PIN required (offline unlock), "anonymous" = not logged in. */
-  status: "anonymous" | "locked" | "active";
+  /**
+   * "loading" = reading the device session; "anonymous" = not logged in on this device;
+   * "locked" = PIN required (cold start / offline unlock); "active" = unlocked;
+   * "revoked" = the owner revoked this device (app locked, data kept).
+   */
+  status: "loading" | "anonymous" | "locked" | "active" | "revoked";
 }
 
 const sessionInitial: SessionState = {
   userId: null,
   userName: null,
   isOwner: false,
-  status: "anonymous",
+  status: "loading",
 };
+
+type SessionUser = { userId: string; userName: string; isOwner: boolean };
 
 export const sessionSlice = createSlice({
   name: "session",
   initialState: sessionInitial,
   reducers: {
-    signedIn(state, action: PayloadAction<{ userId: string; userName: string; isOwner: boolean }>) {
-      state.userId = action.payload.userId;
-      state.userName = action.payload.userName;
-      state.isOwner = action.payload.isOwner;
-      state.status = "active";
-    },
-    locked(state) {
+    /** A stored session was found on this device: PIN unlock is required. */
+    sessionFound(state, action: PayloadAction<SessionUser>) {
+      Object.assign(state, action.payload);
       state.status = "locked";
     },
+    noSession() {
+      return { ...sessionInitial, status: "anonymous" as const };
+    },
+    signedIn(state, action: PayloadAction<SessionUser>) {
+      Object.assign(state, action.payload);
+      state.status = "active";
+    },
+    unlocked(state) {
+      if (state.userId) state.status = "active";
+    },
+    locked(state) {
+      if (state.userId) state.status = "locked";
+    },
+    revoked(state) {
+      state.status = "revoked";
+    },
     signedOut() {
-      return sessionInitial;
+      return { ...sessionInitial, status: "anonymous" as const };
     },
   },
 });
@@ -57,6 +75,10 @@ export const activeGodownSlice = createSlice({
     },
     consolidatedSelected(state) {
       state.consolidated = true;
+    },
+    godownCleared(state) {
+      state.godownId = null;
+      state.consolidated = false;
     },
   },
 });
@@ -93,8 +115,17 @@ export interface SyncState {
   online: boolean;
   pendingOps: number;
   errorOps: number;
+  conflictOps: number;
   lastSyncAt: string | null;
   running: boolean;
+  /** Tokens expired while online: non-blocking re-login banner, outbox intact. */
+  authRequired: boolean;
+  deviceRevoked: boolean;
+  /** device − server clock (ms) when known. */
+  clockSkewMs: number | null;
+  lastError: string | null;
+  /** A new service worker is waiting (update prompt). */
+  updateReady: boolean;
 }
 
 export const syncSlice = createSlice({
@@ -103,8 +134,14 @@ export const syncSlice = createSlice({
     online: false,
     pendingOps: 0,
     errorOps: 0,
+    conflictOps: 0,
     lastSyncAt: null,
     running: false,
+    authRequired: false,
+    deviceRevoked: false,
+    clockSkewMs: null,
+    lastError: null,
+    updateReady: false,
   } as SyncState,
   reducers: {
     syncStatusChanged(state, action: PayloadAction<Partial<SyncState>>) {

@@ -1,0 +1,75 @@
+"use client";
+
+import { useCallback, useEffect, useRef, useState } from "react";
+import { CloudDownload, WifiOff } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { META, getMeta, setMeta } from "@/client/db/meta";
+import { restoreActiveGodown } from "@/client/godown/activeGodown";
+import { getSyncEngine } from "@/client/sync/instance";
+import { useI18n } from "@/i18n/I18nProvider";
+import { actions, useAppDispatch } from "@/store";
+
+/** First download after login on a new device (spec §12.4): paged pull with a progress bar. */
+export function BootstrapScreen() {
+  const { t, count } = useI18n();
+  const dispatch = useAppDispatch();
+  const [pct, setPct] = useState(0);
+  const [failed, setFailed] = useState(false);
+  const started = useRef(false);
+
+  const run = useCallback(async () => {
+    setFailed(false);
+    const engine = getSyncEngine();
+    await engine.syncNow({
+      onProgress: ({ done, total }) =>
+        setPct(total > 0 ? Math.min(100, Math.floor((done * 100) / total)) : 100),
+    });
+    const ok =
+      engine.status.online &&
+      engine.status.lastError === null &&
+      (await getMeta<number>(META.cursor)) !== undefined;
+    if (!ok) {
+      setFailed(true);
+      return;
+    }
+    const g = await restoreActiveGodown();
+    if (g) dispatch(actions.activeGodown.godownSelected(g));
+    await setMeta(META.bootstrapped, true);
+  }, [dispatch]);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    void run();
+  }, [run]);
+
+  return (
+    <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
+      {failed ? (
+        <>
+          <WifiOff className="text-muted-foreground size-10" aria-hidden />
+          <p className="text-sm">{t("bootstrap.offline")}</p>
+          <Button className="h-11" onClick={() => void run()}>
+            {t("bootstrap.retry")}
+          </Button>
+        </>
+      ) : (
+        <>
+          <CloudDownload className="text-primary size-10" aria-hidden />
+          <p className="tabular text-base">
+            {t("bootstrap.progress", { percent: `${count(pct)}%` })}
+          </p>
+          <div
+            className="bg-muted h-3 w-full overflow-hidden rounded-full"
+            role="progressbar"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+          >
+            <div className="bg-primary h-full transition-all" style={{ width: `${pct}%` }} />
+          </div>
+        </>
+      )}
+    </main>
+  );
+}

@@ -18,7 +18,18 @@ export type DomainErrorCode =
   | "JOURNAL_LINE_INVALID"
   | "NOTE_REQUIRED"
   | "NET_EXCEEDS_GROSS"
-  | "INVALID_REFERENCE";
+  | "INVALID_REFERENCE"
+  // Write-path / authorization rules (Phase 2), shared by the local repo and the server.
+  | "FORBIDDEN"
+  | "DAY_LOCKED"
+  | "GODOWN_ARCHIVED"
+  | "GODOWN_NOT_FOUND"
+  | "NOT_FOUND"
+  | "VOUCHER_VOID"
+  | "TYPE_IMMUTABLE"
+  | "EDIT_WINDOW_EXPIRED"
+  | "VALIDATION_FAILED"
+  | "NOT_SIGNED_IN";
 
 export class DomainError extends Error {
   constructor(

@@ -45,6 +45,11 @@ export const StockMoveSchema = z.strictObject({
   valuePaise: IntStr,
   /** Group scope for TRANSIT (specific cost of direct loads). */
   groupId: Id.optional(),
+  /**
+   * Canonical posting order of the owning voucher (`ordOf`): stock position "before" a voucher
+   * is the sum of moves with a smaller `ord`. Set by the local write path and the server.
+   */
+  ord: z.string().max(160).optional(),
 });
 export type StockMove = z.infer<typeof StockMoveSchema>;
 
@@ -63,6 +68,11 @@ export const UserSchema = z.strictObject({
   digits: z.enum(["bn", "en"]),
   active: z.boolean(),
   createdAt: IsoTimestamp,
+  /** Incremented whenever godownAccess changes (pull reports `accessChanged`). */
+  accessVersion: z.number().int().min(0).optional(),
+  rev: z.number().int().min(1).optional(),
+  updatedAt: IsoTimestamp.optional(),
+  serverSeq: z.number().int().min(0).optional(),
 });
 export type User = z.infer<typeof UserSchema>;
 
@@ -90,6 +100,10 @@ export const OutboxOpSchema = z.strictObject({
   attempts: z.number().int().min(0),
   lastError: z.string().optional(),
   status: z.enum(["pending", "sending", "error", "conflict"]),
+  /** Master edits: the fields this edit changed (server merges them field by field). */
+  fields: z.array(z.string()).optional(),
+  /** Conflict items: the server's version, shown side by side on the Sync screen. */
+  conflict: z.unknown().optional(),
 });
 export type OutboxOp = z.infer<typeof OutboxOpSchema>;
 
