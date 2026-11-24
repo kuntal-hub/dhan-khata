@@ -626,6 +626,15 @@ async function applyMaster(
     next = { ...incoming, rev: 1 };
   } else {
     const cur = publicDoc(current) as AnyDoc;
+    // The merged document is validated against the entity's (strict) schema before it is stored,
+    // so it must not carry `serverSeq` (re-assigned below) nor an `updatedBy` the entity lacks:
+    // godown settings have neither field, and carrying them made every settings edit fail the
+    // check and silently turn into a conflict.
+    const { serverSeq: _curSeq, ...curBase } = cur;
+    const stamp = {
+      updatedAt: incoming.updatedAt,
+      ...(incoming.updatedBy !== undefined ? { updatedBy: incoming.updatedBy } : {}),
+    };
     const rev = current.rev + 1;
     const fields = op.fields ?? diffFields(cur, incoming);
     const mine = op.baseRev === current.rev ? fields : [];
@@ -637,7 +646,7 @@ async function applyMaster(
         } else mine.push(f);
       }
     }
-    next = { ...cur, rev, updatedAt: incoming.updatedAt, updatedBy: incoming.updatedBy };
+    next = { ...curBase, rev, ...stamp };
     for (const f of mine) {
       if (incoming[f] === undefined) delete next[f];
       else next[f] = incoming[f];
@@ -647,7 +656,7 @@ async function applyMaster(
     if (!check.success) {
       // A merge that would be invalid: keep the server version whole, mine goes to conflicts.
       conflictFields = fields;
-      next = { ...cur, rev, updatedAt: incoming.updatedAt, updatedBy: incoming.updatedBy };
+      next = { ...curBase, rev, ...stamp };
     }
     if (conflictFields.length > 0) {
       await k.conflicts.insertMany(

@@ -4,7 +4,13 @@
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/client/db/dexie";
 import { META, getMeta, getSession } from "@/client/db/meta";
-import { createVoucher, editVoucher, upsertMaster, voidVoucher } from "@/client/repo";
+import {
+  createVoucher,
+  editVoucher,
+  updateGodownSettings,
+  upsertMaster,
+  voidVoucher,
+} from "@/client/repo";
 import { godownBalances } from "@/client/queries/ledger";
 import { ApiCallError, NetworkError } from "@/client/sync/transport";
 import { applyMineAsNewRevision, keepServer } from "@/client/sync/resolve";
@@ -348,6 +354,21 @@ describe("push / pull", () => {
     d2.use();
     expect((await db().parties.get(p._id))?.village).toBe("Kalna");
     expect(await db().outbox.count()).toBe(0);
+  });
+
+  it("godown settings: a second edit after the first one has synced is accepted", async () => {
+    // The synced copy carries the server's serverSeq; editing again must not choke on it.
+    d1.use();
+    await updateGodownSettings(GA, { lockAfterDays: 3 });
+    await d1.sync();
+    await updateGodownSettings(GA, { lockAfterDays: 5 });
+    await d1.sync();
+    expect(await db().outbox.count()).toBe(0);
+    const mdb = await getDb();
+    expect((await cols(mdb).godownSettings.findOne({ _id: GA }))?.lockAfterDays).toBe(5);
+    expect(await cols(mdb).conflicts.countDocuments({ godownId: GA, entity: "godownSettings" })).toBe(0);
+    // And the device copy converged on the server's.
+    expect(((await getMeta(`godownSettings:${GA}`)) as { lockAfterDays: number }).lockAfterDays).toBe(5);
   });
 });
 

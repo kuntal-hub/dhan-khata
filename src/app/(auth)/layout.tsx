@@ -1,6 +1,9 @@
 import type { ReactNode } from "react";
 import { ClientRuntime } from "@/components/system/ClientRuntime";
 
+// Client-gated app: see the note in src/app/layout.tsx.
+export const instant = false;
+
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
     <ClientRuntime>

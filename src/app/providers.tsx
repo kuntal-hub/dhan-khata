@@ -2,8 +2,8 @@
 
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Provider as ReduxProvider } from "react-redux";
-import { ThemeProvider } from "next-themes";
 import { IdleToaster } from "@/components/system/IdleToaster";
+import { ThemeProvider } from "@/components/system/theme";
 import { PwaRuntime } from "@/components/pwa/PwaRuntime";
 import { Splash } from "@/components/system/Splash";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -33,7 +33,7 @@ function AppProviders({ children }: { children: ReactNode }) {
   const [store] = useState(makeStore);
   return (
     <ReduxProvider store={store}>
-      <ThemeProvider attribute="class" defaultTheme="light" enableSystem={false}>
+      <ThemeProvider>
         <I18nProvider>
           <PwaRuntime>
             {children}

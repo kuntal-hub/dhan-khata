@@ -226,7 +226,11 @@ export async function updateGodownSettings(
   const out = await d.transaction("rw", writeTables(d), async () => {
     const ctx = await writeContext(godownId);
     if (!can(ctx.session.user, godownId, "settings.write")) throw new RepoError("FORBIDDEN");
-    const before = ctx.settings;
+    // After a sync the stored copy carries the server's `serverSeq`, which the (strict) settings
+    // schema does not allow in a payload: edit from the document without it.
+    const { serverSeq: _serverSeq, ...before } = ctx.settings as GodownSettings & {
+      serverSeq?: number;
+    };
     const parsed = GodownSettingsSchema.safeParse({
       ...before,
       ...patch,

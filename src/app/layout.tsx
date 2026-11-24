@@ -39,6 +39,13 @@ export const viewport: Viewport = {
   viewportFit: "cover",
 };
 
+/**
+ * The server renders only a splash; the real UI mounts on the client from IndexedDB (see
+ * providers.tsx). Next's dev-only instant-navigation validation cannot see through that gate and
+ * reports "segment dropped from rendering", so opt every route out of it.
+ */
+export const instant = false;
+
 export default function RootLayout({ children }: { children: ReactNode }) {
   return (
     <html
