@@ -3,8 +3,7 @@
  * switchable instantly offline. Only godowns the signed-in user can access are offered.
  */
 import { accessibleGodownIds } from "@/domain/rbac";
-import type { CreateGodownRequest, Godown } from "@/domain/schemas";
-import { authedCall } from "../auth/session";
+import type { Godown } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { META, getMeta, getSession, setMeta } from "../db/meta";
 
@@ -40,10 +39,4 @@ export async function restoreActiveGodown(): Promise<string | null> {
 
 export async function persistActiveGodown(godownId: string): Promise<void> {
   await setMeta(META.activeGodownId, godownId);
-}
-
-/** Owner-only and online (spec §1.4 rule 7); the new godown arrives on the next pull. */
-export async function createGodownOnline(input: CreateGodownRequest): Promise<Godown> {
-  const res = await authedCall<{ godown: Godown }>("/api/godowns", { body: input });
-  return res.godown;
 }

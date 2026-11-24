@@ -41,7 +41,7 @@ export default function manifest(): MetadataRoute.Manifest {
       },
       {
         name: both("pwa.shortcutExpense"),
-        url: "/?shortcut=expense",
+        url: "/expense/new",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },
     ],

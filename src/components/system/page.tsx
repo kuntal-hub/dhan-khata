@@ -50,7 +50,7 @@ export function ReadOnlyNotice({ reason }: { reason: ReadOnlyReason }) {
       ? "godown.readOnlyAll"
       : reason === "archived"
         ? "godown.archived"
-        : reason === "notFound"
+        : reason === "notFound" || reason === "viewer"
           ? "errors.domain.FORBIDDEN"
           : "godown.none";
   return (

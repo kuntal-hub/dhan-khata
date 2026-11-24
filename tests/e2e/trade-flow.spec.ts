@@ -10,13 +10,15 @@ import {
   loginFresh,
   openBrowser,
   pick,
+  switchGodown,
+  switchToEnglish,
   unlockIfAsked,
   vis,
 } from "./helpers";
 
 const RUNS = [
-  { lang: "bn", godown: "Rampur", variety: /^স্বর্ণ$/ },
-  { lang: "en", godown: "Sonapur", variety: /^Swarna$/ },
+  { lang: "bn", godown: "Rampur", code: "RP", variety: /^স্বর্ণ$/ },
+  { lang: "en", godown: "Sonapur", code: "SP", variety: /^Swarna$/ },
 ] as const;
 
 async function goHome(page: Page) {
@@ -51,21 +53,10 @@ for (const run of RUNS) {
     const { ctx, page } = await openBrowser();
     await loginFresh(page);
 
-    if (run.lang === "en") {
-      await vis(page, "user-menu").click();
-      await vis(page, "toggle-language").click();
-      await expect(page.getByTestId("toggle-language")).toHaveCount(0);
-      await vis(page, "user-menu").click();
-      await vis(page, "toggle-digits").click();
-      await expect(vis(page, "tab-home")).toContainText("Home");
-    }
+    if (run.lang === "en") await switchToEnglish(page);
     // Work in this run's own godown.
-    await page
-      .getByRole("button", { name: /Rampur|Sonapur/ })
-      .first()
-      .click();
-    await page.getByRole("menuitem", { name: new RegExp(run.godown) }).click();
-    await expect(page.getByRole("button", { name: new RegExp(run.godown) }).first()).toBeVisible();
+    await switchGodown(page, run.code);
+    await expect(vis(page, "godown-switcher")).toContainText(run.godown);
 
     const F = `${run.lang} Farmer One`;
     const F2 = `${run.lang} Farmer Two`;

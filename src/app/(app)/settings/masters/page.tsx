@@ -464,7 +464,10 @@ function Vehicles({ godownId }: { godownId: string }) {
     [godownId],
   );
   const [edit, setEdit] = useState<Vehicle | "new" | null>(null);
+  const [q, setQ] = useState("");
   if (!list) return <Loading />;
+  const plate = normalizeVehicleNumber(normalizeDigits(q));
+  const shown = plate ? list.filter((v) => v.number.includes(plate)) : list;
   return (
     <div className="flex flex-col gap-2 pt-2">
       <Button className="h-11 self-start" onClick={() => setEdit("new")}>
@@ -472,8 +475,11 @@ function Vehicles({ godownId }: { godownId: string }) {
         {t("common.addNew")}
       </Button>
       {list.length === 0 ? <EmptyState text={t("masters.noVehicles")} /> : null}
+      {list.length > 0 ? (
+        <TextField label={t("common.search")} value={q} onChange={setQ} testId="vehicle-search" />
+      ) : null}
       <ul>
-        {list.map((v) => (
+        {shown.map((v) => (
           <ListRow
             key={v._id}
             id={v._id}
@@ -511,6 +517,8 @@ function VehicleEditor({
   const [type, setType] = useState<"truck" | "tractor" | "pickup" | "other">(v?.type ?? "truck");
   const [owner, setOwner] = useState<string | undefined>(v?.ownerPartyId);
   const [driver, setDriver] = useState<string | undefined>(v?.driverPartyId);
+  const [capacity, setCapacity] = useState(gramsToKgInput(v?.capacityG));
+  const cap = parseWeightField(capacity);
   const n = normalizeVehicleNumber(normalizeDigits(number));
   return (
     <BottomSheet
@@ -564,9 +572,10 @@ function VehicleEditor({
         newRoles={["driver"]}
         allowClear
       />
+      <WeightInput label={t("masters.vehicleCapacity")} value={capacity} onChange={setCapacity} />
       <Button
         className="h-12"
-        disabled={n.length < 2}
+        disabled={n.length < 2 || !!cap.error}
         onClick={() =>
           void save(
             () =>
@@ -577,6 +586,7 @@ function VehicleEditor({
                 type,
                 ...(ownership === "external" && owner ? { ownerPartyId: owner } : {}),
                 ...(driver ? { driverPartyId: driver } : {}),
+                ...(cap.value ? { capacityG: cap.value.toString() } : {}),
               }),
             onClose,
           )

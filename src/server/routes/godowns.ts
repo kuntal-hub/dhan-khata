@@ -1,9 +1,9 @@
 /** Owner-only, online godown management routes (create / archive). */
 import { z } from "zod";
-import { CreateGodownRequestSchema } from "@/domain/schemas";
+import { CreateGodownRequestSchema, UpdateGodownRequestSchema } from "@/domain/schemas";
 import { authenticate } from "../auth";
 import { getDb } from "../db";
-import { archiveGodown, createGodown } from "../godownService";
+import { archiveGodown, createGodown, updateGodown } from "../godownService";
 import { handle, json, readJson } from "../http";
 
 export function create(request: Request): Promise<Response> {
@@ -13,6 +13,16 @@ export function create(request: Request): Promise<Response> {
     const body = CreateGodownRequestSchema.parse(await readJson(request));
     const godown = await createGodown(db, auth.user, body, auth.device._id);
     return json({ godown }, { status: 201 });
+  });
+}
+
+export function update(request: Request): Promise<Response> {
+  return handle("godowns/update", request, async () => {
+    const db = await getDb();
+    const auth = await authenticate(db, request);
+    const body = UpdateGodownRequestSchema.parse(await readJson(request));
+    const godown = await updateGodown(db, auth.user, body, auth.device._id);
+    return json({ godown });
   });
 }
 

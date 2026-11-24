@@ -71,6 +71,19 @@ export const ChargeSchema = z.strictObject({
 });
 export type Charge = z.infer<typeof ChargeSchema>;
 
+/**
+ * Inter-godown transfer link (spec §1.4 rule 5). The SEND side (SALE / PAYMENT) lives in the
+ * sending godown, the RECEIVE side (PURCHASE / RECEIPT) in the receiving godown; both share the
+ * voucher `groupId` (= transfer id). `paired` = both sides were written together on one device;
+ * otherwise the server publishes a pending receipt to the receiving godown.
+ */
+export const InterGodownSchema = z.strictObject({
+  counterGodownId: Id,
+  side: z.enum(["SEND", "RECEIVE"]),
+  paired: z.boolean(),
+});
+export type InterGodown = z.infer<typeof InterGodownSchema>;
+
 const MoneyMovementSchema = z.strictObject({
   amountPaise: PosIntStr,
   mode: PayModeSchema,
@@ -92,6 +105,7 @@ export const PurchaseVoucherSchema = z.strictObject({
   paidNow: MoneyMovementSchema.optional(),
   dueDate: YmdStr.optional(),
   loadId: Id.optional(),
+  interGodown: InterGodownSchema.optional(),
 });
 export type PurchaseVoucher = z.infer<typeof PurchaseVoucherSchema>;
 
@@ -138,6 +152,7 @@ export const SaleVoucherSchema = z.strictObject({
   expectedPaymentDate: YmdStr.optional(),
   settlementStatus: z.enum(["PENDING", "SETTLED"]),
   loadId: Id.optional(),
+  interGodown: InterGodownSchema.optional(),
 });
 export type SaleVoucher = z.infer<typeof SaleVoucherSchema>;
 
@@ -190,6 +205,7 @@ const MoneyVoucherShape = {
   purpose: z.enum(["BILL", "ADVANCE", "OTHER"]),
   allocations: z.array(z.strictObject({ voucherId: Id, amountPaise: PosIntStr })).optional(),
   dueDate: YmdStr.optional(),
+  interGodown: InterGodownSchema.optional(),
 };
 
 export const PaymentVoucherSchema = z.strictObject({

@@ -178,3 +178,33 @@ export const DayStatusSchema = z.strictObject({
   lateEntry: z.boolean().optional(),
 });
 export type DayStatus = z.infer<typeof DayStatusSchema>;
+
+/**
+ * Pending inter-godown receipt (spec §9.11): written by the SERVER into the receiving godown's
+ * feed when a transfer's SEND voucher arrives without its RECEIVE side. A user of the receiving
+ * godown accepts it (creating the RECEIVE voucher with the same groupId = `_id`).
+ * Carries no ids of the sending godown's masters (godown isolation): only quantities and amounts.
+ */
+export const TransferSchema = z.strictObject({
+  /** = the transfer's voucher groupId. */
+  _id: Id,
+  /** The RECEIVING godown (whose users see it). */
+  godownId: Id,
+  fromGodownId: Id,
+  fromGodownName: z.string().max(80),
+  fromGodownCode: z.string().max(10),
+  kind: z.enum(["PADDY", "MONEY"]),
+  date: YmdStr,
+  qtyG: NonNegIntStr.optional(),
+  ratePaisePerQtl: NonNegIntStr.optional(),
+  amountPaise: NonNegIntStr,
+  sendVoucherId: Id,
+  sendNumber: z.string().max(40),
+  notes: z.string().max(1000).optional(),
+  status: z.enum(["pending", "accepted", "cancelled"]),
+  acceptedVoucherId: Id.optional(),
+  rev: z.number().int().min(1),
+  updatedAt: IsoTimestamp,
+  serverSeq: z.number().int().min(0).optional(),
+});
+export type Transfer = z.infer<typeof TransferSchema>;

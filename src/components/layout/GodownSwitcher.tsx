@@ -59,6 +59,7 @@ export function GodownSwitcher() {
           <Button
             variant="ghost"
             className="h-11 min-w-0 flex-1 shrink justify-start gap-2 px-2 text-base"
+            data-testid="godown-switcher"
           >
             <Warehouse className="size-5 shrink-0" aria-hidden />
             <span className="truncate font-semibold">{label}</span>
@@ -71,7 +72,12 @@ export function GodownSwitcher() {
             <p className="text-muted-foreground px-2 py-3 text-sm">{t("godown.none")}</p>
           ) : null}
           {(godowns ?? []).map((g) => (
-            <DropdownMenuItem key={g._id} className="min-h-11" onSelect={() => choose(g._id)}>
+            <DropdownMenuItem
+              key={g._id}
+              className="min-h-11"
+              onSelect={() => choose(g._id)}
+              data-testid={`godown-item-${g.code}`}
+            >
               <Check
                 className={g._id === godownId && !consolidated ? "size-4" : "size-4 opacity-0"}
                 aria-hidden
@@ -87,7 +93,11 @@ export function GodownSwitcher() {
           {canConsolidate ? (
             <>
               <DropdownMenuSeparator />
-              <DropdownMenuItem className="min-h-11" onSelect={() => choose("ALL")}>
+              <DropdownMenuItem
+                className="min-h-11"
+                onSelect={() => choose("ALL")}
+                data-testid="godown-item-ALL"
+              >
                 <Layers className="size-4" aria-hidden />
                 {t("godown.readOnlyAll")}
               </DropdownMenuItem>

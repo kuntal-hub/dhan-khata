@@ -33,6 +33,7 @@ const ROUTES: Record<string, Handler> = {
   "GET /api/sync/pull": syncRoutes.pull,
   "POST /api/godowns": godownRoutes.create,
   "POST /api/godowns/archive": godownRoutes.archive,
+  "POST /api/godowns/update": godownRoutes.update,
   "POST /api/parties/merge": partyRoutes.merge,
 };
 

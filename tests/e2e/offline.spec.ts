@@ -5,7 +5,7 @@
 import { expect, test } from "@playwright/test";
 import { expectNoHorizontalScroll, loginFresh, openBrowser, unlockIfAsked } from "./helpers";
 
-/** Every static app route (Phase 3 adds the trade screens). */
+/** Every static app route (Phase 3 adds the trade screens, Phase 4 the daily-money screens). */
 const ROUTES = [
   "/",
   "/sync",
@@ -38,6 +38,27 @@ const ROUTES = [
   "/settings/masters?tab=banks",
   "/print/voucher?id=x",
   "/print/statement?partyId=x",
+  // Phase 4
+  "/expense",
+  "/expense/new",
+  "/expense/edit?id=x",
+  "/voucher/view?id=x",
+  "/cashbank",
+  "/cashbank/entry?kind=CASH_DEPOSIT",
+  "/day-close",
+  "/vehicle",
+  "/vehicle/view?id=x",
+  "/trip/new",
+  "/trip/edit?id=x",
+  "/stock",
+  "/stock/register?varietyId=x",
+  "/stock/adjust",
+  "/transfer",
+  "/transfer/accept?id=x",
+  "/godowns",
+  "/godowns/new",
+  "/godowns/edit?id=x",
+  "/search",
 ];
 
 test("cold offline start: every route works from the device", async () => {
@@ -46,7 +67,7 @@ test("cold offline start: every route works from the device", async () => {
   const dir = first.dir;
   let { ctx, page } = first;
   await loginFresh(page);
-  await expect(page.getByText(/Rampur|Sonapur/).first()).toBeVisible();
+  await expect(page.getByTestId("godown-switcher")).toBeVisible();
   await page.evaluate(async () => {
     const reg = await navigator.serviceWorker.ready;
     return Boolean(reg.active);

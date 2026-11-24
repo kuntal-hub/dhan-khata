@@ -28,6 +28,7 @@ import {
   enqueueOp,
   validationError,
   writeContext,
+  type WriteCtx,
 } from "./context";
 import { emitLocalWrite } from "./notify";
 
@@ -124,9 +125,24 @@ export async function upsertMaster<E extends MasterEntity>(
   input: MasterInput<E>,
 ): Promise<MasterDocs[E]> {
   const d = db();
-  const table = masterTable(entity, d);
   const doc = await d.transaction("rw", writeTables(d), async () => {
     const ctx = await writeContext(godownId);
+    return upsertMasterInTx(ctx, entity, input);
+  });
+  emitLocalWrite();
+  return doc;
+}
+
+/** `upsertMaster` inside the caller's write transaction (e.g. auto-created godown parties). */
+export async function upsertMasterInTx<E extends MasterEntity>(
+  ctx: WriteCtx,
+  entity: E,
+  input: MasterInput<E>,
+): Promise<MasterDocs[E]> {
+  const d = db();
+  const godownId = ctx.godown._id;
+  const table = masterTable(entity, d);
+  {
     const inputGodown = (input as { godownId?: string }).godownId;
     if (inputGodown !== undefined && inputGodown !== godownId) {
       throw new RepoError("GODOWN_IMMUTABLE");
@@ -198,9 +214,7 @@ export async function upsertMaster<E extends MasterEntity>(
       rev: next.rev,
     });
     return next;
-  });
-  emitLocalWrite();
-  return doc;
+  }
 }
 
 /** Owner-only: update this godown's settings (lock days, rounding, defaults…). */

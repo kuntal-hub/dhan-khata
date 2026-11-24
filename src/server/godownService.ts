@@ -14,8 +14,10 @@ import {
 } from "@/domain/posting/accounts";
 import {
   CreateGodownRequestSchema,
+  UpdateGodownRequestSchema,
   defaultGodownSettings,
   type CreateGodownRequest,
+  type UpdateGodownRequest,
   type ExpenseCategory,
   type Godown,
   type Variety,
@@ -128,6 +130,61 @@ export async function createGodown(
     throw e;
   }
   return godown;
+}
+
+/** Owner: edit a godown's profile / letterhead. The code (voucher numbers) never changes. */
+export async function updateGodown(
+  db: Db,
+  owner: UserDoc,
+  input: UpdateGodownRequest,
+  deviceId: string = SERVER_DEVICE_ID,
+): Promise<Godown> {
+  assertOwner(owner);
+  const req = UpdateGodownRequestSchema.parse(input);
+  const client = await getMongoClient();
+  let out: Godown | null = null;
+  await client.withSession((session) =>
+    session.withTransaction(async () => {
+      const k = cols(db);
+      const g = await k.godowns.findOne({ _id: req.godownId }, { session });
+      if (!g) throw new ApiError(404, "NOT_FOUND");
+      const rev = g.rev + 1;
+      const [seq] = await logChanges(db, session, [
+        { godownId: null, entity: "godown", entityId: g._id, rev },
+      ]);
+      const opt = (v: string | undefined) => (v && v.trim() ? v.trim() : undefined);
+      const next: Godown = {
+        _id: g._id,
+        rev,
+        createdAt: g.createdAt,
+        updatedAt: new Date().toISOString(),
+        code: g.code,
+        name: req.name,
+        receiptLanguage: req.receiptLanguage,
+        status: g.status,
+        serverSeq: seq!,
+        ...(opt(req.nameAlt) ? { nameAlt: opt(req.nameAlt)! } : {}),
+        ...(opt(req.firmName) ? { firmName: opt(req.firmName)! } : {}),
+        ...(opt(req.proprietor) ? { proprietor: opt(req.proprietor)! } : {}),
+        ...(opt(req.address) ? { address: opt(req.address)! } : {}),
+        ...(opt(req.phone) ? { phone: opt(req.phone)! } : {}),
+        ...(opt(req.gstin) ? { gstin: opt(req.gstin)! } : {}),
+        ...(g.logoAssetId ? { logoAssetId: g.logoAssetId } : {}),
+        ...(g.capacityG ? { capacityG: g.capacityG } : {}),
+      };
+      await k.godowns.replaceOne({ _id: g._id }, next, { session });
+      await audit(db, session, {
+        userId: owner._id,
+        deviceId,
+        godownId: g._id,
+        entity: "godown",
+        entityId: g._id,
+        action: "edit",
+      });
+      out = next;
+    }),
+  );
+  return out!;
 }
 
 /** Archive a godown: it becomes read-only everywhere (the server rejects writes to it). */

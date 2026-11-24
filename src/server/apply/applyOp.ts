@@ -1,5 +1,7 @@
 /**
- * Apply one pushed outbox op (spec §12.3), in ONE Mongo transaction:
+ * Apply one pushed outbox op (spec §12.3), in ONE Mongo transaction (Phase 4 adds: a DAY_CLOSE
+ * publishes its day's lock, an unpaired transfer SEND publishes a pending receipt to the receiving
+ * godown, and a transfer can only change with access to both books):
  *  1. idempotency (appliedOps) → `duplicate` with the stored result
  *  2. authZ per godown/role, archived godown, DAY_LOCKED (late-entry flag), GODOWN_IMMUTABLE,
  *     CROSS_GODOWN_REFERENCE
@@ -20,11 +22,15 @@ import {
   PUSH_SCHEMAS,
   defaultGodownSettings,
   isMasterEntity,
+  type DayStatus,
   type GodownSettings,
+  type InterGodown,
   type PushOp,
   type PushOpResult,
+  type Transfer,
   type Voucher,
 } from "@/domain/schemas";
+import { termsOfSendVoucher } from "@/domain/transfer";
 import {
   checkRefs,
   checkSameGodown,
@@ -248,6 +254,19 @@ async function applyVoucher(
   const scope = checkSameGodown(incoming, lookup);
   if (!scope.ok) throw new Reject(scope.code, `${scope.ref.kind}:${scope.ref.id}`);
 
+  // ── Inter-godown transfer: the counter godown must exist; a paired/accepted transfer can only
+  //    be changed by someone who may also change the other book (spec §1.4 rule 5). ──
+  await checkTransfer(ctx, session, g, incoming, current);
+
+  // ── One day close per godown and day ──
+  if (!current && !isVoid && incoming.type === "DAY_CLOSE") {
+    const other = await k.vouchers.findOne(
+      { godownId: g, type: "DAY_CLOSE", date: incoming.date, status: "active" },
+      { session },
+    );
+    if (other) throw new Reject("DAY_ALREADY_CLOSED", incoming.date);
+  }
+
   // ── Recompute: the voucher's own derived fields must match exactly ──
   if (!isVoid) {
     const diffs = verifyVoucher(incoming);
@@ -306,6 +325,14 @@ async function applyVoucher(
   if (lateEntryDay) {
     entries.push({ godownId: g, entity: "dayStatus", entityId: `${g}:${lateEntryDay}`, rev: 1 });
   }
+  if (next.type === "DAY_CLOSE") {
+    const dayId = await publishDayStatus(ctx, session, clean as Voucher);
+    if (dayId !== `${g}:${lateEntryDay}`) {
+      entries.push({ godownId: g, entity: "dayStatus", entityId: dayId, rev: 1 });
+    }
+  }
+  const transferEntry = await publishTransfer(ctx, session, clean as Voucher);
+  if (transferEntry) entries.push(transferEntry);
   const seqs = await logChanges(db, session, entries);
   const serverSeq = seqs[0]!;
   await k.vouchers.updateOne({ _id: next._id }, { $set: { serverSeq } }, { session });
@@ -313,6 +340,12 @@ async function applyVoucher(
     const e = entries[i]!;
     if (e.entity === "voucher") {
       await k.vouchers.updateOne(
+        { _id: e.entityId },
+        { $set: { serverSeq: seqs[i]! } },
+        { session },
+      );
+    } else if (e.entity === "transfer") {
+      await k.transfers.updateOne(
         { _id: e.entityId },
         { $set: { serverSeq: seqs[i]! } },
         { session },
@@ -347,6 +380,133 @@ async function applyVoucher(
     lines: res.derived.lines,
     moves: res.derived.moves,
   };
+}
+
+function interGodownOf(v: Voucher | null | undefined): InterGodown | undefined {
+  return v && "interGodown" in v ? v.interGodown : undefined;
+}
+
+async function checkTransfer(
+  ctx: ApplyContext,
+  session: ClientSession,
+  g: string,
+  incoming: Voucher,
+  current: Voucher | null,
+): Promise<void> {
+  const ig = interGodownOf(incoming) ?? interGodownOf(current);
+  if (!ig) return;
+  const k = cols(ctx.db);
+  const counter = await k.godowns.findOne({ _id: ig.counterGodownId }, { session });
+  if (!counter || counter._id === g) throw new Reject("INVALID_REFERENCE", "counterGodownId");
+  if (!current) return;
+  const groupId = current.groupId ?? incoming.groupId;
+  if (!groupId) return;
+  const other = await k.vouchers.findOne(
+    { godownId: counter._id, groupId, status: "active" },
+    { session },
+  );
+  const action = incoming.status === "void" ? "voucher.void" : "voucher.edit";
+  if (other && !can(ctx.user, counter._id, action, { voucherType: other.type })) {
+    throw new Reject("TRANSFER_NEEDS_BOTH");
+  }
+}
+
+/** A DAY_CLOSE locks (active) or reopens (void) its day; returns the dayStatus id to publish. */
+async function publishDayStatus(
+  ctx: ApplyContext,
+  session: ClientSession,
+  v: Voucher,
+): Promise<string> {
+  const k = cols(ctx.db);
+  const id = `${v.godownId}:${v.date}`;
+  if (v.type === "DAY_CLOSE" && v.status === "active") {
+    const doc: DayStatus = {
+      _id: id,
+      godownId: v.godownId,
+      date: v.date,
+      closed: true,
+      countedCashPaise: v.countedCashPaise,
+      expectedCashPaise: v.expectedCashPaise,
+      closedBy: v.createdBy,
+      closedAt: v.createdAt,
+    };
+    await k.dayStatus.replaceOne({ _id: id }, doc, { upsert: true, session });
+  } else {
+    const still = await k.vouchers.findOne(
+      { godownId: v.godownId, type: "DAY_CLOSE", date: v.date, status: "active" },
+      { session },
+    );
+    if (!still) {
+      await k.dayStatus.replaceOne(
+        { _id: id },
+        { godownId: v.godownId, date: v.date, closed: false },
+        { upsert: true, session },
+      );
+    }
+  }
+  return id;
+}
+
+/**
+ * Pending receipt bookkeeping (spec §9.11): an unpaired SEND publishes/updates/cancels the
+ * receiving godown's pending receipt; a RECEIVE accepts it (void → pending again).
+ */
+async function publishTransfer(
+  ctx: ApplyContext,
+  session: ClientSession,
+  v: Voucher,
+): Promise<ChangeEntry | null> {
+  const ig = interGodownOf(v);
+  if (!ig || !v.groupId) return null;
+  const k = cols(ctx.db);
+  const now = new Date().toISOString();
+  if (ig.side === "SEND") {
+    if (ig.paired) return null;
+    if (v.type !== "SALE" && v.type !== "PAYMENT") return null;
+    const existing = await k.transfers.findOne({ _id: v.groupId }, { session });
+    const from = await k.godowns.findOne({ _id: v.godownId }, { session });
+    const terms = termsOfSendVoucher(v);
+    const status: Transfer["status"] =
+      v.status === "void" ? "cancelled" : existing?.status === "accepted" ? "accepted" : "pending";
+    const doc: Transfer = {
+      _id: v.groupId,
+      godownId: ig.counterGodownId,
+      fromGodownId: v.godownId,
+      fromGodownName: from?.name ?? "",
+      fromGodownCode: from?.code ?? "",
+      kind: terms.kind,
+      date: v.date,
+      ...(terms.qtyG !== undefined ? { qtyG: terms.qtyG.toString() } : {}),
+      ...(terms.ratePaisePerQtl !== undefined
+        ? { ratePaisePerQtl: terms.ratePaisePerQtl.toString() }
+        : {}),
+      amountPaise: (terms.amountPaise ?? 0n).toString(),
+      sendVoucherId: v._id,
+      sendNumber: v.number,
+      ...(terms.notes ? { notes: terms.notes } : {}),
+      status,
+      ...(existing?.acceptedVoucherId && status === "accepted"
+        ? { acceptedVoucherId: existing.acceptedVoucherId }
+        : {}),
+      rev: (existing?.rev ?? 0) + 1,
+      updatedAt: now,
+    };
+    await k.transfers.replaceOne({ _id: doc._id }, doc, { upsert: true, session });
+    return { godownId: doc.godownId, entity: "transfer", entityId: doc._id, rev: doc.rev };
+  }
+  const t = await k.transfers.findOne({ _id: v.groupId, godownId: v.godownId }, { session });
+  if (!t) return null;
+  let next: Transfer;
+  if (v.status === "active") {
+    next = { ...t, status: "accepted", acceptedVoucherId: v._id };
+  } else {
+    const send = await k.vouchers.findOne({ _id: t.sendVoucherId }, { session });
+    const { acceptedVoucherId: _drop, ...rest } = t;
+    next = { ...rest, status: send?.status === "active" ? "pending" : "cancelled" };
+  }
+  const { serverSeq: _seq, ...doc } = { ...next, rev: t.rev + 1, updatedAt: now };
+  await k.transfers.replaceOne({ _id: t._id }, doc, { session });
+  return { godownId: t.godownId, entity: "transfer", entityId: t._id, rev: doc.rev };
 }
 
 async function conflictOf(

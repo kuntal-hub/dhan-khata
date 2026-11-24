@@ -7,6 +7,7 @@ import { MongoClient, type ClientSession, type Collection, type Db } from "mongo
 import type {
   BankAccount,
   DayStatus,
+  Transfer,
   Device,
   ExpenseCategory,
   Godown,
@@ -135,6 +136,7 @@ export interface Collections {
   expenseCategories: Collection<WithMeta<ExpenseCategory>>;
   godownSettings: Collection<WithMeta<GodownSettings>>;
   dayStatus: Collection<DayStatus>;
+  transfers: Collection<Transfer>;
   reminders: Collection<WithMeta<Reminder>>;
   ledgerLines: Collection<DbLedgerLine>;
   stockMoves: Collection<DbStockMove>;
@@ -222,6 +224,7 @@ export function cols(db: Db): Collections {
     expenseCategories: c("expenseCategories"),
     godownSettings: c("godownSettings"),
     dayStatus: c("dayStatus"),
+    transfers: c("transfers"),
     reminders: c("reminders"),
     ledgerLines: c("ledgerLines"),
     stockMoves: c("stockMoves"),
@@ -279,6 +282,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
     k.places.createIndexes([{ key: { godownId: 1 } }]),
     k.expenseCategories.createIndexes([{ key: { godownId: 1, code: 1 }, unique: true }]),
     k.dayStatus.createIndexes([{ key: { godownId: 1, date: 1 } }]),
+    k.transfers.createIndexes([{ key: { godownId: 1, status: 1 } }]),
     k.reminders.createIndexes([
       { key: { godownId: 1, dueDate: 1 } },
       { key: { godownId: 1, status: 1 } },

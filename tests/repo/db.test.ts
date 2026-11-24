@@ -7,16 +7,20 @@ import {
   selectDatabase,
   exportRawDatabase,
 } from "@/client/db/dexie";
-import { SCHEMA_V1, assertAdditive } from "@/client/db/migrations";
+import { SCHEMA_V1, SCHEMA_V2, assertAdditive } from "@/client/db/migrations";
 import { META, getMeta, getOrCreateDeviceId, nextVoucherSeq } from "@/client/db/meta";
 import { setPin, verifyPin, hasPin, failedPinAttempts, PIN_ITERATIONS } from "@/client/auth/pin";
 
 describe("Dexie schema", () => {
-  it("v1 matches spec §8.6 exactly", async () => {
+  it("v1 matches spec §8.6 exactly; v2 only adds the transfers table", async () => {
     await deleteDatabase("schema-test");
     const d = new DhanKhataDB("schema-test");
     await d.open();
-    expect(d.tables.map((t) => t.name).sort()).toEqual(Object.keys(SCHEMA_V1).sort());
+    expect(d.tables.map((t) => t.name).sort()).toEqual(
+      [...Object.keys(SCHEMA_V1), ...Object.keys(SCHEMA_V2)].sort(),
+    );
+    expect(() => assertAdditive(SCHEMA_V1, SCHEMA_V2)).not.toThrow();
+    expect(d.verno).toBe(2);
     expect(d.vouchers.schema.indexes.map((i) => i.name)).toContain("[godownId+type+date]");
     expect(d.outbox.schema.primKey.auto).toBe(true);
     d.close();

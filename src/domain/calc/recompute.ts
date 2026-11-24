@@ -65,6 +65,12 @@ const NON_CASH_NEEDS_BANK = new Set(["BANK_TRANSFER", "UPI"]);
 /** Business rules beyond the structural schema. Returns error codes (empty = valid). */
 export function validateVoucherRules(v: Voucher): DomainErrorCode[] {
   const errs: DomainErrorCode[] = [];
+  if ("interGodown" in v && v.interGodown) {
+    const ig = v.interGodown;
+    const sendType = v.type === "SALE" || v.type === "PAYMENT";
+    if (ig.counterGodownId === v.godownId) errs.push("TRANSFER_SAME_GODOWN");
+    if ((ig.side === "SEND") !== sendType || !v.groupId) errs.push("INVALID_REFERENCE");
+  }
   switch (v.type) {
     case "PAYMENT":
       if (NON_CASH_NEEDS_BANK.has(v.mode) || v.mode === "CHEQUE" || v.mode === "DD") {

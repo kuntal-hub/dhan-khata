@@ -171,9 +171,48 @@ export async function isLinkedMember(v: Voucher): Promise<boolean> {
   return primary !== undefined && primary._id !== v._id;
 }
 
+// ── Day status (spec §9.10) ─────────────────────────────────────────────────
+
+export function dayStatusId(godownId: string, date: string): string {
+  return `${godownId}:${date}`;
+}
+
+async function activeDayCloses(godownId: string, date: string): Promise<Voucher[]> {
+  return db()
+    .vouchers.where("[godownId+type+date]")
+    .equals([godownId, "DAY_CLOSE", date])
+    .filter((v) => v.status === "active")
+    .toArray();
+}
+
+/** A DAY_CLOSE locks its day for manager/entry (local copy; the server publishes the same). */
+async function markDayClosedInTx(ctx: WriteCtx, v: Voucher): Promise<void> {
+  if (v.type !== "DAY_CLOSE") return;
+  if ((await activeDayCloses(v.godownId, v.date)).length > 0) {
+    throw new RepoError("DAY_ALREADY_CLOSED", v.date);
+  }
+  await db().dayStatus.put({
+    _id: dayStatusId(v.godownId, v.date),
+    godownId: v.godownId,
+    date: v.date,
+    closed: true,
+    countedCashPaise: v.countedCashPaise,
+    expectedCashPaise: v.expectedCashPaise,
+    closedBy: ctx.userId,
+    closedAt: v.createdAt,
+  });
+}
+
+/** Voiding the day's DAY_CLOSE (owner unlock) opens the day again. */
+async function reopenDayInTx(ctx: WriteCtx, date: string): Promise<void> {
+  const godownId = ctx.godown._id;
+  if ((await activeDayCloses(godownId, date)).length > 0) return;
+  await db().dayStatus.put({ _id: dayStatusId(godownId, date), godownId, date, closed: false });
+}
+
 // ── In-transaction primitives ────────────────────────────────────────────────
 
-interface CreateOpts {
+export interface CreateOpts {
   id?: string;
   groupId?: string;
   /** Created as a linked member of a group (entry role may create these). */
@@ -181,7 +220,11 @@ interface CreateOpts {
   extra?: ReadonlyMap<string, string>;
 }
 
-async function createInTx(ctx: WriteCtx, draft: VoucherDraft, opts: CreateOpts): Promise<Voucher> {
+export async function createInTx(
+  ctx: WriteCtx,
+  draft: VoucherDraft,
+  opts: CreateOpts,
+): Promise<Voucher> {
   const d = db();
   const godownId = ctx.godown._id;
   guardGodownField(godownId, draft);
@@ -215,6 +258,7 @@ async function createInTx(ctx: WriteCtx, draft: VoucherDraft, opts: CreateOpts):
   const v = await finalize(raw);
   await assertRefs(v, opts.extra);
   if (await d.vouchers.get(v._id)) throw new RepoError("VALIDATION_FAILED", "duplicate id");
+  if (v.type === "DAY_CLOSE") await markDayClosedInTx(ctx, v);
   await d.vouchers.add(v);
   await applyVoucherDerived(dexieDerivedStore, v);
   await enqueueOp(ctx, {
@@ -228,7 +272,7 @@ async function createInTx(ctx: WriteCtx, draft: VoucherDraft, opts: CreateOpts):
   return v;
 }
 
-async function loadForChange(
+export async function loadForChange(
   ctx: WriteCtx,
   id: string,
   action: "voucher.edit" | "voucher.void",
@@ -239,6 +283,14 @@ async function loadForChange(
   if (existing.godownId !== ctx.godown._id) throw new RepoError("GODOWN_IMMUTABLE");
   if (existing.status === "void") throw new RepoError("VOUCHER_VOID");
   if (!opts.internal && (await isLinkedMember(existing))) throw new RepoError("LINKED_READ_ONLY");
+  // Transfer sides change only through the transfer wizard (both books together).
+  if (!opts.internal && "interGodown" in existing && existing.interGodown) {
+    throw new RepoError("LINKED_READ_ONLY");
+  }
+  // A day close is never edited: the owner unlocks (voids) it and closes again.
+  if (action === "voucher.edit" && existing.type === "DAY_CLOSE") {
+    throw new RepoError("TYPE_IMMUTABLE");
+  }
   if (!can(ctx.session.user, ctx.godown._id, action, { voucherType: existing.type })) {
     throw new RepoError("FORBIDDEN", existing.type);
   }
@@ -306,7 +358,7 @@ async function writeEdit(ctx: WriteCtx, existing: Voucher, next: Voucher, reason
 }
 
 /** Edit unless nothing changed. Returns the stored voucher. */
-async function editInTx(
+export async function editInTx(
   ctx: WriteCtx,
   existing: Voucher,
   draft: VoucherDraft,
@@ -318,7 +370,11 @@ async function editInTx(
   return next;
 }
 
-async function voidOneInTx(ctx: WriteCtx, existing: Voucher, reason: string): Promise<Voucher> {
+export async function voidOneInTx(
+  ctx: WriteCtx,
+  existing: Voucher,
+  reason: string,
+): Promise<Voucher> {
   const next = VoucherSchema.parse({
     ...existing,
     rev: existing.rev + 1,
@@ -329,6 +385,7 @@ async function voidOneInTx(ctx: WriteCtx, existing: Voucher, reason: string): Pr
   });
   await db().vouchers.put(next);
   await applyVoucherDerived(dexieDerivedStore, next, existing);
+  if (next.type === "DAY_CLOSE") await reopenDayInTx(ctx, next.date);
   await enqueueOp(ctx, {
     entity: "voucher",
     entityId: next._id,
@@ -360,7 +417,11 @@ async function settlementsOf(godownId: string, saleId: string): Promise<Voucher[
  * Void a voucher with everything that depends on it: a primary takes its group members; a sale
  * takes its mill settlements; a settlement puts its sale back to PENDING.
  */
-async function voidCascadeInTx(ctx: WriteCtx, target: Voucher, reason: string): Promise<Voucher[]> {
+export async function voidCascadeInTx(
+  ctx: WriteCtx,
+  target: Voucher,
+  reason: string,
+): Promise<Voucher[]> {
   const out: Voucher[] = [];
   const members = target.groupId ? await groupMembers(ctx.godown._id, target.groupId) : [target];
   for (const m of members.length ? members : [target]) {

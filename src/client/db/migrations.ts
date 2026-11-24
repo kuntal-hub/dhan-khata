@@ -37,7 +37,15 @@ export const SCHEMA_V1: StoreSpec = {
   auditLocal: "++id, at, godownId",
 };
 
-export const SCHEMA_VERSIONS: readonly SchemaVersion[] = [{ version: 1, stores: SCHEMA_V1 }];
+/** v2 (Phase 4): pending inter-godown receipts pulled from the server (additive). */
+export const SCHEMA_V2: StoreSpec = {
+  transfers: "_id, godownId, [godownId+status]",
+};
+
+export const SCHEMA_VERSIONS: readonly SchemaVersion[] = [
+  { version: 1, stores: SCHEMA_V1 },
+  { version: 2, stores: SCHEMA_V2 },
+];
 
 function indexList(spec: string): string[] {
   return spec

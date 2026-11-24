@@ -13,6 +13,7 @@ import {
   type PullChange,
   type PullResponse,
   type Reminder,
+  type Transfer,
   type User,
   type Voucher,
 } from "@/domain/schemas";
@@ -66,6 +67,9 @@ async function applyChange(c: PullChange): Promise<boolean> {
       return true;
     case "dayStatus":
       await d.dayStatus.put(c.doc as DayStatus);
+      return true;
+    case "transfer":
+      await d.transfers.put(c.doc as Transfer);
       return true;
     case "reminder":
       await d.reminders.put(c.doc as Reminder);
@@ -221,6 +225,7 @@ export async function purgeGodown(godownId: string): Promise<void> {
     await range<{ delete(): Promise<number> }>(d.dailyAgg, "[godownId+date]").delete();
     await range<{ delete(): Promise<number> }>(d.dayStatus, "[godownId+date]").delete();
     await d.reminders.filter((r) => r.godownId === godownId).delete();
+    await d.transfers.where("godownId").equals(godownId).delete();
     await d.godowns.delete(godownId);
     await deleteMeta(godownSettingsKey(godownId));
     if ((await getMeta<string>(META.activeGodownId)) === godownId) {

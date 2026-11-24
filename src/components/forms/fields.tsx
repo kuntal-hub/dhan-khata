@@ -27,7 +27,7 @@ export function TextField({
   required?: boolean;
   error?: TKey | null;
   testId?: string;
-  inputMode?: "text" | "tel" | "numeric" | "email";
+  inputMode?: "text" | "tel" | "numeric" | "email" | "decimal";
   placeholder?: string;
   multiline?: boolean;
   maxLength?: number;

@@ -9,10 +9,16 @@ import { db } from "@/client/db/dexie";
 import { errorKey } from "@/client/errors";
 import { partyMatches } from "@/client/queries/parties";
 import { upsertMaster } from "@/client/repo";
-import { bankLabel, partyTitle, varietyLabel, vehicleLabel } from "@/client/ui/labels";
+import {
+  bankLabel,
+  categoryLabel,
+  partyTitle,
+  varietyLabel,
+  vehicleLabel,
+} from "@/client/ui/labels";
 import { normalizeDigits } from "@/domain/digits";
 import { normalizePhone } from "@/domain/phone";
-import { normalizeVehicleNumber, type PartyRole } from "@/domain/schemas";
+import { formatVehicleNumber, normalizeVehicleNumber, type PartyRole } from "@/domain/schemas";
 import { matchesSearch, searchKeyOf } from "@/i18n/translit";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
@@ -122,7 +128,8 @@ export function PartyPicker({
     ?.filter((x) => !role || x.roles.includes(role))
     .sort((a, b) => (a.updatedAt < b.updatedAt ? 1 : -1))
     .map((x) => {
-      const { title, sub } = partyTitle(x, lang);
+      const { title: raw, sub } = partyTitle(x, lang);
+      const title = x.roles.includes("godown") ? t("godown.otherGodownParty", { name: raw }) : raw;
       const extra = [sub, x.village, x.phone].filter(Boolean).join(" · ");
       return {
         id: x._id,
@@ -259,6 +266,113 @@ export function PlacePicker(
       )}
     />
   );
+}
+
+/** Expense category (value = the immutable category CODE). Disabled categories are hidden. */
+export function CategoryPicker(p: CommonProps) {
+  const { t } = useI18n();
+  const cats = useLiveQuery(
+    () =>
+      db()
+        .expenseCategories.where("godownId")
+        .equals(p.godownId)
+        .filter((c) => c.status === "active" && (c.enabled || c.code === p.value))
+        .toArray(),
+    [p.godownId, p.value],
+  );
+  const items = cats?.map((c) => {
+    const title = categoryLabel(c, t);
+    return { id: c.code, title, match: textMatch(`${title} ${c.name ?? ""} ${c.code}`) };
+  });
+  return (
+    <EntityPicker
+      {...p}
+      items={items}
+      onSelect={p.onChange}
+      renderCreate={(initial, done, cancel) => (
+        <InlineCreate
+          cancel={cancel}
+          fields={[{ name: "name", label: t("masters.categoryName"), initial, required: true }]}
+          onSubmit={async (v) => {
+            const created = await upsertMaster(p.godownId, "expenseCategory", {
+              code: "",
+              isSystem: false,
+              enabled: true,
+              name: v.name!.trim(),
+            });
+            done(created.code);
+          }}
+        />
+      )}
+    />
+  );
+}
+
+/** A registered vehicle of this godown (no free text). */
+export function VehicleOnlyPicker(p: CommonProps & { ownOnly?: boolean }) {
+  const { t } = useI18n();
+  const vehicles = useLiveQuery(
+    () =>
+      db()
+        .vehicles.where("godownId")
+        .equals(p.godownId)
+        .filter((x) => x.status === "active" && (!p.ownOnly || x.ownership === "own"))
+        .toArray(),
+    [p.godownId, p.ownOnly],
+  );
+  const items = vehicles?.map((v) => ({
+    id: v._id,
+    title: vehicleLabel(v),
+    sub: t(v.ownership === "own" ? "masters.vehicleOwn" : "masters.vehicleExternal"),
+    match: (q: string) =>
+      !q.trim() || v.number.includes(normalizeVehicleNumber(normalizeDigits(q))),
+  }));
+  return (
+    <EntityPicker
+      {...p}
+      items={items}
+      onSelect={p.onChange}
+      renderCreate={(initial, done, cancel) => (
+        <InlineCreate
+          cancel={cancel}
+          fields={[{ name: "number", label: t("sale.vehicleNumber"), initial, required: true }]}
+          onSubmit={async (v) => {
+            const created = await upsertMaster(p.godownId, "vehicle", {
+              number: normalizeVehicleNumber(normalizeDigits(v.number ?? "")),
+              ownership: p.ownOnly ? "own" : "external",
+            });
+            done(created._id);
+          }}
+        />
+      )}
+    />
+  );
+}
+
+/** A LOAD voucher of this godown (recent first) — to tag expenses / own-trade trips. */
+export function LoadPicker(p: CommonProps) {
+  const { date } = useI18n();
+  const loads = useLiveQuery(
+    () =>
+      db()
+        .vouchers.where("[godownId+type+date]")
+        .between([p.godownId, "LOAD", ""], [p.godownId, "LOAD", "￿"], true, true)
+        .filter((v) => v.status === "active")
+        .reverse()
+        .limit(200)
+        .toArray(),
+    [p.godownId],
+  );
+  const items = loads?.map((l) => {
+    const sub = [
+      date(l.date, "short"),
+      l.type === "LOAD" ? formatVehicleNumber(l.vehicleNumber) : "",
+    ]
+      .filter(Boolean)
+      .join(" · ");
+    return { id: l._id, title: l.number, sub, match: textMatch(`${l.number} ${sub}`) };
+  });
+  return <EntityPicker {...p} items={items} onSelect={p.onChange} />;
 }
 
 export function BankPicker(p: CommonProps) {

@@ -31,7 +31,7 @@ export const PUSH_ENTITIES = ["voucher", ...MASTER_ENTITIES, "godownSettings", "
 export type PushEntity = (typeof PUSH_ENTITIES)[number];
 
 /** Everything a device may receive. `godown` and `user` are global (godownId = null). */
-export const PULL_ENTITIES = [...PUSH_ENTITIES, "godown", "user", "dayStatus"] as const;
+export const PULL_ENTITIES = [...PUSH_ENTITIES, "godown", "user", "dayStatus", "transfer"] as const;
 export type PullEntity = (typeof PULL_ENTITIES)[number];
 
 export const PUSH_SCHEMAS = {
@@ -160,3 +160,17 @@ export const CreateGodownRequestSchema = z.strictObject({
   receiptLanguage: z.enum(["bn", "en", "both"]).optional(),
 });
 export type CreateGodownRequest = z.infer<typeof CreateGodownRequestSchema>;
+
+/** Owner: edit a godown's profile / letterhead (the code is immutable). */
+export const UpdateGodownRequestSchema = z.strictObject({
+  godownId: Id,
+  name: z.string().trim().min(1).max(80),
+  nameAlt: z.string().trim().max(80).optional(),
+  firmName: z.string().max(120).optional(),
+  proprietor: z.string().max(120).optional(),
+  address: z.string().max(300).optional(),
+  phone: z.string().max(20).optional(),
+  gstin: z.string().max(15).optional(),
+  receiptLanguage: z.enum(["bn", "en", "both"]),
+});
+export type UpdateGodownRequest = z.infer<typeof UpdateGodownRequestSchema>;

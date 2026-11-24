@@ -65,6 +65,7 @@ export async function pullChanges(db: Db, user: UserDoc, p: PullParams): Promise
     godown: k.godowns,
     user: k.users,
     dayStatus: k.dayStatus,
+    transfer: k.transfers,
     reminder: k.reminders,
   } as unknown as Record<string, { find: (f: object) => { toArray(): Promise<object[]> } }>;
   for (const [entity, ids] of idsBy) {

@@ -39,7 +39,8 @@ export function useNames(godownId: string | null): Names | undefined {
     party: (id) => {
       const p = id ? parties.get(id) : undefined;
       if (!p) return "";
-      const { title, sub } = partyTitle(p, lang);
+      const { title: raw, sub } = partyTitle(p, lang);
+      const title = p.roles.includes("godown") ? t("godown.otherGodownParty", { name: raw }) : raw;
       return sub ? `${title} (${sub})` : title;
     },
     variety: (id) => varietyLabel(id ? varieties.get(id) : undefined, t),

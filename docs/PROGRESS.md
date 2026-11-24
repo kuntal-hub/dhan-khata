@@ -7,7 +7,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done (exit criteria green + c
 | 1 | Foundations & Domain Core | P0 + P1 | ✅ |
 | 2 | Offline Data, Auth, Sync & PWA Shell | P2 + P3 + P4 | ✅ |
 | 3 | Masters, Parties & Trade Flow | P5 + P6 | ✅ |
-| 4 | Daily Money, Dashboard, Vehicles, Stock & Godowns | P7 + P8 | ⬜ |
+| 4 | Daily Money, Dashboard, Vehicles, Stock & Godowns | P7 + P8 | ✅ |
 | 5 | Reminders, Reports, Export, Ops & Hardening | P9 + P10 + P11 (automatable) | ⬜ |
 
 After Phase 5, the remaining work is manual UAT with the client (see `docs/UAT-CHECKLIST.md`, which Phase 5 creates).
@@ -182,3 +182,48 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - `pnpm test` ✅ 189/189 (15 files)
 - `pnpm build` ✅ (every route static; SW precaches 102 URLs)
 - `pnpm test:e2e` ✅ 3/3 — cold-offline (31 routes by direct URL + tab navigation), trade flow in bn and en (F −₹12,000, F2 −₹42,000, mill +₹17,770, cash ₹32,000, shortage 10 kg; same numbers in both languages)
+
+### Phase 4 — Daily Money, Dashboard, Vehicles, Stock & Godowns — 2026-11-24
+**Built:**
+- Expenses: `src/components/daily/ExpenseForm.tsx` (`/expense/new`, `/expense/edit`), daily screen + monthly-vs-previous view `/expense` (`src/client/queries/expenses.ts`).
+- Cash & bank: `/cashbank` (cash book, bank books with running balance + date range, cheques in hand with clear/bounce), CONTRA form `src/components/daily/ContraForm.tsx` (`/cashbank/entry?kind=`) for all 7 kinds incl. capital in / drawings (`src/client/queries/cashbank.ts`).
+- Day close: `/day-close` (`src/components/daily/DayClose.tsx`, denomination helper, required note, CASH_DIFF), repo `closeDay` / `unlockDay` (`src/client/repo/daily.ts`); a DAY_CLOSE writes the local `dayStatus` lock in the same transaction; banners `src/components/daily/DayBanners.tsx` (dayCloseRequired, owner late-entry with local "OK" ack, pending receipts).
+- Dashboard: `src/components/dashboard/Dashboard.tsx` (10 cards, ◀ ▶ date, bank row + cheques, quick actions, today's list, top-5 reminders, দিন শেষ button, owner-only profit toggle) over `src/client/queries/dashboard.ts` (reads `dailyAgg` + one day range). All-godowns table `src/components/dashboard/ConsolidatedTable.tsx`.
+- Vehicles: capacity + search in the masters screen, TRIP form `src/components/daily/TripForm.tsx` (`/trip/new|edit`), fleet `/vehicle` and per-vehicle P&L + khata `/vehicle/view` (`src/domain/calc/vehicle.ts` `vehiclePnl`, `src/client/queries/vehicles.ts`).
+- Stock: `/stock` (by variety: qty, bag estimate, avg cost, value; pending receipts), `/stock/register`, physical count `/stock/adjust` (`StockAdjustForm.tsx`), `stockSummary` / `stockRegister` in `src/client/queries/stock.ts`.
+- Inter-godown transfers: `interGodown` link on SALE/PURCHASE/PAYMENT/RECEIPT, builders `src/domain/transfer.ts`, repo `saveTransfer` / `voidTransfer` / `acceptTransfer` (`src/client/repo/transfer.ts`, auto "গোডাউন: X" parties), wizard `/transfer`, accept `/transfer/accept`. Server: pending receipts (`transfers` collection, `publishTransfer`), counter-book guard `TRANSFER_NEEDS_BOTH`, DAY_CLOSE → `dayStatus` publish + `DAY_ALREADY_CLOSED` (`src/server/apply/applyOp.ts`).
+- Godowns (owner): `/godowns` list, add-godown wizard `/godowns/new` (`src/components/godown/GodownWizard.tsx`: create online → varieties → banks + opening → cash → stock → party balances → one OPENING voucher, difference as CAPITAL after confirmation), profile/letterhead `/godowns/edit` via new `POST /api/godowns/update`, archive. Client helpers `src/client/godown/manage.ts`.
+- Search `/search` (header icon): parties, vehicles, voucher numbers, amounts in either script (`src/client/queries/search.ts`); owner "search all godowns" in `queries/consolidated`.
+- Generic `/voucher/view` for expense/trip/contra/stock/day-close/opening; Dexie schema **v2** adds the `transfers` table (additive).
+- Tests: `tests/repo/daily.test.ts`, `tests/repo/dashboard.perf.test.ts`, `tests/unit/phase4-domain.test.ts`, `tests/sync/phase4.test.ts`; e2e `tests/e2e/dashboard.spec.ts` (G5, bn + en) and `tests/e2e/two-godown.spec.ts` (G10); offline spec covers the 20 new routes.
+
+**Deviations from spec/plan:**
+1. Owner "unlock day" = void the day's DAY_CLOSE (audited as void + local `unlock` audit). That reverses its CASH_DIFF; the owner closes the day again afterwards. A DAY_CLOSE is never edited.
+2. One active DAY_CLOSE per godown and day, enforced on client and server (`DAY_ALREADY_CLOSED`).
+3. The late-entry flag is cleared server-side only by unlocking (re-closing). The owner's "ঠিক আছে" just hides the banner on that device (meta `lateAck:<godown>:<date>`).
+4. The `dayCloseRequired` banner shows only when the previous calendar day had active entries and isn't closed. It's shown to owner/manager only.
+5. Transfers: when the user can write both godowns, one Dexie transaction writes both books (`paired: true`). Otherwise only the SEND side is written and the server publishes a pending receipt to the receiving godown. A sender must at least *see* the receiving godown; the wizard lists only visible godowns. Changing an accepted/paired transfer needs write rights in both godowns (server `TRANSFER_NEEDS_BOTH`). The server does not cross-check amounts between the two books.
+6. Transfer parties store the other godown's name. The UI renders them as "গোডাউন: X" (pickers / names), and a SEND voucher carries the counter godown id (an id only, no data).
+7. Dashboard card 7 = EXPENSE vouchers + all TRIP expenses ("নিজের গাড়ির খরচ" bucket). "আজকের লাভ" = the day's income − expense accounts from `dailyAgg` (incl. COGS).
+8. Bags estimate on the stock page = qty ÷ (Σ gross ÷ Σ bags of this godown's purchases); "—" when unknown (no assumed bag weight).
+9. Trip "due from hirers" = Σ trip due at entry time (later receipts from the hirer aren't linked to trips).
+10. Reminders "সব দেখুন" links to `/due` until the Phase 5 reminder centre exists.
+11. Godown profile edit is online-only (godown records are server-written); the device gets the change through sync.
+
+**Known issues / TODO carried forward:**
+- The perf budget is verified in Vitest (50k vouchers: ~22 ms for the dashboard queries on fake-indexeddb). A manual check on a mid-range Android phone is still to do during UAT.
+- The `entry` role "own entries + today's dashboard only" view ([CONFIRM] #8) is not restricted in the UI yet; the write rules are enforced.
+- The header godown dropdown keeps the old menu in the DOM while it animates closed. The e2e helper `switchGodown` waits for it; a real user tapping very fast could see a missed tap.
+- Excel export for the new books/registers is not built (reports/export are Phase 5).
+
+**Notes for next phase (Phase 5):**
+- Simple vouchers save through `saveSimple(godownId, draft, {id, reason})`; day close via `closeDay` / `unlockDay`; transfers via `saveTransfer` / `voidTransfer` / `acceptTransfer`.
+- Report-ready queries: `accountBook`, `chequesInHand`, `dailyExpense`, `monthlyExpenses`, `vehicleSummaries`, `vehicleKhata`, `stockSummary`, `stockRegister`, `dashboardData`, `consolidatedDashboard`, `searchGodown`.
+- The reminder centre can reuse `topReminders` / `openReminders` and should replace the dashboard "সব দেখুন" link.
+- e2e: use `switchGodown`, `createGodownViaWizard`, `createParty`, `switchToEnglish`, `istDate` from `tests/e2e/helpers.ts`. Godown codes used by specs: RP, SP (seed), GFB, GFE, TA, TB.
+
+**Exit criteria results:**
+- `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅
+- `pnpm test` ✅ 212/212 (19 files), incl. the dashboard perf test (50k vouchers: ~22 ms, budget 300 ms)
+- `pnpm build` ✅ (every route static; SW precaches 143 URLs)
+- `pnpm test:e2e` ✅ 6/6: G5 dashboard + day close (bn, en), cold-offline (51 routes), trade flow (bn, en), two-godown G10 + All-godowns totals

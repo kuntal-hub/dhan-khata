@@ -2,7 +2,6 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useLiveQuery } from "dexie-react-hooks";
 import { Suspense, useEffect, useState } from "react";
 import {
   Car,
@@ -14,30 +13,25 @@ import {
   Wallet,
   type LucideIcon,
 } from "lucide-react";
-import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
 import { BottomSheet } from "@/components/forms/BottomSheet";
+import { ConsolidatedTable } from "@/components/dashboard/ConsolidatedTable";
+import { Dashboard } from "@/components/dashboard/Dashboard";
 import { InstallButton } from "@/components/pwa/InstallButton";
-import { EmptyState } from "@/components/lists/common";
-import { VoucherRow } from "@/components/vouchers/VoucherList";
-import { useNames } from "@/components/vouchers/names";
-import { useActiveGodown } from "@/client/hooks";
-import { accountBalance } from "@/client/queries/ledger";
-import { vouchersOfDay } from "@/client/queries/vouchers";
+import { Loading } from "@/components/lists/common";
+import { useActiveGodown, useGodownRole } from "@/client/hooks";
 import { todayIST } from "@/domain/dates";
-import { ACC } from "@/domain/posting/accounts";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 
 interface QuickAction {
   label: TKey;
-  href: string | null;
+  href: string;
   icon: LucideIcon;
   testId: string;
 }
 
-/** Quick actions (spec §9.1): the dashboard cards arrive in Phase 4. */
+/** Quick actions (spec §9.1). */
 export const QUICK_ACTIONS: QuickAction[] = [
   { label: "home.newPurchase", href: "/purchase/new", icon: ShoppingCart, testId: "qa-purchase" },
   { label: "home.newSaleLoad", href: "/load/new", icon: Truck, testId: "qa-load" },
@@ -54,11 +48,15 @@ export const QUICK_ACTIONS: QuickAction[] = [
     icon: HandCoins,
     testId: "qa-receipt",
   },
-  { label: "home.newExpense", href: null, icon: Plus, testId: "qa-expense" },
-  { label: "home.newTrip", href: null, icon: Car, testId: "qa-trip" },
+  { label: "home.newExpense", href: "/expense/new", icon: Plus, testId: "qa-expense" },
+  { label: "home.newTrip", href: "/trip/new", icon: Car, testId: "qa-trip" },
 ];
 
-const SHORTCUTS: Record<string, string> = { purchase: "/purchase/new", sale: "/sale/new" };
+const SHORTCUTS: Record<string, string> = {
+  purchase: "/purchase/new",
+  sale: "/sale/new",
+  expense: "/expense/new",
+};
 
 function ShortcutRedirect() {
   const router = useRouter();
@@ -70,94 +68,52 @@ function ShortcutRedirect() {
 }
 
 export default function HomePage() {
-  const { t, money } = useI18n();
+  const { t } = useI18n();
   const router = useRouter();
   const { godownId, consolidated } = useActiveGodown();
-  const names = useNames(godownId);
+  const role = useGodownRole();
   const [fab, setFab] = useState(false);
-  const today = todayIST();
-  const data = useLiveQuery(async () => {
-    if (!godownId) return null;
-    const [list, cash] = await Promise.all([
-      vouchersOfDay(godownId, today),
-      accountBalance(godownId, ACC.CASH),
-    ]);
-    return { list, cash };
-  }, [godownId, today]);
-  const writable = !!godownId && !consolidated;
+  const [date, setDate] = useState(todayIST());
+  const writable = !!godownId && !consolidated && role !== null && role !== "viewer";
 
   const go = (a: QuickAction) => {
     setFab(false);
-    if (a.href) router.push(a.href);
-    else toast(t("common.comingSoon"));
+    router.push(a.href);
   };
+
+  const quickActions = writable ? (
+    <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="quick-actions">
+      {QUICK_ACTIONS.map((a) => {
+        const Icon = a.icon;
+        return (
+          <Button
+            key={a.testId}
+            variant="outline"
+            className="h-16 justify-start gap-3 text-base whitespace-normal"
+            onClick={() => go(a)}
+            data-testid={a.testId}
+          >
+            <Icon className="text-primary size-6 shrink-0" aria-hidden />
+            <span className="text-left leading-tight">{t(a.label)}</span>
+          </Button>
+        );
+      })}
+    </div>
+  ) : null;
 
   return (
     <div className="flex flex-1 flex-col gap-4">
       <Suspense fallback={null}>
         <ShortcutRedirect />
       </Suspense>
-      <header className="flex flex-col">
-        <h1 className="text-primary text-2xl font-semibold">{t("common.appName")}</h1>
-        <p className="text-muted-foreground line-clamp-2 text-sm">{t("common.appTagline")}</p>
-      </header>
       <InstallButton />
-      {data ? (
-        <Card>
-          <CardContent className="flex flex-col pt-6">
-            <span className="text-muted-foreground text-sm">{t("account.CASH")}</span>
-            <span
-              className="tabular text-3xl font-semibold"
-              data-testid="home-cash"
-              data-paise={data.cash.toString()}
-            >
-              {money(data.cash)}
-            </span>
-          </CardContent>
-        </Card>
-      ) : null}
-      {writable ? (
-        <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="quick-actions">
-          {QUICK_ACTIONS.map((a) => {
-            const Icon = a.icon;
-            return (
-              <Button
-                key={a.testId}
-                variant="outline"
-                className="h-16 justify-start gap-3 text-base whitespace-normal"
-                onClick={() => go(a)}
-                data-testid={a.testId}
-              >
-                <Icon className="text-primary size-6 shrink-0" aria-hidden />
-                <span className="text-left leading-tight">{t(a.label)}</span>
-              </Button>
-            );
-          })}
-        </div>
-      ) : null}
-      <section className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold">{t("home.todayList")}</h2>
-        {!data || !names ? null : data.list.length === 0 ? (
-          <EmptyState text={t("home.todayEmpty")} />
-        ) : (
-          <ul data-testid="today-list">
-            {data.list.map((v) => (
-              <li key={v._id}>
-                <VoucherRow
-                  v={v}
-                  partyName={names.party(
-                    "partyId" in v
-                      ? (v.partyId as string)
-                      : v.type === "LOAD"
-                        ? v.toMillPartyId
-                        : undefined,
-                  )}
-                />
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+      {consolidated ? (
+        <ConsolidatedTable date={date} onDate={setDate} />
+      ) : godownId ? (
+        <Dashboard godownId={godownId} date={date} onDate={setDate} quickActions={quickActions} />
+      ) : (
+        <Loading />
+      )}
       <Link href="/sync" className="text-muted-foreground min-h-11 py-3 text-sm underline">
         {t("nav.sync")}
       </Link>

@@ -30,7 +30,13 @@ export type DomainErrorCode =
   | "EDIT_WINDOW_EXPIRED"
   | "VALIDATION_FAILED"
   | "NOT_SIGNED_IN"
-  | "LINKED_READ_ONLY";
+  | "LINKED_READ_ONLY"
+  // Phase 4: day close and inter-godown transfers.
+  | "DAY_ALREADY_CLOSED"
+  | "DAY_NOT_CLOSED"
+  | "TRANSFER_SAME_GODOWN"
+  | "TRANSFER_NEEDS_BOTH"
+  | "TRANSFER_NOT_PENDING";
 
 export class DomainError extends Error {
   constructor(

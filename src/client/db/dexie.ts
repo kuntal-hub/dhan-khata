@@ -17,6 +17,7 @@ import type {
   Place,
   Reminder,
   StockMove,
+  Transfer,
   Variety,
   Vehicle,
   Voucher,
@@ -50,7 +51,7 @@ export interface AuditLocalRow {
   deviceId: string;
   entity: string;
   entityId: string;
-  action: "create" | "edit" | "void" | "resolve" | "pull-purge";
+  action: "create" | "edit" | "void" | "resolve" | "pull-purge" | "unlock";
   rev?: number;
   reason?: string;
 }
@@ -69,6 +70,7 @@ export class DhanKhataDB extends Dexie {
   dailyAgg!: Table<DailyAggRow, [string, string]>;
   reminders!: Table<Reminder & { godownId: string }, string>;
   dayStatus!: Table<DayStatus, string>;
+  transfers!: Table<Transfer, string>;
   outbox!: Table<OutboxRow, number>;
   meta!: Table<MetaRow, string>;
   auditLocal!: Table<AuditLocalRow, number>;
@@ -128,6 +130,7 @@ export function writeTables(d: DhanKhataDB = db()) {
     d.dailyAgg,
     d.reminders,
     d.dayStatus,
+    d.transfers,
     d.outbox,
     d.meta,
     d.auditLocal,

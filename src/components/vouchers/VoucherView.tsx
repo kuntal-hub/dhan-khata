@@ -25,9 +25,12 @@ import { getSession } from "@/client/db/meta";
 import { errorKey } from "@/client/errors";
 import { useGodownRole } from "@/client/hooks";
 import { groupOf } from "@/client/queries/vouchers";
+import { amountOf } from "@/client/ui/amount";
 import { dot, spaced } from "@/client/ui/text";
-import { groupPrimary, LINKED_REMOVED, voidVoucher } from "@/client/repo";
+import { groupPrimary, LINKED_REMOVED, unlockDay, voidTransfer, voidVoucher } from "@/client/repo";
+import { categoryLabel } from "@/client/ui/labels";
 import { loadMargin } from "@/domain/calc/load";
+import { tripProfit } from "@/domain/calc/trip";
 import { saleSummary } from "@/domain/calc/sale";
 import { computeDeductions, lineInputFromJson } from "@/domain/calc/trade";
 import { formatVehicleNumber, type TradeLine, type Voucher } from "@/domain/schemas";
@@ -36,8 +39,21 @@ import type { TKey } from "@/i18n/translate";
 import { Qty } from "@/components/money/display";
 import { useNames, type Names } from "./names";
 
+export function isTransfer(v: Voucher): boolean {
+  return "interGodown" in v && !!v.interGodown;
+}
+
 export function editPathOf(v: Voucher): string | null {
+  if (isTransfer(v)) return `/transfer?id=${v._id}`;
   switch (v.type) {
+    case "EXPENSE":
+      return `/expense/edit?id=${v._id}`;
+    case "TRIP":
+      return `/trip/edit?id=${v._id}`;
+    case "CONTRA":
+      return `/cashbank/entry?id=${v._id}`;
+    case "STOCK_ADJUST":
+      return `/stock/adjust?id=${v._id}`;
     case "PURCHASE":
       return `/purchase/edit?id=${v._id}`;
     case "SALE":
@@ -62,8 +78,11 @@ export function viewPathOf(v: Pick<Voucher, "_id" | "type">): string {
       return `/sale/view?id=${v._id}`;
     case "LOAD":
       return `/load/view?id=${v._id}`;
-    default:
+    case "PAYMENT":
+    case "RECEIPT":
       return `/payment/view?id=${v._id}`;
+    default:
+      return `/voucher/view?id=${v._id}`;
   }
 }
 
@@ -117,7 +136,9 @@ export function VoucherView({ id }: { id: string | undefined }) {
 
   const doVoid = async () => {
     try {
-      await voidVoucher(v.godownId, v._id, reason);
+      if (v.type === "DAY_CLOSE") await unlockDay(v.godownId, v.date, reason);
+      else if (isTransfer(v)) await voidTransfer(v.godownId, v._id, reason);
+      else await voidVoucher(v.godownId, v._id, reason);
       setVoidOpen(false);
       toast.success(t("voucher.voided"));
     } catch (e) {
@@ -192,7 +213,7 @@ export function VoucherView({ id }: { id: string | undefined }) {
             {t("common.edit")}
           </Button>
         ) : null}
-        {v.type === "SALE" && !isVoid && role !== "viewer" ? (
+        {v.type === "SALE" && !isVoid && role !== "viewer" && !isTransfer(v) ? (
           <Button
             variant="outline"
             className="h-11"
@@ -222,10 +243,12 @@ export function VoucherView({ id }: { id: string | undefined }) {
             data-testid="voucher-void"
           >
             <Ban className="size-4" aria-hidden />
-            {t("common.void")}
+            {v.type === "DAY_CLOSE" ? t("dayClose.unlock") : t("common.void")}
           </Button>
         ) : null}
       </div>
+
+      {isTransfer(v) && "interGodown" in v && v.interGodown ? <TransferNotice v={v} /> : null}
 
       {group.length > 1 ? (
         <Card>
@@ -315,28 +338,41 @@ export function VoucherView({ id }: { id: string | undefined }) {
   );
 }
 
-/** Headline amount of a voucher for lists. */
-export function amountOf(v: Voucher): bigint {
-  switch (v.type) {
-    case "PURCHASE":
-    case "SALE":
-      return BigInt(v.totalPaise);
-    case "LOAD":
-      return BigInt(v.mode === "AGENT" ? (v.commission?.amountPaise ?? "0") : v.totalAmountPaise);
-    case "PAYMENT":
-    case "RECEIPT":
-    case "EXPENSE":
-    case "CONTRA":
-      return BigInt(v.amountPaise);
-    case "MILL_SETTLEMENT":
-      return BigInt(v.differencePaise);
-    case "TRIP":
-      return BigInt(v.freightPaise);
-    case "DAY_CLOSE":
-      return BigInt(v.differencePaise);
-    default:
-      return 0n;
-  }
+export { amountOf };
+
+/** Which godown is on the other side of a transfer, and its entry (when visible here). */
+function TransferNotice({ v }: { v: Voucher }) {
+  const { t } = useI18n();
+  const ig = "interGodown" in v ? v.interGodown : undefined;
+  const info = useLiveQuery(async () => {
+    if (!ig || !v.groupId) return null;
+    const g = await db().godowns.get(ig.counterGodownId);
+    const other = await db()
+      .vouchers.where("[godownId+groupId]")
+      .equals([ig.counterGodownId, v.groupId])
+      .first();
+    return { name: g?.name ?? "", other: other ?? null };
+  }, [v._id, v.rev]);
+  if (!ig || !info) return null;
+  return (
+    <div
+      className="flex flex-wrap items-center gap-2 rounded-md border p-3 text-sm"
+      data-testid="transfer-notice"
+    >
+      <Link2 className="size-4" aria-hidden />
+      <span className="flex-1">
+        {dot(
+          ig.side === "SEND" ? t("transfer.sent") : t("transfer.accepted"),
+          info.name ? t("godown.otherGodownParty", { name: info.name }) : null,
+        )}
+      </span>
+      {info.other ? (
+        <span className="text-muted-foreground">
+          {dot(t("transfer.counterpart"), info.other.number)}
+        </span>
+      ) : null}
+    </div>
+  );
 }
 
 export function Row({
@@ -604,13 +640,147 @@ function Body({
       return (
         <>
           <Row label={t("expense.description")} value={v.description} />
-          <Row label={t("common.amount")} value={money(BigInt(v.amountPaise))} />
-          {v.payeePartyId ? (
-            <Row label={t("partyRole.labour")} value={names.party(v.payeePartyId)} />
+          <Row
+            label={t("exp.category")}
+            value={<CategoryName godownId={v.godownId} code={v.categoryCode} />}
+          />
+          <Row
+            label={t("common.amount")}
+            value={<strong>{money(BigInt(v.amountPaise))}</strong>}
+            testId="view-total"
+          />
+          <Row
+            label={t("payment.mode")}
+            value={v.onCredit ? t("exp.onCredit") : t(`payMode.${v.mode}` as TKey)}
+          />
+          {v.bankAccountId ? (
+            <Row label={t("payment.ourBank")} value={names.bank(v.bankAccountId)} />
           ) : null}
+          {v.payeePartyId || v.payeeText ? (
+            <Row label={t("exp.payee")} value={names.party(v.payeePartyId) || v.payeeText} />
+          ) : null}
+          {v.vehicleId ? (
+            <Row label={t("trip.vehicle")} value={names.vehicle(v.vehicleId)} />
+          ) : null}
+        </>
+      );
+    case "TRIP": {
+      return (
+        <>
+          <Row label={t("trip.vehicle")} value={names.vehicle(v.vehicleId)} />
+          {v.driverPartyId ? (
+            <Row label={t("trip.driver")} value={names.party(v.driverPartyId)} />
+          ) : null}
+          <Row label={t("trip.loadingPlace")} value={v.loadingPlace || "—"} />
+          <Row label={t("trip.unloadingPlace")} value={v.unloadingPlace || "—"} />
+          {v.hirerPartyId ? (
+            <Row label={t("trip.hirer")} value={names.party(v.hirerPartyId)} />
+          ) : null}
+          {v.qtyG ? <Row label={t("trip.qty")} value={weightOf(BigInt(v.qtyG))} /> : null}
+          {v.ownTradeLoadId ? <Row label={t("trip.ownTrade")} value={t("common.yes")} /> : null}
+          <Row
+            label={t("trip.freight")}
+            value={<strong>{money(BigInt(v.freightPaise))}</strong>}
+            testId="view-total"
+          />
+          {v.advanceReceivedPaise ? (
+            <Row label={t("trip.advance")} value={money(BigInt(v.advanceReceivedPaise))} />
+          ) : null}
+          <Row label={t("trip.due")} value={money(BigInt(v.duePaise))} />
+          {v.expenses.map((e, i) => (
+            <Row
+              key={i}
+              label={t(`vehicle.expenseKind.${e.kind}` as TKey)}
+              value={money(BigInt(e.amountPaise))}
+            />
+          ))}
+          <Row label={t("trip.profit")} value={money(tripProfit(v))} />
+        </>
+      );
+    }
+    case "CONTRA":
+      return (
+        <>
+          <Row label={t("voucherType.CONTRA")} value={t(`cashbank.kind.${v.kind}` as TKey)} />
+          <Row
+            label={t("common.amount")}
+            value={<strong>{money(BigInt(v.amountPaise))}</strong>}
+            testId="view-total"
+          />
+          {v.bankAccountId ? (
+            <Row
+              label={v.kind === "BANK_TRANSFER" ? t("cashbank.fromBank") : t("cashbank.bank")}
+              value={names.bank(v.bankAccountId)}
+            />
+          ) : null}
+          {v.toBankAccountId ? (
+            <Row label={t("cashbank.toBank")} value={names.bank(v.toBankAccountId)} />
+          ) : null}
+          {v.partyId ? <Row label={t("sale.party")} value={names.party(v.partyId)} /> : null}
+        </>
+      );
+    case "STOCK_ADJUST":
+      return (
+        <>
+          {v.lines.map((l, i) => (
+            <Row
+              key={i}
+              label={dot(names.variety(l.varietyId), t(`stock.adjustReason.${l.reason}` as TKey))}
+              value={<Qty grams={BigInt(l.qtyG)} />}
+            />
+          ))}
+        </>
+      );
+    case "DAY_CLOSE": {
+      const diff = BigInt(v.differencePaise);
+      return (
+        <>
+          <Row label={t("dayClose.expected")} value={money(BigInt(v.expectedCashPaise))} />
+          <Row label={t("dayClose.counted")} value={money(BigInt(v.countedCashPaise))} />
+          <Row
+            label={t("dayClose.difference")}
+            value={
+              diff === 0n
+                ? t("dayClose.matched")
+                : diff < 0n
+                  ? t("dayClose.short", { amount: money(-diff) })
+                  : t("dayClose.excess", { amount: money(diff) })
+            }
+            testId="view-total"
+          />
+        </>
+      );
+    }
+    case "OPENING":
+      return (
+        <>
+          {v.items.map((it, i) => (
+            <Row
+              key={i}
+              label={
+                it.kind === "PARTY"
+                  ? names.party(it.refId)
+                  : it.kind === "BANK"
+                    ? names.bank(it.refId)
+                    : it.kind === "STOCK"
+                      ? dot(names.variety(it.varietyId), it.qtyG ? weightOf(BigInt(it.qtyG)) : null)
+                      : t(it.kind === "CASH" ? "account.CASH" : "account.CAPITAL")
+              }
+              value={money(BigInt(it.amountPaise))}
+            />
+          ))}
         </>
       );
     default:
       return <Row label={t("common.amount")} value={money(amountOf(v))} />;
   }
+}
+
+function CategoryName({ godownId, code }: { godownId: string; code: string }) {
+  const { t } = useI18n();
+  const c = useLiveQuery(
+    () => db().expenseCategories.where("[godownId+code]").equals([godownId, code]).first(),
+    [godownId, code],
+  );
+  return <>{c ? categoryLabel(c, t) : code}</>;
 }

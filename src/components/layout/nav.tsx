@@ -21,7 +21,26 @@ export const TABS: NavItem[] = [
   { href: "/purchase", label: "nav.purchase", icon: ShoppingCart, match: ["/purchase"] },
   { href: "/sale", label: "nav.saleLoad", icon: Truck, match: ["/sale", "/load"] },
   { href: "/party", label: "nav.khata", icon: BookOpen, match: ["/party", "/due", "/payment"] },
-  { href: "/more", label: "nav.more", icon: LayoutGrid, match: ["/more", "/settings", "/sync"] },
+  {
+    href: "/more",
+    label: "nav.more",
+    icon: LayoutGrid,
+    match: [
+      "/more",
+      "/settings",
+      "/sync",
+      "/expense",
+      "/cashbank",
+      "/day-close",
+      "/stock",
+      "/transfer",
+      "/vehicle",
+      "/trip",
+      "/godowns",
+      "/search",
+      "/voucher",
+    ],
+  },
 ];
 
 function isActive(item: NavItem, path: string): boolean {

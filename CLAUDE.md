@@ -71,6 +71,11 @@ Keep this list up to date.
 - Reads: `src/client/queries/*` (all take `godownId`) + Dexie `useLiveQuery`; hooks in `src/client/hooks.ts` (`useActiveGodown`, `useGodownRole`).
 - UI kit: `src/components/forms/*` (`FormShell`, pickers, fields), `src/components/money/*`, `src/components/lists/common.tsx`, `src/components/system/page.tsx` (`Fresh`, `PageSuspense`, `useParam`, `useWriteGodown`).
 - Routes are static; ids via `?id=`. Wrap entry-form routes in `<Fresh>` (Next keeps visited routes alive with React Activity). In e2e use `vis(page, testId)`.
+## Key building blocks (Phase 4)
+- Writes: `saveSimple` (EXPENSE/CONTRA/TRIP/STOCK_ADJUST/OPENING), `closeDay` / `unlockDay` (`repo/daily.ts`), `saveTransfer` / `voidTransfer` / `acceptTransfer` (`repo/transfer.ts`). Dexie schema v2 adds `transfers` (pending receipts from the server).
+- Reads: `queries/{dashboard,cashbank,expenses,vehicles,search}.ts`, `stockSummary` / `stockRegister`; all-godown views only in `queries/consolidated`.
+- UI: `src/components/daily/*` (forms, DateNav, DayBanners), `src/components/dashboard/*`, `src/components/godown/GodownWizard.tsx`; generic voucher view `/voucher/view`.
+- e2e helpers: `switchGodown`, `createGodownViaWizard`, `createParty`, `switchToEnglish`, `istDate`.
 
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**

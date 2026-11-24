@@ -53,14 +53,10 @@ export function AppShell({ children }: { children: ReactNode }) {
       <header className="bg-background/95 sticky top-0 z-30 flex h-14 items-center justify-between gap-1 border-b px-2 backdrop-blur print:hidden">
         <GodownSwitcher />
         <div className="flex shrink-0 items-center">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="size-11"
-            aria-label={t("common.search")}
-            onClick={() => toast(t("common.comingSoon"))}
-          >
-            <Search className="size-5" aria-hidden />
+          <Button variant="ghost" size="icon" className="size-11" asChild>
+            <Link href="/search" aria-label={t("common.search")} data-testid="header-search">
+              <Search className="size-5" aria-hidden />
+            </Link>
           </Button>
           <SyncBadge />
           <DropdownMenu modal={false}>
