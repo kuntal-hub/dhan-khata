@@ -48,5 +48,11 @@ Every op written in one local transaction carries the same `opGroup`. The device
 ### D16: The v1 screens were removed in v2 Phase 2
 The v1 UI was built on the v1 data model and is replaced by the 8 v2 sections in Phases 4–11. Between Phase 2 and those phases the app has only the shell, Home, Sync, login and unlock. The cold-offline e2e covers exactly these routes until the sections return.
 
+### D17: Password recovery signs out every other session
+A recovery-code reset (or the CLI reset) deletes all refresh tokens of the user. Other phones must log in with the new password; their local data and unsynced entries are untouched. **Why:** a forgotten password may also mean a lost phone.
+
+### D18: A Gola can be deleted only while it has no transactions
+`POST /api/godowns/delete` refuses with `HAS_TRANSACTIONS` once any document exists. Otherwise the Gola is archived (read-only), which keeps every book intact (§2.2).
+
 ### D9: Payment modes CASH / BANK / UPI only
 v1 modes CHEQUE, DD, BANK_TRANSFER and OTHER are migrated to BANK, with the bank account kept. The `CHEQUE_IN_HAND` stage disappears. This is an intentional v2 semantic change, listed in the migration report.

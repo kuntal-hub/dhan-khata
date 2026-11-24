@@ -11,7 +11,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 0 | Audit, gap analysis | GAP_ANALYSIS.md | ✅ |
 | 1 | Domain core (units, WeightBlock, Payment, dates, posting v2, stock engine, cashbook classifier, voice number parser) | G1–G8 + property tests; Tests 1–6 as domain tests | ✅ |
 | 2 | Data layer & migration (Dexie v4, repo, server, op groups, businessId, `scripts/migrate-v2.ts`) | sync + isolation tests; migration dry-run reconciles | ✅ |
-| 3 | Auth & Gola management | Tests 7, 8, 9 | ⬜ |
+| 3 | Auth & Gola management | Tests 7, 8, 9 | ✅ |
 | 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ⬜ |
 | 5 | Purchase + Variety | Test 1 e2e | ⬜ |
 | 6 | Sales | Test 6 e2e | ⬜ |
@@ -350,3 +350,16 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - Inter-Gola transfers (paired sale + purchase across two Golas in one op group) are rebuilt in Phase 6.
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 236 passed, 1 skipped (19 files) · `pnpm build` ✅ · `pnpm test:e2e` ✅ 1/1 (cold offline, transitional routes) · migration rehearsal reconciles ✅
+### v2 Phase 3 — Auth & Gola management — 2026-11-25
+**Built:**
+- Server: `routes/account.ts`. `GET /api/auth/status` (registration open?). `POST /api/auth/register`: business + owner + recovery code (shown once) and the device is signed in; `ALLOW_REGISTRATION` auto/true/false; a `locks` doc makes two simultaneous registrations safe. `POST /api/auth/recover`: mobile + recovery code → new password + NEW code; rate-limited; signs out all other sessions. `POST /api/me/recovery`: regenerate, needs the password. `POST /api/business`: owner profile, logo data URL, `monKg`, `deductionsEnabled`; changelog → devices. `GET /api/me/sessions` + `POST /api/me/sessions/revoke`. `POST /api/godowns/delete`: only a Gola with no transactions; others are archived. Also `server/recovery.ts` (code `DG-XXXX-XXXX-XXXX`, no ambiguous characters, argon2id hash), `scripts/admin-reset-password.ts` (`pnpm admin:reset-password --mobile=…`: temporary password + new code, all sessions signed out, audited), `publicUser` strips the recovery hash, Gola `colour` on create/edit, and audit actions `register`, `password_reset`, `recovery_regenerate`, `business_edit`.
+- Client: `client/auth/account.ts` (register, recoverPassword, regenerateRecoveryCode, updateBusinessProfile, sessions, deleteEmptyGola), `queries/consolidated/totals.ts` (read-only per-Gola + combined totals), and `ApiCallError.detail`.
+- Screens: `/login` (show/hide password, forgot link, register link only while registration is open, bn | English toggle), `/register`, `/forgot`, the shown-once `RecoveryCodeScreen` (copy, print, confirm checkbox), `FirstGolaGate` (an owner without a Gola creates one first), `/golas` (list, archive, delete-if-empty with confirmations), `/golas/new`, `/golas/edit` (+ low-stock threshold, offline via Gola settings), `/profile` (language, digits, password, PIN, new recovery code), `/business` (profile + compressed logo + mon size + deductions switch), `/sessions`. The avatar menu has the v2 items. Components: `brand/Logo` (SVG mark; pulled forward from Phase 4), `auth/AuthBits`, `shell/PageTitle`, `shell/ConfirmDialog`, `gola/GolaForm`.
+- i18n: v2 namespaces in `src/i18n/v2/{bn,en}.ts` (`acct`, `biz`, `gola`, `menu`), merged into the canonical dictionaries; app name ধান গোলা / Dhan Gola; new API and domain error messages.
+- Tests: `tests/sync/account.test.ts` covers registration closing, recovery (wrong/right/messy input, old code dead, rate limit), regeneration + audit, business profile sync, session revoke, **Test 7** (two Golas: separate books, combined = sum, delete only empty) and **Test 8** (logout blocked while unsynced; logout → re-login and a second phone restore identical books). **Test 9** is covered by `tests/sync/isolation.test.ts` (Phase 2). The cold-offline e2e now includes the new screens.
+
+**Decisions:** D17–D18.
+
+**Known issues / TODO:** the header Gola switcher still uses the v1 look and labels; Phase 4 redesigns it (colour chip, cross-fade, গোলা wording). The bank accounts and settings screens come with the sections that use them (Phases 5 and 8).
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 246 passed, 1 skipped (20 files) · `pnpm build` ✅ · `pnpm test:e2e` ✅ 1/1 (13 routes offline)

@@ -27,6 +27,12 @@ export function IdleToaster() {
 }
 
 /** `toast(message)` for modules on the Home path: loads sonner on first use. */
-export function lazyToast(message: string): void {
-  void import("sonner").then((m) => m.toast(message));
+export function lazyToast(message: string, kind: "info" | "success" | "error" = "info"): void {
+  void import("sonner").then((m) =>
+    kind === "success"
+      ? m.toast.success(message)
+      : kind === "error"
+        ? m.toast.error(message)
+        : m.toast(message),
+  );
 }

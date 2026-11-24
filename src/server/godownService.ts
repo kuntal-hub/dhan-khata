@@ -46,7 +46,7 @@ export async function createGodown(
   const godown: Godown = {
     _id: godownId,
     businessId: owner.businessId,
-    colour: GOLA_COLOURS[existingCount % GOLA_COLOURS.length]!,
+    colour: req.colour ?? GOLA_COLOURS[existingCount % GOLA_COLOURS.length]!,
     rev: 1,
     createdAt: now,
     updatedAt: now,
@@ -167,7 +167,7 @@ export async function updateGodown(
       const next: Godown = {
         _id: g._id,
         businessId: g.businessId,
-        ...(g.colour ? { colour: g.colour } : {}),
+        ...((req.colour ?? g.colour) ? { colour: req.colour ?? g.colour } : {}),
         rev,
         createdAt: g.createdAt,
         updatedAt: new Date().toISOString(),

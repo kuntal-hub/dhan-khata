@@ -55,6 +55,8 @@ export class ApiCallError extends Error {
   constructor(
     public readonly status: number,
     public readonly code: ApiErrorCode,
+    /** Server detail (a code, never a sentence), e.g. "HAS_TRANSACTIONS". */
+    public readonly detail?: string,
   ) {
     super(code);
     this.name = "ApiCallError";
@@ -103,7 +105,7 @@ export async function apiCall<T>(path: string, opts: CallOptions = {}): Promise<
   }
   if (!res.ok) {
     const code = (data as { error?: ApiErrorCode }).error ?? "SERVER_ERROR";
-    throw new ApiCallError(res.status, code);
+    throw new ApiCallError(res.status, code, (data as { detail?: string }).detail);
   }
   return data as T;
 }

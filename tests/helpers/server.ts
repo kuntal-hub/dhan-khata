@@ -11,6 +11,7 @@ import { replayLegacyV1 } from "@/client/sync/legacy";
 import { pushOnce, resetSending } from "@/client/sync/push";
 import { setTransport, setAccessToken } from "@/client/sync/transport";
 import { cols, getDb } from "@/server/db";
+import * as accountRoutes from "@/server/routes/account";
 import * as adminRoutes from "@/server/routes/admin";
 import * as authRoutes from "@/server/routes/auth";
 import * as godownRoutes from "@/server/routes/godowns";
@@ -31,6 +32,14 @@ const ROUTES: Record<string, Handler> = {
   "POST /api/auth/login": authRoutes.login,
   "POST /api/auth/refresh": authRoutes.refresh,
   "POST /api/auth/logout": authRoutes.logout,
+  "GET /api/auth/status": accountRoutes.status,
+  "POST /api/auth/register": accountRoutes.register,
+  "POST /api/auth/recover": accountRoutes.recover,
+  "POST /api/me/recovery": accountRoutes.regenerateRecovery,
+  "POST /api/business": accountRoutes.updateBusiness,
+  "GET /api/me/sessions": accountRoutes.sessions,
+  "POST /api/me/sessions/revoke": accountRoutes.revokeSession,
+  "POST /api/godowns/delete": accountRoutes.deleteGodown,
   "POST /api/sync/push": syncRoutes.push,
   "GET /api/sync/pull": syncRoutes.pull,
   "POST /api/godowns": godownRoutes.create,

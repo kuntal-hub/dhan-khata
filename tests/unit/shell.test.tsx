@@ -45,7 +45,7 @@ describe("app shell (bn ⇄ en without reload)", () => {
         <Probe />
       </Providers>,
     );
-    expect(await screen.findByText("ধান খাতা")).toBeTruthy();
+    expect(await screen.findByText("ধান গোলা")).toBeTruthy();
     expect(screen.getByTestId("money").textContent).toBe("₹২৬,০৬৮.৭৫");
     expect(screen.getByTestId("words").textContent).toBe(
       "ছাব্বিশ হাজার আটষট্টি টাকা পঁচাত্তর পয়সা মাত্র",
@@ -55,7 +55,7 @@ describe("app shell (bn ⇄ en without reload)", () => {
     await act(async () => {
       fireEvent.click(screen.getByText("lang"));
     });
-    expect(screen.getByText("Dhan Khata")).toBeTruthy();
+    expect(screen.getByText("Dhan Gola")).toBeTruthy();
     expect(screen.getByTestId("words").textContent).toBe(
       "Rupees Twenty-Six Thousand Sixty-Eight and Seventy-Five Paise Only",
     );

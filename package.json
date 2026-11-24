@@ -8,6 +8,7 @@
     "seed": "tsx scripts/seed.ts",
     "restore": "tsx scripts/restore.ts",
     "migrate:v2": "tsx scripts/migrate-v2.ts",
+    "admin:reset-password": "tsx scripts/admin-reset-password.ts",
     "icons": "node scripts/gen-icons.mjs",
     "test:e2e": "playwright test",
     "start": "next start",

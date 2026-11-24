@@ -1,9 +1,11 @@
 import type { Dictionary } from "./bn";
+import { enV2 } from "./v2/en";
 
 /** English dictionary. `satisfies Dictionary` makes a missing or extra key a type error. */
 export const en = {
+  ...enV2,
   common: {
-    appName: "Dhan Khata",
+    appName: "Dhan Gola",
     save: "Save",
     saved: "Saved",
     cancel: "Cancel",
@@ -668,6 +670,16 @@ export const en = {
       TRANSFER_SAME_GODOWN: "Can't transfer to the same godown",
       TRANSFER_NEEDS_BOTH: "Needs permission in both godowns — ask the owner",
       TRANSFER_NOT_PENDING: "This is no longer waiting to be received",
+      MILL_REQUIRED: "Choose the mill",
+      FUTURE_DATE: "A future date isn't allowed (only a due date may be in the future)",
+      OVERPAYMENT: "More than the amount due — keep the extra as an advance?",
+      SOURCE_MISMATCH: "This payment doesn't match this bill (party or paid/received differs)",
+      LINKED_PAYMENTS: "Payments are linked to this — reverse them first, or reverse all together",
+      ALREADY_LINKED: "Other entries are linked to this — reverse them first",
+      CATEGORY_IS_PAYMENT:
+        "A farmer payment is not an expense — record it as a payment to the farmer",
+      DISPATCH_TYPE_MISMATCH: "This mill dispatch type can't be used here",
+      DUPLICATE_VARIETY: "A variety with this name already exists",
     },
     api: {
       UNAUTHORIZED: "Please log in again",
@@ -683,6 +695,9 @@ export const en = {
       REFRESH_INVALID: "Please log in again",
       REFRESH_REUSED: "Logged out for safety — please log in again",
       DEVICE_MISMATCH: "Please log in again",
+      REGISTRATION_CLOSED: "The owner's account already exists for this app — please log in",
+      RECOVERY_INVALID: "The mobile number or recovery code doesn't match",
+      MOBILE_TAKEN: "An account already exists for this mobile number",
       SERVER_ERROR: "Server problem — please try again later",
       NETWORK: "No internet connection",
     },

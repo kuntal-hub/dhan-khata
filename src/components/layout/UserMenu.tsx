@@ -2,7 +2,16 @@
 
 import Link from "next/link";
 import { useRouter } from "next/navigation";
-import { Hash, Languages, LogOut, RefreshCw, Settings } from "lucide-react";
+import type { ComponentType } from "react";
+import {
+  Building2,
+  Languages,
+  LogOut,
+  RefreshCw,
+  Smartphone,
+  UserRound,
+  Warehouse,
+} from "lucide-react";
 import { toast } from "sonner";
 import {
   DropdownMenu,
@@ -15,16 +24,34 @@ import {
 import { LogoutBlockedError, logout } from "@/client/auth/session";
 import { errorKey } from "@/client/errors";
 import { useI18n } from "@/i18n/I18nProvider";
+import type { TKey } from "@/i18n/translate";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
 import type { LazyMenuProps } from "./lazyMenu";
 import { UserMenuButton } from "./UserMenuButton";
 
-/** The header user menu (🌐 language, digits, sync, settings, logout). Loaded on first tap. */
+const LINKS: Array<{
+  href: string;
+  label: TKey;
+  icon: ComponentType<{ className?: string }>;
+  owner?: boolean;
+}> = [
+  { href: "/profile", label: "menu.profile", icon: UserRound },
+  { href: "/business", label: "menu.business", icon: Building2, owner: true },
+  { href: "/golas", label: "menu.golas", icon: Warehouse, owner: true },
+  { href: "/sessions", label: "menu.sessions", icon: Smartphone },
+  { href: "/sync", label: "menu.sync", icon: RefreshCw },
+];
+
+/**
+ * The header avatar menu (requirement_v2 §11): profile, business profile, Gola management,
+ * logged-in phones, sync, language, logout. Loaded on the first tap.
+ */
 export function UserMenu({ open, onOpenChange }: LazyMenuProps) {
-  const { t, lang, setLang, digits, setDigits } = useI18n();
+  const { t, lang, setLang } = useI18n();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const userName = useAppSelector((s) => s.session.userName);
+  const isOwner = useAppSelector((s) => s.session.isOwner);
 
   const doLogout = async () => {
     try {
@@ -46,41 +73,33 @@ export function UserMenu({ open, onOpenChange }: LazyMenuProps) {
       <DropdownMenuTrigger asChild>
         <UserMenuButton />
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="min-w-56">
-        {userName ? <DropdownMenuLabel>{userName}</DropdownMenuLabel> : null}
+      <DropdownMenuContent align="end" className="min-w-60">
+        {userName ? <DropdownMenuLabel className="text-base">{userName}</DropdownMenuLabel> : null}
+        {LINKS.filter((l) => !l.owner || isOwner).map((l) => (
+          <DropdownMenuItem key={l.href} asChild className="min-h-12 text-base">
+            <Link href={l.href} data-testid={`menu-${l.href.slice(1)}`}>
+              <l.icon className="size-5" aria-hidden />
+              {t(l.label)}
+            </Link>
+          </DropdownMenuItem>
+        ))}
+        <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="min-h-11"
+          className="min-h-12 text-base"
           data-testid="toggle-language"
           onSelect={() => setLang(lang === "bn" ? "en" : "bn")}
         >
-          <Languages className="size-4" aria-hidden />
+          <Languages className="size-5" aria-hidden />
           {lang === "bn" ? t("lang.en") : t("lang.bn")}
         </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem
-          className="min-h-11"
-          data-testid="toggle-digits"
-          onSelect={() => setDigits(digits === "bn" ? "en" : "bn")}
+          className="min-h-12 text-base"
+          onSelect={() => void doLogout()}
+          data-testid="menu-logout"
         >
-          <Hash className="size-4" aria-hidden />
-          {digits === "bn" ? t("lang.digitsEn") : t("lang.digitsBn")}
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem asChild className="min-h-11">
-          <Link href="/sync">
-            <RefreshCw className="size-4" aria-hidden />
-            {t("nav.sync")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuItem asChild className="min-h-11">
-          <Link href="/settings">
-            <Settings className="size-4" aria-hidden />
-            {t("nav.settings")}
-          </Link>
-        </DropdownMenuItem>
-        <DropdownMenuSeparator />
-        <DropdownMenuItem className="min-h-11" onSelect={() => void doLogout()}>
-          <LogOut className="size-4" aria-hidden />
-          {t("auth.logout")}
+          <LogOut className="size-5" aria-hidden />
+          {t("menu.logout")}
         </DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>

@@ -47,17 +47,17 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 ### §2 Accounts, auth, Golas
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
-| 2.1 | Business entity (profile, logo) + `businessId` on docs | partial (entity + businessId done; profile UI Phase 3) | — | `Business` doc; `businessId` on all docs; server checks | 2–3 |
-| 2.2 | Registration while no owner; `REGISTRATION_CLOSED`; `ALLOW_REGISTRATION` | missing | `scripts/seed.ts` only | `/api/auth/register`, `/register` screen, env flag | 3 |
-| 2.2 | Recovery code (shown once, hashed) | missing | — | generate/hash/verify/regenerate | 3 |
-| 2.2 | Login with show/hide, rate-limited | partial | `(auth)/login`, `server/auth.ts` (rate limit done) | Show/hide toggle, new design | 3 |
-| 2.2 | Forgot password + `pnpm admin:reset-password` | missing | — | `/forgot` + `/api/auth/recover` + CLI | 3 |
+| 2.1 | Business entity (profile, logo) + `businessId` on docs | done | — | `Business` doc; `businessId` on all docs; server checks | 2–3 |
+| 2.2 | Registration while no owner; `REGISTRATION_CLOSED`; `ALLOW_REGISTRATION` | done | `scripts/seed.ts` only | `/api/auth/register`, `/register` screen, env flag | 3 |
+| 2.2 | Recovery code (shown once, hashed) | done | — | generate/hash/verify/regenerate | 3 |
+| 2.2 | Login with show/hide, rate-limited | done | `(auth)/login`, `server/auth.ts` (rate limit done) | Show/hide toggle, new design | 3 |
+| 2.2 | Forgot password + `pnpm admin:reset-password` | done | — | `/forgot` + `/api/auth/recover` + CLI | 3 |
 | 2.2 | Logout blocked while unsynced | done | `client/auth/session.ts` | Keep; add "export unsynced" | 3 |
-| 2.2 | Sessions list + revoke | partial | admin devices route, settings users page | Owner "Sessions" screen in avatar menu | 3 |
-| 2.2 | User profile (name, mobile, password, language, digits, PIN) | partial | settings page, `/api/me/*` | Profile screen | 3 |
-| 2.2 | Business profile + logo upload | missing | godown letterhead only | Business profile screen + small logo asset | 3 |
-| 2.2 | Gola create/edit/archive | done | `GodownWizard`, `/godowns`, `godownService.ts` | Move into avatar menu; colour; low-stock thresholds; delete blocked | 3 |
-| 2.2 | Staff logins out of scope | conflicts | roles UI, `/settings/users`, entry-role gates | Hide staff UI; keep roles internally | 3 |
+| 2.2 | Sessions list + revoke | done | admin devices route, settings users page | Owner "Sessions" screen in avatar menu | 3 |
+| 2.2 | User profile (name, mobile, password, language, digits, PIN) | done | settings page, `/api/me/*` | Profile screen | 3 |
+| 2.2 | Business profile + logo upload | done | godown letterhead only | Business profile screen + small logo asset | 3 |
+| 2.2 | Gola create/edit/archive (+ colour, low stock, delete only when empty) | done | `GodownWizard`, `/godowns`, `godownService.ts` | Move into avatar menu; colour; low-stock thresholds; delete blocked | 3 |
+| 2.2 | Staff logins out of scope | done (staff UI removed; roles internal, D14) | roles UI, `/settings/users`, entry-role gates | Hide staff UI; keep roles internally | 3 |
 | 2.3 | Gola switcher in header + Dashboard, colour chip, cross-fade ≤250 ms | partial | `GodownSwitcher*` | Colour chip, motion cross-fade | 4 |
 | 2.3 | Form title shows Gola; switching with dirty form asks | partial | `FormShell` shows godown | Confirm on switch with dirty form | 4 |
 | 2.3 | Combined (all Golas) read-only view | done | `queries/consolidated` | Rebuild as side-by-side + total in Dashboard & reports | 8 |
@@ -150,7 +150,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 17 | Offline-first sync, conflicts never merged for money, **op groups** | done | `client/sync/*`, `applyOp.ts` (one op per tx) | Op groups applied in one Mongo transaction | 2 |
 | 18 | Manifest name, shortcuts (নতুন কেনা, নতুন বিক্রি, খরচ, ক্যাশবই), icons | partial | `manifest.ts` | Update | 4 |
 | 19 | Security (argon2id, rate limits, recovery rate limit, audit incl. password reset/export) | partial | `server/auth.ts` | Recovery rate limit + audit actions | 3 |
-| 20 | Ops: env `ALLOW_REGISTRATION`, `NEXT_PUBLIC_APP_NAME=Dhan Gola` | missing | `.env.example` | Add | 3–4 |
+| 20 | Ops: env `ALLOW_REGISTRATION`, `NEXT_PUBLIC_APP_NAME=Dhan Gola` | done | `.env.example` | Add | 3–4 |
 
 ### §21 Acceptance tests
 | Test | Status | Planned |
@@ -161,8 +161,8 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 4 Cashbook 30,000 / shortage 500 / excess 200 | partial (G5 dashboard) | Domain (Phase 1) + e2e (Phase 8) |
 | 5 Backdated expense | missing | Domain (Phase 1) + e2e (Phase 7) |
 | 6 Partial sales collection | missing | Domain (Phase 1) + e2e (Phase 6) |
-| 7 Two Golas + combined | partial (G10) | e2e (Phase 3/8) |
-| 8 Persistence | partial (offline spec) | e2e (Phase 3/12) |
-| 9 Security | partial (`isolation.test.ts`) | + businessId, second business (Phase 2/3) |
+| 7 Two Golas + combined | done (Vitest; e2e Phase 12) | e2e (Phase 3/8) |
+| 8 Persistence | done (Vitest; e2e Phase 12) | e2e (Phase 3/12) |
+| 9 Security | done (`isolation.test.ts`, `account.test.ts`) | + businessId, second business (Phase 2/3) |
 | 10 Edit & reversal | partial (property tests) | Phase 12 |
 | 11 UX | missing | Phase 12 |

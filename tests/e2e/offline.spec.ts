@@ -10,7 +10,21 @@ import { expectNoHorizontalScroll, loginFresh, openBrowser, unlockIfAsked } from
  * model; the 8 v2 sections are added back to this list as they are built (Phases 4–11), and the
  * full offline entry flow returns with the Purchase / Expense / Load screens.
  */
-const ROUTES = ["/", "/sync", "/login", "/unlock", "/~offline"];
+const ROUTES = [
+  "/",
+  "/sync",
+  "/login",
+  "/unlock",
+  "/~offline",
+  "/register",
+  "/forgot",
+  "/profile",
+  "/business",
+  "/golas",
+  "/golas/new",
+  "/golas/edit?id=x",
+  "/sessions",
+];
 
 test("cold offline start: every route works from the device", async () => {
   // 1. Online: log in, set PIN, first download, service worker installed.

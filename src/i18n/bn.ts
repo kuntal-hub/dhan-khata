@@ -3,9 +3,12 @@
  * Terms follow the glossary in requirement.md §1.2 exactly.
  * Plural entries are objects with `one` / `other`. Interpolation: `{name}`.
  */
+import { bnV2 } from "./v2/bn";
+
 export const bn = {
+  ...bnV2,
   common: {
-    appName: "ধান খাতা",
+    appName: "ধান গোলা",
     save: "সেভ করুন",
     saved: "সেভ হয়েছে",
     cancel: "বাতিল করুন",
@@ -667,6 +670,15 @@ export const bn = {
       TRANSFER_SAME_GODOWN: "একই গোডাউনে পাঠানো যায় না",
       TRANSFER_NEEDS_BOTH: "দুই গোডাউনেই অনুমতি লাগবে — মালিককে বলুন",
       TRANSFER_NOT_PENDING: "এটি আর গ্রহণের অপেক্ষায় নেই",
+      MILL_REQUIRED: "কোন মিল সেটা বেছে নিন",
+      FUTURE_DATE: "আগামী দিনের তারিখ দেওয়া যাবে না (শুধু বাকির তারিখ আগামী হতে পারে)",
+      OVERPAYMENT: "বাকির চেয়ে বেশি টাকা — বাড়তিটা অগ্রিম হিসেবে রাখবেন?",
+      SOURCE_MISMATCH: "এই পেমেন্ট এই বিলের সাথে মিলছে না (পার্টি বা দিলাম/পেলাম আলাদা)",
+      LINKED_PAYMENTS: "এর সাথে পেমেন্ট যুক্ত আছে — আগে পেমেন্টগুলো বাতিল করুন অথবা সব একসাথে বাতিল করুন",
+      ALREADY_LINKED: "এর সাথে অন্য এন্ট্রি যুক্ত আছে — আগে সেগুলো বাতিল করুন",
+      CATEGORY_IS_PAYMENT: "কৃষক পেমেন্ট খরচ নয় — কৃষককে পেমেন্ট হিসেবে লিখুন",
+      DISPATCH_TYPE_MISMATCH: "এই মিলে-পাঠানোর ধরন এর জন্য চলবে না",
+      DUPLICATE_VARIETY: "এই নামের জাত আগেই আছে",
     },
     api: {
       UNAUTHORIZED: "আবার লগইন করুন",
@@ -682,6 +694,9 @@ export const bn = {
       REFRESH_INVALID: "আবার লগইন করুন",
       REFRESH_REUSED: "নিরাপত্তার জন্য লগ আউট করা হয়েছে — আবার লগইন করুন",
       DEVICE_MISMATCH: "আবার লগইন করুন",
+      REGISTRATION_CLOSED: "এই অ্যাপে মালিকের অ্যাকাউন্ট আগেই খোলা হয়েছে — লগইন করুন",
+      RECOVERY_INVALID: "মোবাইল নম্বর বা রিকভারি কোড মিলছে না",
+      MOBILE_TAKEN: "এই মোবাইল নম্বরে আগেই অ্যাকাউন্ট আছে",
       SERVER_ERROR: "সার্ভারে সমস্যা — পরে আবার চেষ্টা করুন",
       NETWORK: "ইন্টারনেট সংযোগ নেই",
     },

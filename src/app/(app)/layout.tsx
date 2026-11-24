@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AuthGate } from "@/components/system/AuthGate";
 import { ClientRuntime } from "@/components/system/ClientRuntime";
+import { FirstGolaGate } from "@/components/gola/FirstGolaGate";
 
 // Client-gated app: see the note in src/app/layout.tsx.
 export const instant = false;
@@ -11,7 +12,9 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <ClientRuntime>
       <AuthGate>
-        <AppShell>{children}</AppShell>
+        <FirstGolaGate>
+          <AppShell>{children}</AppShell>
+        </FirstGolaGate>
       </AuthGate>
     </ClientRuntime>
   );

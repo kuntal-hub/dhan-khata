@@ -40,7 +40,7 @@ export function onAuthEvent(fn: (e: AuthEvent) => void): () => void {
   return () => listeners.delete(fn);
 }
 
-function emit(e: AuthEvent) {
+export function emit(e: AuthEvent) {
   listeners.forEach((l) => l(e));
 }
 
@@ -62,7 +62,7 @@ export function isRevokedError(e: unknown): boolean {
   return e instanceof ApiCallError && e.code === "DEVICE_REVOKED";
 }
 
-async function storeAuth(res: AuthResponse): Promise<SessionMeta> {
+export async function storeAuth(res: AuthResponse): Promise<SessionMeta> {
   setAccessToken(res.accessToken, res.accessExpiresAt);
   const prev = await getSession();
   const session: SessionMeta = {
@@ -157,6 +157,7 @@ async function wipeLocalData(): Promise<void> {
       META.bootstrapped,
       META.activeGodownId,
       META.lastSyncAt,
+      META.business,
     ]) {
       await deleteMeta(key);
     }

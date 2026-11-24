@@ -17,7 +17,7 @@ import { cols, type UserDoc } from "./db";
 import { serverEnv } from "./env";
 import { ApiError, getCookie } from "./http";
 
-const ISSUER = "dhan-khata";
+const ISSUER = "dhan-gola";
 export const REFRESH_COOKIE = "dk_rt";
 /** Two tabs refreshing at once: the second within this window gets an access token only. */
 const REFRESH_GRACE_MS = 30_000;
@@ -37,7 +37,7 @@ export async function verifyPassword(passwordHash: string, password: string): Pr
 // A real hash to verify against for unknown phones (constant-ish time, no user enumeration).
 let dummyHash: Promise<string> | null = null;
 export function dummyPasswordHash(): Promise<string> {
-  dummyHash ??= hash("dhan-khata-dummy-password");
+  dummyHash ??= hash("dhan-gola-dummy-password");
   return dummyHash;
 }
 
@@ -101,9 +101,9 @@ export async function authenticate(db: Db, request: Request): Promise<AuthContex
   return { user, device };
 }
 
-/** The user as sent to clients (never the password hash). */
+/** The user as sent to clients (never the password or recovery-code hash). */
 export function publicUser(u: UserDoc): User {
-  const { passwordHash: _h, ...rest } = u;
+  const { passwordHash: _h, recoveryCodeHash: _r, ...rest } = u;
   return rest;
 }
 

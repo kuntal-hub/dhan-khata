@@ -172,6 +172,7 @@ export const CreateGodownRequestSchema = z.strictObject({
   address: z.string().max(300).optional(),
   phone: z.string().max(20).optional(),
   receiptLanguage: z.enum(["bn", "en", "both"]).optional(),
+  colour: z.string().max(20).optional(),
 });
 export type CreateGodownRequest = z.infer<typeof CreateGodownRequestSchema>;
 
@@ -186,5 +187,6 @@ export const UpdateGodownRequestSchema = z.strictObject({
   phone: z.string().max(20).optional(),
   gstin: z.string().max(15).optional(),
   receiptLanguage: z.enum(["bn", "en", "both"]),
+  colour: z.string().max(20).optional(),
 });
 export type UpdateGodownRequest = z.infer<typeof UpdateGodownRequestSchema>;
