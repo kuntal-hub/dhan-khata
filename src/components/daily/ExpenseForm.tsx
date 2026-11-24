@@ -17,7 +17,7 @@ import {
 } from "@/components/forms/pickers";
 import { AmountInput } from "@/components/money/inputs";
 import { Loading } from "@/components/lists/common";
-import { ReadOnlyNotice, useWriteGodown } from "@/components/system/page";
+import { ReadOnlyNotice, useMayViewVoucher, useWriteGodown } from "@/components/system/page";
 import { saveSimple, type VoucherDraft } from "@/client/repo";
 import { paiseToInput, parseAmountField } from "@/client/ui/parse";
 import { useFormDraft } from "@/client/ui/hooks";
@@ -90,11 +90,15 @@ export function ExpenseForm({
 }) {
   const { godownId, readOnly } = useWriteGodown();
   const existing = useVoucher(editId);
+  const mayView = useMayViewVoucher();
   if (readOnly) return <ReadOnlyNotice reason={readOnly} />;
   if (!godownId || existing === undefined) return <Loading />;
   if (editId && (!existing || existing.type !== "EXPENSE")) {
     return <ReadOnlyNotice reason="notFound" />;
   }
+  // The `entry` role opens only its own entries.
+  if (!mayView) return <Loading />;
+  if (existing && !mayView(existing)) return <ReadOnlyNotice reason="entryRole" />;
   return (
     <ExpenseFormInner
       key={editId ?? "new"}

@@ -8,6 +8,8 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 export const E2E_PORT = Number(process.env.E2E_PORT ?? 3100);
 export const E2E_OWNER = { phone: "9830012345", password: "e2e-owner-pass", name: "E2E Owner" };
+/** Field staff: `entry` role in Rampur (RP) only (spec §2). */
+export const E2E_ENTRY = { phone: "9830054321", password: "e2e-entry-pass", name: "E2E Entry" };
 
 async function main() {
   const replSet = await MongoMemoryReplSet.create({
@@ -30,8 +32,9 @@ async function main() {
   const { createGodown } = await import("@/server/godownService");
   const db = await getDb();
   const owner = await createUser(db, { ...E2E_OWNER, isOwner: true });
-  await createGodown(db, owner, { name: "Rampur", code: "RP" });
+  const rampur = await createGodown(db, owner, { name: "Rampur", code: "RP" });
   await createGodown(db, owner, { name: "Sonapur", code: "SP" });
+  await createUser(db, { ...E2E_ENTRY, godownAccess: [{ godownId: rampur._id, role: "entry" }] });
   await closeMongo();
 
   const require = createRequire(import.meta.url);

@@ -19,6 +19,7 @@ import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomShe
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { InstallButton } from "@/components/pwa/InstallButton";
 import { Loading } from "@/components/lists/common";
+import { mayOpenPath } from "@/client/access";
 import { useActiveGodown, useGodownRole } from "@/client/hooks";
 import { todayIST } from "@/domain/dates";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -81,6 +82,8 @@ export default function HomePage() {
   const [fab, setFab] = useState(false);
   const [date, setDate] = useState(todayIST());
   const writable = !!godownId && !consolidated && role !== null && role !== "viewer";
+  // The `entry` role sees only the entries it may create (purchase, load, expense).
+  const actions = QUICK_ACTIONS.filter((a) => mayOpenPath(role, a.href));
 
   const go = (a: QuickAction) => {
     setFab(false);
@@ -89,7 +92,7 @@ export default function HomePage() {
 
   const quickActions = writable ? (
     <div className="grid grid-cols-2 gap-2 sm:grid-cols-3" data-testid="quick-actions">
-      {QUICK_ACTIONS.map((a) => {
+      {actions.map((a) => {
         const Icon = a.icon;
         return (
           <Button
@@ -135,7 +138,7 @@ export default function HomePage() {
       ) : null}
       <BottomSheet open={fab} onOpenChange={setFab} title={t("home.quickActions")}>
         <div className="grid grid-cols-2 gap-2">
-          {QUICK_ACTIONS.map((a) => {
+          {actions.map((a) => {
             const Icon = a.icon;
             return (
               <Button

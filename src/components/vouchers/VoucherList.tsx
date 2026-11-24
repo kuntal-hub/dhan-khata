@@ -9,6 +9,8 @@ import { DateField, SeasonField } from "@/components/forms/fields";
 import { VarietyPicker } from "@/components/forms/pickers";
 import { EmptyState, Loading } from "@/components/lists/common";
 import { VirtualList } from "@/components/lists/VirtualList";
+import { visibleVouchers } from "@/client/access";
+import { useViewScope } from "@/client/hooks";
 import { listVouchers, type ListFilter } from "@/client/queries/vouchers";
 import type { Voucher, VoucherType } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -22,7 +24,10 @@ function partyOf(v: Voucher): string | undefined {
   return "partyId" in v ? (v.partyId as string | undefined) : undefined;
 }
 
-/** Filterable, virtualized list of one voucher type in the active godown. */
+/**
+ * Filterable, virtualized list of one voucher type in the active godown. The `entry` role sees
+ * only the vouchers it created (`client/access`).
+ */
 export function VoucherList({
   godownId,
   type,
@@ -44,13 +49,15 @@ export function VoucherList({
     () => listVouchers(godownId, type, f),
     [godownId, type, JSON.stringify(f)],
   );
-  const shown =
-    list?.filter(
-      (v) =>
-        !f.settlement ||
-        f.settlement === "ALL" ||
-        (v.type === "SALE" && v.settlementStatus === f.settlement),
-    ) ?? undefined;
+  const { role, userId } = useViewScope();
+  const shown = list
+    ? visibleVouchers(role, userId, list).filter(
+        (v) =>
+          !f.settlement ||
+          f.settlement === "ALL" ||
+          (v.type === "SALE" && v.settlementStatus === f.settlement),
+      )
+    : undefined;
 
   return (
     <div className="flex flex-col gap-2">

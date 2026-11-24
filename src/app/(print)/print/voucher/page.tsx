@@ -5,7 +5,12 @@ import { useState } from "react";
 import { Loading } from "@/components/lists/common";
 import { PrintFrame, type ReceiptLang } from "@/components/print/PrintFrame";
 import { ReceiptBody } from "@/components/print/Receipt";
-import { PageSuspense, ReadOnlyNotice, useParam } from "@/components/system/page";
+import {
+  PageSuspense,
+  ReadOnlyNotice,
+  useMayViewVoucher,
+  useParam,
+} from "@/components/system/page";
 import { useNames } from "@/components/vouchers/names";
 import { db } from "@/client/db/dexie";
 import type { Godown, Voucher } from "@/domain/schemas";
@@ -21,8 +26,11 @@ function Inner() {
     return godown ? { v, godown } : null;
   }, [id]);
   const names = useNames(data ? data.godown._id : null);
+  const mayView = useMayViewVoucher();
   if (data === undefined || (data && !names)) return <Loading />;
   if (!data || !names) return <ReadOnlyNotice reason="notFound" />;
+  if (!mayView) return <Loading />;
+  if (!mayView(data.v)) return <ReadOnlyNotice reason="entryRole" />;
   return <Printable v={data.v} godown={data.godown} names={names} />;
 }
 

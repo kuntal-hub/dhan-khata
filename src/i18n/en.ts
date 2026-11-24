@@ -307,6 +307,7 @@ export const en = {
     choose: "Choose a godown",
     archived: "Archived (view only)",
     readOnlyAll: "All godowns — view only",
+    entryOnly: "The entry role can see only its own entries and today's dashboard.",
     none: "No godown yet. Ask the owner to add one.",
     confirmSwitchTitle: "Switch godown?",
     confirmSwitchBody: "This form has unsaved changes. Switching godown will discard them.",
@@ -810,6 +811,7 @@ export const en = {
     newTrip: "+ Vehicle trip",
     quickActions: "New entry",
     todayList: "Today's entries",
+    myTodayList: "My entries today",
     todayEmpty: "No entries yet today",
   },
   masters: {

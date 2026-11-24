@@ -14,7 +14,8 @@ import { PageHeader, PageSuspense, ReadOnlyNotice, useParam } from "@/components
 import { useNames } from "@/components/vouchers/names";
 import { viewPathOf } from "@/components/vouchers/VoucherView";
 import { db } from "@/client/db/dexie";
-import { useActiveGodown } from "@/client/hooks";
+import { VoucherList } from "@/components/vouchers/VoucherList";
+import { useActiveGodown, useViewScope } from "@/client/hooks";
 import { VEHICLE_BUCKET } from "@/client/queries/dashboard";
 import { dailyExpense, monthlyExpenses } from "@/client/queries/expenses";
 import { categoryLabel } from "@/client/ui/labels";
@@ -200,8 +201,18 @@ function Monthly({ godownId }: { godownId: string }) {
 function Inner() {
   const { t } = useI18n();
   const { godownId, consolidated } = useActiveGodown();
+  const { entryOnly } = useViewScope();
   if (consolidated) return <ReadOnlyNotice reason="consolidated" />;
   if (!godownId) return <Loading />;
+  // The `entry` role sees its own expenses only, not the godown's daily/monthly totals.
+  if (entryOnly) {
+    return (
+      <div className="flex flex-col gap-3">
+        <PageHeader title={t("expense.title")} />
+        <VoucherList godownId={godownId} type="EXPENSE" newHref="/expense/new" />
+      </div>
+    );
+  }
   return (
     <div className="flex flex-col gap-3">
       <PageHeader

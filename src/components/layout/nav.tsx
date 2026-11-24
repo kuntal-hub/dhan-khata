@@ -4,6 +4,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BookOpen, Home, LayoutGrid, ShoppingCart, Truck, type LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useViewScope } from "@/client/hooks";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 
@@ -45,6 +46,18 @@ export const TABS: NavItem[] = [
   },
 ];
 
+/**
+ * Tabs for the active role. The `entry` role (own entries only) has no khata tab, and its
+ * sale/load tab opens its own loads.
+ */
+function useTabs(): NavItem[] {
+  const { entryOnly } = useViewScope();
+  if (!entryOnly) return TABS;
+  return TABS.filter((t) => t.href !== "/party").map((t) =>
+    t.href === "/sale" ? { ...t, href: "/load", match: ["/load", "/sale"] } : t,
+  );
+}
+
 function isActive(item: NavItem, path: string): boolean {
   if (item.href === "/") return path === "/";
   return item.match.some((m) => path === m || path.startsWith(`${m}/`));
@@ -54,13 +67,14 @@ function isActive(item: NavItem, path: string): boolean {
 export function BottomTabs() {
   const { t } = useI18n();
   const path = usePathname();
+  const tabs = useTabs();
   return (
     <nav
       className="bg-background/95 fixed inset-x-0 bottom-0 z-30 border-t backdrop-blur md:hidden print:hidden"
       aria-label={t("nav.main")}
     >
       <ul className="mx-auto flex max-w-md">
-        {TABS.map((item) => {
+        {tabs.map((item) => {
           const active = isActive(item, path);
           const Icon = item.icon;
           return (
@@ -89,13 +103,14 @@ export function BottomTabs() {
 export function Sidebar() {
   const { t } = useI18n();
   const path = usePathname();
+  const tabs = useTabs();
   return (
     <nav
       className="sticky top-14 hidden h-[calc(100dvh-3.5rem)] w-52 shrink-0 border-r p-2 md:block print:hidden"
       aria-label={t("nav.main")}
     >
       <ul className="flex flex-col gap-1">
-        {TABS.map((item) => {
+        {tabs.map((item) => {
           const active = isActive(item, path);
           const Icon = item.icon;
           return (

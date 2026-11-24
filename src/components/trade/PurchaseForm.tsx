@@ -17,7 +17,7 @@ import { PartyPicker } from "@/components/forms/pickers";
 import { Computed } from "@/components/money/display";
 import { AmountInput } from "@/components/money/inputs";
 import { Loading } from "@/components/lists/common";
-import { ReadOnlyNotice, useWriteGodown } from "@/components/system/page";
+import { ReadOnlyNotice, useMayViewVoucher, useWriteGodown } from "@/components/system/page";
 import { avgPurchaseRate30d, rateOutOfBand } from "@/client/queries/vouchers";
 import { getLastUsed, savePurchase, type VoucherDraft } from "@/client/repo";
 import { paiseToInput, parseAmountField } from "@/client/ui/parse";
@@ -95,10 +95,14 @@ export function PurchaseForm({ editId }: { editId?: string }) {
   const { godownId, readOnly } = useWriteGodown();
   const settings = useGodownSettings(godownId);
   const existing = useVoucher(editId);
+  const mayView = useMayViewVoucher();
   if (readOnly) return <ReadOnlyNotice reason={readOnly} />;
   if (!godownId || !settings || existing === undefined) return <Loading />;
   if (editId && (!existing || existing.type !== "PURCHASE"))
     return <ReadOnlyNotice reason="notFound" />;
+  // The `entry` role opens only its own entries.
+  if (!mayView) return <Loading />;
+  if (existing && !mayView(existing)) return <ReadOnlyNotice reason="entryRole" />;
   return (
     <PurchaseFormInner
       key={editId ?? "new"}

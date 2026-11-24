@@ -1,10 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter, useSearchParams } from "next/navigation";
+import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import { Fragment, Suspense, type ReactNode } from "react";
 import { Lock } from "lucide-react";
-import { useActiveGodown } from "@/client/hooks";
+import { mayOpenPath, mayViewVoucher } from "@/client/access";
+import { roleIn } from "@/domain/rbac";
+import { useActiveGodown, useViewScope } from "@/client/hooks";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppSelector } from "@/store";
 import { Loading } from "@/components/lists/common";
@@ -19,7 +21,8 @@ export function useParam(name: string): string | undefined {
   return sp.get(name) ?? undefined;
 }
 
-export type ReadOnlyReason = "consolidated" | "archived" | "noGodown" | "viewer" | "notFound";
+export type ReadOnlyReason =
+  "consolidated" | "archived" | "noGodown" | "viewer" | "notFound" | "entryRole";
 
 /**
  * The godown a form writes into (always the active one) and why writing is impossible, if it is:
@@ -46,15 +49,20 @@ export function useWriteGodown() {
 export function ReadOnlyNotice({ reason }: { reason: ReadOnlyReason }) {
   const { t } = useI18n();
   const key =
-    reason === "consolidated"
-      ? "godown.readOnlyAll"
-      : reason === "archived"
-        ? "godown.archived"
-        : reason === "notFound" || reason === "viewer"
-          ? "errors.domain.FORBIDDEN"
-          : "godown.none";
+    reason === "entryRole"
+      ? "godown.entryOnly"
+      : reason === "consolidated"
+        ? "godown.readOnlyAll"
+        : reason === "archived"
+          ? "godown.archived"
+          : reason === "notFound" || reason === "viewer"
+            ? "errors.domain.FORBIDDEN"
+            : "godown.none";
   return (
-    <div className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center text-sm">
+    <div
+      className="text-muted-foreground flex flex-col items-center gap-2 py-10 text-center text-sm"
+      data-testid={`notice-${reason}`}
+    >
       <Lock className="size-8 opacity-60" aria-hidden />
       <p>{t(key)}</p>
       <Link href="/" className="text-primary min-h-11 py-3 underline">
@@ -80,4 +88,27 @@ export function PageHeader({ title, actions }: { title: string; actions?: ReactN
 export function Fresh({ children }: { children: ReactNode }) {
   const { bfcacheId } = useRouter();
   return <Fragment key={bfcacheId}>{children}</Fragment>;
+}
+
+/**
+ * Screens the active role may not open render a notice instead (the `entry` role: own entries
+ * + today's dashboard, `client/access`). Used by the app and print layouts.
+ */
+export function RoleGate({ children }: { children: ReactNode }) {
+  const path = usePathname();
+  const { loaded, role } = useViewScope();
+  if (!loaded) return <Loading />;
+  if (!mayOpenPath(role, path)) return <ReadOnlyNotice reason="entryRole" />;
+  return <>{children}</>;
+}
+
+/**
+ * Whether the signed-in user may see a voucher, by their role in the VOUCHER's godown (the
+ * `entry` role: own vouchers only). `null` while the session is still loading: show a spinner.
+ */
+export function useMayViewVoucher():
+  ((v: { createdBy: string; godownId: string }) => boolean) | null {
+  const { loaded, user } = useViewScope();
+  if (!loaded) return null;
+  return (v) => mayViewVoucher(user ? roleIn(user, v.godownId) : null, user ? user._id : null, v);
 }

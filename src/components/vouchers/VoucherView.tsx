@@ -19,7 +19,7 @@ import {
 } from "@/components/ui/dialog";
 import { TextField } from "@/components/forms/fields";
 import { Loading, SyncIcon } from "@/components/lists/common";
-import { ReadOnlyNotice } from "@/components/system/page";
+import { ReadOnlyNotice, useMayViewVoucher } from "@/components/system/page";
 import { db } from "@/client/db/dexie";
 import { getSession } from "@/client/db/meta";
 import { errorKey } from "@/client/errors";
@@ -30,6 +30,7 @@ import { dot, spaced } from "@/client/ui/text";
 import { groupPrimary, LINKED_REMOVED, unlockDay, voidTransfer, voidVoucher } from "@/client/repo";
 import { categoryLabel } from "@/client/ui/labels";
 import { loadMargin } from "@/domain/calc/load";
+import { entryMayChange } from "@/domain/rbac";
 import { tripProfit } from "@/domain/calc/trip";
 import { saleSummary } from "@/domain/calc/sale";
 import { computeDeductions, lineInputFromJson } from "@/domain/calc/trade";
@@ -49,6 +50,7 @@ export function VoucherView({ id }: { id: string | undefined }) {
   const { t, money, date } = useI18n();
   const router = useRouter();
   const role = useGodownRole();
+  const mayView = useMayViewVoucher();
   const v = useLiveQuery(async () => (id ? ((await db().vouchers.get(id)) ?? null) : null), [id]);
   const names = useNames(v ? v.godownId : null);
   const group = useLiveQuery(async () => (v ? await groupOf(v) : []), [v?._id, v?.rev]);
@@ -80,12 +82,25 @@ export function VoucherView({ id }: { id: string | undefined }) {
 
   if (v === undefined || !names || group === undefined) return <Loading />;
   if (v === null) return <ReadOnlyNotice reason="notFound" />;
+  if (!mayView) return <Loading />;
+  if (!mayView(v)) return <ReadOnlyNotice reason="entryRole" />;
 
   const primary = groupPrimary(group);
   const linked = v.status === "active" && primary !== undefined && primary._id !== v._id;
   const isVoid = v.status === "void";
+  // `entry`: own entries only, within 30 minutes and before sync (the repo enforces the same).
+  const entryMayEdit =
+    role !== "entry" ||
+    (session !== undefined &&
+      session !== null &&
+      entryMayChange(v, session.user._id, new Date().toISOString(), { requireUnsynced: true }));
   const canEdit =
-    !isVoid && !linked && role !== null && role !== "viewer" && editPathOf(v) !== null;
+    !isVoid &&
+    !linked &&
+    role !== null &&
+    role !== "viewer" &&
+    entryMayEdit &&
+    editPathOf(v) !== null;
   const canVoid = !isVoid && !linked && role === "owner";
   const createdBy =
     session && session.user._id === v.createdBy ? session.user.name : t("voucher.otherUser");
@@ -169,7 +184,7 @@ export function VoucherView({ id }: { id: string | undefined }) {
             {t("common.edit")}
           </Button>
         ) : null}
-        {v.type === "SALE" && !isVoid && role !== "viewer" && !isTransfer(v) ? (
+        {v.type === "SALE" && !isVoid && role !== "viewer" && role !== "entry" && !isTransfer(v) ? (
           <Button
             variant="outline"
             className="h-11"

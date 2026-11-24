@@ -64,7 +64,7 @@ export function DayBanners() {
 
   return (
     <>
-      {dueCount > 0 && !hideRem ? (
+      {dueCount > 0 && !hideRem && role !== "entry" ? (
         <div
           className="bg-primary/10 flex flex-wrap items-center gap-2 rounded-md p-2 text-sm"
           data-testid="banner-reminders"
@@ -122,7 +122,7 @@ export function DayBanners() {
             </div>
           ))
         : null}
-      {data.pending > 0 ? (
+      {data.pending > 0 && role !== "entry" ? (
         <Link
           href="/stock#pending"
           className="bg-primary/10 flex min-h-11 items-center gap-2 rounded-md p-2 text-sm"

@@ -7,7 +7,7 @@ import { PartyPicker, PlacePicker, VarietyPicker } from "@/components/forms/pick
 import { Computed } from "@/components/money/display";
 import { AmountInput, CountInput, RateInput, WeightInput } from "@/components/money/inputs";
 import { Loading } from "@/components/lists/common";
-import { ReadOnlyNotice, useWriteGodown } from "@/components/system/page";
+import { ReadOnlyNotice, useMayViewVoucher, useWriteGodown } from "@/components/system/page";
 import { saveLoad, type VoucherDraft } from "@/client/repo";
 import {
   gramsToKgInput,
@@ -99,10 +99,14 @@ export function LoadForm({ editId }: { editId?: string }) {
   const { godownId, readOnly } = useWriteGodown();
   const settings = useGodownSettings(godownId);
   const existing = useVoucher(editId);
+  const mayView = useMayViewVoucher();
   if (readOnly) return <ReadOnlyNotice reason={readOnly} />;
   if (!godownId || !settings || existing === undefined) return <Loading />;
   if (editId && (!existing || existing.type !== "LOAD"))
     return <ReadOnlyNotice reason="notFound" />;
+  // The `entry` role opens only its own entries.
+  if (!mayView) return <Loading />;
+  if (existing && !mayView(existing)) return <ReadOnlyNotice reason="entryRole" />;
   return (
     <LoadFormInner
       key={editId ?? "new"}

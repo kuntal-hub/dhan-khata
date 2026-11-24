@@ -20,6 +20,8 @@ import { Badge } from "@/components/ui/badge";
 import { PageHeader } from "@/components/system/page";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppSelector } from "@/store";
+import { mayOpenPath } from "@/client/access";
+import { useViewScope } from "@/client/hooks";
 import type { TKey } from "@/i18n/translate";
 
 interface Item {
@@ -48,11 +50,14 @@ const ITEMS: Item[] = [
 export default function MorePage() {
   const { t } = useI18n();
   const isOwner = useAppSelector((s) => s.session.isOwner);
+  const { role } = useViewScope();
   return (
     <div className="flex flex-col gap-3">
       <PageHeader title={t("nav.more")} />
       <ul className="grid grid-cols-2 gap-2 sm:grid-cols-3">
-        {ITEMS.filter((i) => !i.ownerOnly || isOwner).map((item) => {
+        {ITEMS.filter(
+          (i) => (!i.ownerOnly || isOwner) && (!i.href || mayOpenPath(role, i.href)),
+        ).map((item) => {
           const Icon = item.icon;
           const body = (
             <>

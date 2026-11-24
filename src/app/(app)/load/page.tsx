@@ -10,7 +10,8 @@ import { PartyPicker, VarietyPicker } from "@/components/forms/pickers";
 import { EmptyState, Loading } from "@/components/lists/common";
 import { PageHeader, ReadOnlyNotice, useWriteGodown } from "@/components/system/page";
 import { useNames } from "@/components/vouchers/names";
-import { useActiveGodown } from "@/client/hooks";
+import { VoucherList } from "@/components/vouchers/VoucherList";
+import { useActiveGodown, useViewScope } from "@/client/hooks";
 import { loadRegister, type ListFilter } from "@/client/queries/vouchers";
 import { downloadWorkbook } from "@/client/export/excel";
 import { normalizeVehicleNumber, formatVehicleNumber } from "@/domain/schemas";
@@ -21,6 +22,7 @@ export default function LoadRegisterPage() {
   const { t, money, weightOf, rate, date } = useI18n();
   const { godownId } = useActiveGodown();
   const { readOnly } = useWriteGodown();
+  const { entryOnly } = useViewScope();
   const names = useNames(godownId);
   const [f, setF] = useState<ListFilter & { vehicle?: string }>({});
   const rows = useLiveQuery(
@@ -28,6 +30,19 @@ export default function LoadRegisterPage() {
     [godownId, JSON.stringify(f)],
   );
   if (!godownId) return <ReadOnlyNotice reason="noGodown" />;
+  // The `entry` role sees its own loads only, not the godown's register (margins, totals).
+  if (entryOnly) {
+    return (
+      <div className="flex flex-col gap-3">
+        <PageHeader title={t("load.title")} />
+        <VoucherList
+          godownId={godownId}
+          type="LOAD"
+          {...(readOnly ? {} : { newHref: "/load/new" })}
+        />
+      </div>
+    );
+  }
   const vehicleQ = f.vehicle ? normalizeVehicleNumber(f.vehicle) : "";
   const shown = (rows ?? []).filter((r) => !vehicleQ || r.load.vehicleNumber.includes(vehicleQ));
   const days = new Map<string, typeof shown>();

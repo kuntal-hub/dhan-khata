@@ -7,6 +7,8 @@ import { chromium, devices, expect, type BrowserContext, type Page } from "@play
 export const PORT = Number(process.env.E2E_PORT ?? 3100);
 export const BASE = `http://localhost:${PORT}`;
 export const OWNER = { phone: "9830012345", password: "e2e-owner-pass" };
+/** Seeded by tests/e2e/server.ts: `entry` role in Rampur (RP) only. */
+export const ENTRY = { phone: "9830054321", password: "e2e-entry-pass" };
 export const PIN = "1234";
 
 export async function openBrowser(dir = mkdtempSync(path.join(tmpdir(), "dk-e2e-"))): Promise<{
@@ -21,11 +23,11 @@ export async function openBrowser(dir = mkdtempSync(path.join(tmpdir(), "dk-e2e-
 }
 
 /** First login on a fresh device: password → set PIN → first download → app. */
-export async function loginFresh(page: Page) {
+export async function loginFresh(page: Page, user: { phone: string; password: string } = OWNER) {
   await page.goto("/");
   await page.waitForURL(/\/login/);
-  await page.locator("#phone").fill(OWNER.phone);
-  await page.locator("#password").fill(OWNER.password);
+  await page.locator("#phone").fill(user.phone);
+  await page.locator("#password").fill(user.password);
   await page.getByTestId("login-submit").click();
   await page.waitForURL(/\/unlock/);
   await page.locator("#pin").fill(PIN);

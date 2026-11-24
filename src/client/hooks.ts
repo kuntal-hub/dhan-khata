@@ -78,6 +78,23 @@ export function useGodownRole(): EffectiveRole | null {
   return roleIn(session.user, godownId);
 }
 
+/**
+ * What the signed-in user may see in the active godown (`client/access`): `entryOnly` = the
+ * `entry` role (own entries + today's dashboard). `loaded` is false while the session loads.
+ */
+export function useViewScope() {
+  const session = useSessionMeta();
+  const godownId = useAppSelector((s) => s.activeGodown.godownId);
+  const role = session && godownId ? roleIn(session.user, godownId) : null;
+  return {
+    loaded: session !== undefined,
+    user: session ? session.user : null,
+    role,
+    userId: session ? session.user._id : null,
+    entryOnly: role === "entry",
+  };
+}
+
 /** A godown's settings (defaults when none were saved yet). */
 export function useGodownSettings(godownId: string | null): GodownSettings | undefined {
   return useLiveQuery(

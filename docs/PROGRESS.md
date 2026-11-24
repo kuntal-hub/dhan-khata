@@ -254,7 +254,7 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 5. Visual baselines are per platform (`*-win32.png`). A missing baseline is written, not failed (`updateSnapshots: "missing"`), so CI on Linux writes its own on the first run.
 
 **Known issues / TODO carried forward:**
-- The `entry` role "own entries + today's dashboard only" view ([CONFIRM] #8) is still enforced on writes only, not in the UI.
+- ~~The `entry` role view restriction~~: fixed after Phase 5 (see "Post-v1 fixes" below).
 - The header godown menu animation note from Phase 4 still applies (now inside the lazy `GodownMenu`).
 - Manual checks for UAT: performance on a real mid-range / cheap Android phone, a native-speaker translation review (see `docs/UAT-CHECKLIST.md`).
 - Home JS is 241 KB of a 250 KB budget: keep the rules in CLAUDE.md ("Keep the Home route light") and run `pnpm check:bundle` after UI work.
@@ -269,3 +269,21 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - `pnpm build` ✅ (every route static; SW precaches 204 URLs) · `pnpm check:bundle` ✅ Home JS 241.3 KB gzipped (budget 250 KB)
 - `pnpm test:e2e` ✅ 9/9: daily flow bn + en, G5 dashboard bn + en, cold-offline + §13 acceptance, trade flow bn + en, two-godown G10, visual snapshots (re-run against baselines ✅)
 - `pnpm lighthouse` ✅ Home (mobile): Performance 90 · Accessibility 100 · Best practices 96 · installable
+
+## Post-v1 fixes
+
+### Entry role view restriction ([CONFIRM] #8) — 2026-11-24
+**Built:** the `entry` role now *sees* only its own entries and today's dashboard (spec §2). Writes were already limited.
+- Policy: `src/client/access.ts` (pure).
+  - `ENTRY_PATHS` / `mayOpenPath`: screens entry may open. These are its purchase, load and expense screens, the views of its linked vouchers, print voucher, Home, More, Settings and Sync.
+  - `mayViewVoucher` / `visibleVouchers`: own vouchers only.
+- Enforcement:
+  - `RoleGate` in the app shell and the print layout: any other screen shows "এন্ট্রি ভূমিকায় শুধু নিজের এন্ট্রি…", even when opened by direct URL.
+  - `useMayViewVoucher` (role in the voucher's own godown) in `VoucherView`, print voucher and the purchase/load/expense edit forms.
+- Trimmed UI for entry:
+  - Navigation: no খাতা tab; the sale/load tab opens `/load`. No header search or reminders bell. "আরও" and the Home quick actions only offer what the role may open.
+  - Dashboard: no ◀ ▶ (`DateNav locked`). "আজ আমার এন্ট্রি" lists own entries only. No reminders and no drill-downs.
+  - Lists and other screens: the purchase list (`VoucherList`) shows own entries only. Load and expense pages show "my loads / my expenses" instead of godown-wide registers and totals. Settings has no masters card. Edit on a voucher view shows only within the 30-minute, unsynced window.
+- Tests: `tests/unit/access.test.ts`. e2e `tests/e2e/entry-role.spec.ts`, with an entry user seeded in RP by `tests/e2e/server.ts` (`ENTRY` in helpers; `loginFresh(page, user)`).
+
+**Deviation:** this is a UI restriction. The entry user's device still syncs the whole godown, because dashboard totals, pickers and the posting replay need it. The server does not filter pulls by creator. Godown isolation stays server-enforced. If the client wants field staff unable to obtain other users' amounts even with technical skill, that needs server-side pull filtering plus a server-computed dashboard: a v2 change.

@@ -13,7 +13,8 @@ import { Money, Qty } from "@/components/money/display";
 import { VoucherRow } from "@/components/vouchers/VoucherRow";
 import { useNames } from "@/components/vouchers/names";
 import { db } from "@/client/db/dexie";
-import { useGodownRole } from "@/client/hooks";
+import { visibleVouchers } from "@/client/access";
+import { useGodownRole, useViewScope } from "@/client/hooks";
 import { VEHICLE_BUCKET, dashboardData, topReminders } from "@/client/queries/dashboard";
 import { vouchersOfDay } from "@/client/queries/vouchers";
 import { categoryLabel } from "@/client/ui/labels";
@@ -86,6 +87,9 @@ export function Dashboard({
 }) {
   const { t, money, weightOf } = useI18n();
   const role = useGodownRole();
+  const { userId } = useViewScope();
+  // `entry`: today's dashboard only, own entries only, no drill-down into other screens.
+  const entryOnly = role === "entry";
   const names = useNames(godownId);
   const [sheet, setSheet] = useState<"stock" | "expense" | null>(null);
   const [showProfit, setShowProfit] = useState(false);
@@ -99,7 +103,8 @@ export function Dashboard({
     return { d, list, rems, cats };
   }, [godownId, date]);
   if (!data || !names) return <Loading />;
-  const { d, list, rems, cats } = data;
+  const { d, rems, cats } = data;
+  const list = visibleVouchers(role, userId, data.list);
   const catName = (code: string) => {
     if (code === VEHICLE_BUCKET) return t("dash.vehicleExpense");
     const c = cats.find((x) => x.code === code);
@@ -110,7 +115,7 @@ export function Dashboard({
 
   return (
     <div className="flex flex-col gap-3" data-testid="dashboard">
-      <DateNav value={date} onChange={onDate} testId="dash-date" />
+      <DateNav value={date} onChange={onDate} testId="dash-date" locked={entryOnly} />
 
       <div className="grid grid-cols-2 gap-2" data-testid="dash-cards">
         <StatCard label={t("dashboard.openingCash")} testId="dash-opening-cash">
@@ -126,7 +131,7 @@ export function Dashboard({
         <StatCard
           label={t("dashboard.totalStock")}
           testId="dash-stock"
-          onClick={() => setSheet("stock")}
+          {...(entryOnly ? {} : { onClick: () => setSheet("stock") })}
           sub={money(d.stockValuePaise)}
         >
           <Qty grams={d.stockQtyG} testId="dash-stock-value" />
@@ -151,7 +156,7 @@ export function Dashboard({
         <StatCard
           label={t("dashboard.todayExpense")}
           testId="dash-expense"
-          onClick={() => setSheet("expense")}
+          {...(entryOnly ? {} : { onClick: () => setSheet("expense") })}
         >
           <Money paise={d.expensePaise} testId="dash-expense-value" />
         </StatCard>
@@ -228,17 +233,30 @@ export function Dashboard({
               <Money paise={b.balancePaise} className="font-semibold" />
             </div>
           ))}
-          <Link href="/cashbank" className="min-w-36 shrink-0 rounded-lg border p-2">
-            <div className="text-muted-foreground truncate text-xs">{t("dash.chequesInHand")}</div>
-            <Money paise={d.chequesInHandPaise} className="font-semibold" />
-          </Link>
+          {entryOnly ? (
+            <div className="min-w-36 shrink-0 rounded-lg border p-2">
+              <div className="text-muted-foreground truncate text-xs">
+                {t("dash.chequesInHand")}
+              </div>
+              <Money paise={d.chequesInHandPaise} className="font-semibold" />
+            </div>
+          ) : (
+            <Link href="/cashbank" className="min-w-36 shrink-0 rounded-lg border p-2">
+              <div className="text-muted-foreground truncate text-xs">
+                {t("dash.chequesInHand")}
+              </div>
+              <Money paise={d.chequesInHandPaise} className="font-semibold" />
+            </Link>
+          )}
         </div>
       </section>
 
       {quickActions}
 
       <section className="flex flex-col gap-1">
-        <h2 className="text-base font-semibold">{t("home.todayList")}</h2>
+        <h2 className="text-base font-semibold">
+          {t(entryOnly ? "home.myTodayList" : "home.todayList")}
+        </h2>
         {list.length === 0 ? (
           <EmptyState text={t("home.todayEmpty")} />
         ) : (
@@ -252,43 +270,53 @@ export function Dashboard({
         )}
       </section>
 
-      <section className="flex flex-col gap-1" data-testid="dash-reminders">
-        <div className="flex items-center justify-between">
-          <h2 className="text-base font-semibold">{t("dash.reminders")}</h2>
-          <Link href="/reminders" className="text-primary min-h-11 py-3 text-sm underline">
-            {t("dash.seeAll")}
-          </Link>
-        </div>
-        {rems.length === 0 ? (
-          <p className="text-muted-foreground text-sm">{t("dash.noReminders")}</p>
-        ) : (
-          <ul className="flex flex-col">
-            {rems.map((r) => (
-              <li
-                key={r._id}
-                className="flex min-h-11 items-center justify-between gap-2 border-b text-sm"
-              >
-                <span
-                  className={cn(
-                    "min-w-0 truncate",
-                    r.dueDate < date ? "text-destructive font-medium" : "",
-                  )}
+      {entryOnly ? null : (
+        <section className="flex flex-col gap-1" data-testid="dash-reminders">
+          <div className="flex items-center justify-between">
+            <h2 className="text-base font-semibold">{t("dash.reminders")}</h2>
+            <Link href="/reminders" className="text-primary min-h-11 py-3 text-sm underline">
+              {t("dash.seeAll")}
+            </Link>
+          </div>
+          {rems.length === 0 ? (
+            <p className="text-muted-foreground text-sm">{t("dash.noReminders")}</p>
+          ) : (
+            <ul className="flex flex-col">
+              {rems.map((r) => (
+                <li
+                  key={r._id}
+                  className="flex min-h-11 items-center justify-between gap-2 border-b text-sm"
                 >
-                  {dot(
-                    names.party(r.partyId) || r.title || t(`reminder.kind.${r.kind}` as TKey),
-                    t(`reminder.kind.${r.kind}` as TKey),
-                  )}
-                </span>
-                {r.amountPaise ? (
-                  <Money paise={BigInt(r.amountPaise)} className="shrink-0" />
-                ) : null}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
+                  <span
+                    className={cn(
+                      "min-w-0 truncate",
+                      r.dueDate < date ? "text-destructive font-medium" : "",
+                    )}
+                  >
+                    {dot(
+                      names.party(r.partyId) || r.title || t(`reminder.kind.${r.kind}` as TKey),
+                      t(`reminder.kind.${r.kind}` as TKey),
+                    )}
+                  </span>
+                  {r.amountPaise ? (
+                    <Money paise={BigInt(r.amountPaise)} className="shrink-0" />
+                  ) : null}
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
+      )}
 
-      {closed ? (
+      {closed && entryOnly ? (
+        <div
+          className="flex min-h-12 items-center justify-center gap-2 rounded-md border font-semibold text-emerald-700 dark:text-emerald-400"
+          data-testid="dash-day-closed"
+        >
+          <CheckCircle2 className="size-5" aria-hidden />
+          {t("dash.dayClosed")}
+        </div>
+      ) : closed ? (
         <Link
           href={`/day-close?date=${date}`}
           className="flex min-h-12 items-center justify-center gap-2 rounded-md border font-semibold text-emerald-700 dark:text-emerald-400"

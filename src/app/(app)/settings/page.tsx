@@ -110,7 +110,7 @@ export default function SettingsPage() {
           <SecurityActions />
         </CardContent>
       </Card>
-      {godownId && !readOnly ? (
+      {godownId && !readOnly && role !== "entry" ? (
         <Card>
           <CardHeader className="pb-2">
             <CardTitle className="text-base">
