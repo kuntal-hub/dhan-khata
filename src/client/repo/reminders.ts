@@ -1,172 +1,111 @@
 /**
- * Reminder RECORDS (spec §9.13), created/updated with the voucher that implies them (purchase
- * due date, sale expected payment date, advance adjustment date, cheque date). The reminder
- * centre UI is Phase 5. Reminders sync like masters (entity "reminder").
- * Ids are deterministic per voucher + kind, so editing a voucher updates its reminder.
+ * Reminder records (requirement_v2 §12.6). Due reminders come AUTOMATICALLY from the `dueDate`
+ * of open bills (a query, nothing stored). Stored records are only:
+ *  - manual reminders (kind CUSTOM / PAY / COLLECT, free title), and
+ *  - the owner's state for an automatic one (done / snoozed / edited due date), id `auto:<sourceId>`.
+ * They sync like masters (entity "reminder").
  */
-import { ReminderSchema, type Reminder } from "@/domain/schemas";
 import { v7 as uuidv7 } from "uuid";
+import { ReminderSchema, type Reminder } from "@/domain/schemas";
 import { db, writeTables } from "../db/dexie";
-import { partyBills } from "../queries/parties";
-export { effectiveDue, pendingReminders } from "../queries/reminders";
-import { RepoError, enqueueOp, validationError, writeContext, type WriteCtx } from "./context";
+import { enqueueOp, validationError, writeContext, type WriteCtx } from "./context";
 import { emitLocalWrite } from "./notify";
 
-export interface ReminderInput {
-  _id: string;
-  kind: Reminder["kind"];
-  partyId?: string;
-  voucherId?: string;
-  /** undefined = no due date any more → the reminder is closed (status done). */
-  dueDate: string | undefined;
-  amountPaise?: string;
-  /** Free text for manual reminders; "" for automatic ones (rendered from the kind). */
-  title: string;
+export function autoReminderId(sourceId: string): string {
+  return `auto:${sourceId}`;
 }
 
-export function reminderId(voucherId: string, kind: Reminder["kind"]): string {
-  return `${voucherId}:${kind}`;
-}
-
-/** Create, update or close a reminder inside the caller's transaction. */
-export async function upsertReminderInTx(ctx: WriteCtx, input: ReminderInput): Promise<void> {
-  const d = db();
-  const existing = await d.reminders.get(input._id);
-  if (!input.dueDate) {
-    if (!existing || existing.status === "done") return;
-    await write(ctx, existing, { ...existing, status: "done" });
-    return;
-  }
-  const next: Reminder = {
-    _id: input._id,
-    godownId: ctx.godown._id,
-    kind: input.kind,
-    ...(input.partyId ? { partyId: input.partyId } : {}),
-    ...(input.voucherId ? { voucherId: input.voucherId } : {}),
-    dueDate: input.dueDate,
-    ...(input.amountPaise ? { amountPaise: input.amountPaise } : {}),
-    title: input.title,
-    status: "open",
-    rev: existing ? existing.rev + 1 : 1,
-    updatedAt: ctx.nowIso,
-    updatedBy: ctx.userId,
-    createdAt: existing?.createdAt ?? ctx.nowIso,
-    createdBy: existing?.createdBy ?? ctx.userId,
-    ...(existing?.serverSeq !== undefined ? { serverSeq: existing.serverSeq } : {}),
-  };
-  if (existing) {
-    const same =
-      existing.status === "open" &&
-      existing.dueDate === next.dueDate &&
-      existing.amountPaise === next.amountPaise &&
-      existing.partyId === next.partyId &&
-      existing.title === next.title;
-    if (same) return;
-  }
-  await write(ctx, existing, next);
-}
-
-async function write(ctx: WriteCtx, existing: Reminder | undefined, raw: Reminder): Promise<void> {
-  const parsed = ReminderSchema.safeParse({
-    ...raw,
-    rev: existing ? existing.rev + 1 : 1,
-    updatedAt: ctx.nowIso,
-    updatedBy: ctx.userId,
-  });
+async function write(
+  ctx: WriteCtx,
+  existing: Reminder | undefined,
+  next: Reminder,
+): Promise<Reminder> {
+  const parsed = ReminderSchema.safeParse(next);
   if (!parsed.success) throw validationError(parsed.error);
-  const doc = parsed.data;
-  await db().reminders.put(doc);
-  const fields = existing
-    ? (["status", "dueDate", "amountPaise", "partyId", "title", "snoozeUntil"] as const).filter(
-        (f) => existing[f] !== doc[f],
-      )
-    : undefined;
+  await db().reminders.put(parsed.data);
   await enqueueOp(ctx, {
     entity: "reminder",
-    entityId: doc._id,
+    entityId: parsed.data._id,
     op: "upsert",
-    baseRev: existing ? existing.rev : 0,
-    payload: doc,
-    ...(fields ? { fields: [...fields, "updatedAt", "updatedBy"] } : {}),
+    baseRev: existing?.rev ?? 0,
+    payload: parsed.data,
   });
+  return parsed.data;
 }
 
-/** Open reminders of a godown (newest due first). */
-export function openReminders(godownId: string): Promise<Reminder[]> {
-  return db().reminders.where("[godownId+status]").equals([godownId, "open"]).sortBy("dueDate");
+export interface ReminderStateInput {
+  /** The bill (automatic reminder) or an existing manual reminder id. */
+  source?: { type: string; id: string };
+  reminderId?: string;
+  kind: Reminder["kind"];
+  partyId?: string;
+  dueDate: string;
+  amountPaise?: string;
+  title?: string;
 }
 
-/**
- * Close the bill reminders (PAY_DUE / COLLECT_DUE) of a party whose bills are now Settled
- * (spec §9.13), inside the caller's transaction.
- */
-export async function closeSettledBillRemindersInTx(ctx: WriteCtx, partyId: string): Promise<void> {
-  const bills = await partyBills(ctx.godown._id, partyId);
-  for (const b of [...bills.purchases, ...bills.sales]) {
-    if (b.status !== "SETTLED") continue;
-    for (const kind of ["PAY_DUE", "COLLECT_DUE"] as const) {
-      const r = await db().reminders.get(reminderId(b.voucherId, kind));
-      if (!r || r.status === "done") continue;
-      await write(ctx, r, { ...r, status: "done" });
-    }
-  }
-}
-
-async function inTx<T>(godownId: string, fn: (ctx: WriteCtx) => Promise<T>): Promise<T> {
-  const d = db();
-  const out = await d.transaction("rw", writeTables(d), async () =>
-    fn(await writeContext(godownId)),
-  );
-  emitLocalWrite();
-  return out;
-}
-
-/** Mark done, or snooze until a date (spec §9.13). Any role that can see the godown except viewer. */
+/** Mark done / snooze / reopen / change the due date of a reminder. */
 export async function setReminderState(
   godownId: string,
-  id: string,
-  next: { done: true } | { snoozeUntil: string } | { reopen: true },
-): Promise<void> {
-  await inTx(godownId, async (ctx) => {
-    if (ctx.role === "viewer") throw new RepoError("FORBIDDEN");
-    const r = await db().reminders.get(id);
-    if (!r || r.godownId !== godownId) throw new RepoError("NOT_FOUND", id);
-    if ("done" in next) {
-      await write(ctx, r, { ...r, status: "done" });
-    } else if ("reopen" in next) {
-      const { snoozeUntil: _drop, ...rest } = r;
-      await write(ctx, r, { ...rest, status: "open" });
-    } else {
-      await write(ctx, r, { ...r, status: "snoozed", snoozeUntil: next.snoozeUntil });
-    }
+  input: ReminderStateInput,
+  status: Reminder["status"],
+  snoozeUntil?: string,
+): Promise<Reminder> {
+  const d = db();
+  const out = await d.transaction("rw", writeTables(d), async () => {
+    const ctx = await writeContext(godownId);
+    const id = input.reminderId ?? autoReminderId(input.source?.id ?? uuidv7());
+    const existing = await d.reminders.get(id);
+    const next: Reminder = {
+      _id: id,
+      businessId: ctx.businessId,
+      godownId,
+      kind: input.kind,
+      ...(input.partyId ? { partyId: input.partyId } : {}),
+      ...(input.source
+        ? { source: input.source }
+        : existing?.source
+          ? { source: existing.source }
+          : {}),
+      dueDate: input.dueDate,
+      ...(input.amountPaise ? { amountPaise: input.amountPaise } : {}),
+      title: input.title ?? existing?.title ?? "",
+      status,
+      ...(status === "snoozed" && snoozeUntil ? { snoozeUntil } : {}),
+      rev: (existing?.rev ?? 0) + 1,
+      updatedAt: ctx.nowIso,
+      createdAt: existing?.createdAt ?? ctx.nowIso,
+      createdBy: existing?.createdBy ?? ctx.userId,
+      updatedBy: ctx.userId,
+    };
+    return write(ctx, existing, next);
   });
+  emitLocalWrite();
+  return out;
 }
 
 export interface ManualReminderInput {
   title: string;
   dueDate: string;
+  kind?: Reminder["kind"];
   partyId?: string;
   amountPaise?: string;
-  kind?: "CUSTOM" | "PAY_DUE" | "COLLECT_DUE";
 }
 
-/** A manual reminder (spec §9.13 "Manual reminders too"). */
 export async function createManualReminder(
   godownId: string,
   input: ManualReminderInput,
 ): Promise<Reminder> {
-  return inTx(godownId, async (ctx) => {
-    if (ctx.role === "viewer") throw new RepoError("FORBIDDEN");
-    if (!input.title.trim()) throw new RepoError("VALIDATION_FAILED", "title");
-    const id = uuidv7();
-    await upsertReminderInTx(ctx, {
-      _id: id,
+  return setReminderState(
+    godownId,
+    {
+      reminderId: uuidv7(),
       kind: input.kind ?? "CUSTOM",
-      ...(input.partyId ? { partyId: input.partyId } : {}),
       dueDate: input.dueDate,
+      title: input.title,
+      ...(input.partyId ? { partyId: input.partyId } : {}),
       ...(input.amountPaise ? { amountPaise: input.amountPaise } : {}),
-      title: input.title.trim(),
-    });
-    return (await db().reminders.get(id))!;
-  });
+    },
+    "open",
+  );
 }

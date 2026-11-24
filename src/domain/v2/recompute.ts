@@ -9,6 +9,13 @@ import { FARMER_PAYMENT_CODE } from "./accounts";
 import { businessDate, type Doc, type WeightBlock } from "./schemas";
 import { computeBill, recomputeWeight } from "./weightBlock";
 
+/** Σ add − Σ deduct of v1 purchase charges (legacy data only). */
+export function legacyChargesTotal(
+  charges: ReadonlyArray<{ kind: "add" | "deduct"; amountPaise: string }> | undefined,
+): bigint {
+  return sumBig((charges ?? []).map((c) => (c.kind === "add" ? 1n : -1n) * BigInt(c.amountPaise)));
+}
+
 function weightOf(w: WeightBlock): WeightBlock {
   return recomputeWeight(w);
 }
@@ -20,7 +27,13 @@ export function recomputeDoc<D extends Doc>(d: D): D {
     case "PURCHASE":
     case "SALE": {
       const weight = weightOf(doc.weight);
-      const bill = computeBill(BigInt(weight.netG), BigInt(doc.ratePaisePerQtl), doc.roundToRupee);
+      const charges = doc.type === "PURCHASE" ? legacyChargesTotal(doc.legacyCharges) : 0n;
+      const bill = computeBill(
+        BigInt(weight.netG),
+        BigInt(doc.ratePaisePerQtl),
+        doc.roundToRupee,
+        charges,
+      );
       return {
         ...doc,
         weight,

@@ -12,10 +12,10 @@ import {
   type Godown,
   type PullChange,
   type PullResponse,
+  type Business,
+  type Doc,
   type Reminder,
-  type Transfer,
   type User,
-  type Voucher,
 } from "@/domain/schemas";
 import { authedCall } from "../auth/session";
 import { db, writeTables } from "../db/dexie";
@@ -53,7 +53,7 @@ async function applyChange(c: PullChange): Promise<boolean> {
   if (c.doc === null) return true;
   switch (c.entity) {
     case "voucher": {
-      const doc = c.doc as Voucher;
+      const doc = c.doc as Doc;
       const before = await dexieDerivedStore.readDerived(doc._id);
       await d.vouchers.put(doc);
       await replaceDerivedRows(before, { lines: c.lines ?? [], moves: c.moves ?? [] });
@@ -68,8 +68,8 @@ async function applyChange(c: PullChange): Promise<boolean> {
     case "dayStatus":
       await d.dayStatus.put(c.doc as DayStatus);
       return true;
-    case "transfer":
-      await d.transfers.put(c.doc as Transfer);
+    case "business":
+      await setMeta(META.business, c.doc as Business);
       return true;
     case "reminder":
       await d.reminders.put(c.doc as Reminder);

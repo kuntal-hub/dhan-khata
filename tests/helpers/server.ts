@@ -7,6 +7,7 @@ import { inject } from "vitest";
 import { deleteDatabase, db, selectDatabase } from "@/client/db/dexie";
 import { login } from "@/client/auth/session";
 import { pullAll } from "@/client/sync/pull";
+import { replayLegacyV1 } from "@/client/sync/legacy";
 import { pushOnce, resetSending } from "@/client/sync/push";
 import { setTransport, setAccessToken } from "@/client/sync/transport";
 import { cols, getDb } from "@/server/db";
@@ -135,6 +136,12 @@ export class TestDevice {
       if (r.sent === 0 || !r.more) break;
     }
     await pullAll();
+    if (await replayLegacyV1()) {
+      for (let i = 0; i < 40; i++) {
+        const r = await pushOnce();
+        if (r.sent === 0 || !r.more) break;
+      }
+    }
   }
 }
 

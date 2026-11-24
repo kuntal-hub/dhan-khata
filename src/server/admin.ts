@@ -8,10 +8,10 @@ import { v7 as uuidv7 } from "uuid";
 import { z } from "zod";
 import { todayIST } from "@/domain/dates";
 import { accountTotals, repostMismatches, trialOf } from "@/domain/integrity";
-import { serializeDerived } from "@/domain/posting/derive";
-import { replay } from "@/domain/posting/replay";
 import { roleIn } from "@/domain/rbac";
-import { GodownRoleSchema, type Voucher } from "@/domain/schemas";
+import { GodownRoleSchema, type Doc } from "@/domain/schemas";
+import { serializeDerived } from "@/domain/v2/derive";
+import { replayDocs } from "@/domain/v2/replay";
 import { hashPassword, publicUser, verifyPassword } from "./auth";
 import { audit, logChanges, type ChangeEntry } from "./changelog";
 import { fromDbLine, publicDoc, toDbLine, toDbMove } from "./convert";
@@ -28,7 +28,8 @@ export function assertOwner(user: UserDoc): void {
 async function assertGodownAccess(db: Db, user: UserDoc, godownId: string): Promise<void> {
   if (!roleIn(user, godownId)) throw new ApiError(403, "FORBIDDEN");
   const g = await cols(db).godowns.findOne({ _id: godownId });
-  if (!g) throw new ApiError(404, "NOT_FOUND");
+  // Never another business's Gola (§2.4): looks the same as "not found".
+  if (!g || g.businessId !== user.businessId) throw new ApiError(404, "NOT_FOUND");
 }
 
 // ── Integrity (§6.6) ─────────────────────────────────────────────────────────
@@ -66,7 +67,7 @@ export async function serverIntegrity(
     creditPaise: tb.creditPaise.toString(),
     balanced: tb.balanced,
     voucherCount: vouchers.filter((v) => v.status === "active").length,
-    repostMismatches: repostMismatches(vouchers as Voucher[], wire),
+    repostMismatches: repostMismatches(vouchers as Doc[], wire),
   };
 }
 
@@ -190,6 +191,7 @@ export async function addUser(db: Db, owner: UserDoc, input: z.infer<typeof Crea
   });
   if (existing) throw new ApiError(409, "BAD_REQUEST", "phone");
   const u = await createUser(db, {
+    businessId: owner.businessId,
     name: input.name,
     phone: input.phone,
     password: input.password,
@@ -381,10 +383,11 @@ export async function listClientErrors(db: Db, owner: UserDoc) {
 
 // ── Backup / restore (§17.1–17.2) ────────────────────────────────────────────
 
-export const BACKUP_FORMAT = "dhan-khata-backup";
+export const BACKUP_FORMAT = "dhan-gola-backup";
 
 /** Business collections in a backup; derived rows (lines/moves) are rebuilt on restore. */
 const BACKUP_COLLECTIONS = [
+  "businesses",
   "godowns",
   "godownSettings",
   "accounts",
@@ -398,13 +401,12 @@ const BACKUP_COLLECTIONS = [
   "vouchers",
   "reminders",
   "dayStatus",
-  "transfers",
 ] as const;
 type BackupCollection = (typeof BACKUP_COLLECTIONS)[number];
 
 export interface Backup {
   format: typeof BACKUP_FORMAT;
-  version: 1;
+  version: 2;
   createdAt: string;
   godownIds: string[];
   collections: Record<BackupCollection, unknown[]>;
@@ -417,7 +419,12 @@ export async function makeBackup(db: Db, owner: UserDoc, godownId?: string): Pro
   if (godownId) await assertGodownAccess(db, owner, godownId);
   const collections = {} as Record<BackupCollection, unknown[]>;
   for (const c of BACKUP_COLLECTIONS) {
-    const filter = c === "godowns" ? { _id: { $in: ids } } : { godownId: { $in: ids } };
+    const filter =
+      c === "businesses"
+        ? { _id: owner.businessId }
+        : c === "godowns"
+          ? { _id: { $in: ids } }
+          : { godownId: { $in: ids } };
     const docs = await db
       .collection(c)
       .find(filter as never)
@@ -437,7 +444,7 @@ export async function makeBackup(db: Db, owner: UserDoc, godownId?: string): Pro
   });
   return {
     format: BACKUP_FORMAT,
-    version: 1,
+    version: 2,
     createdAt: new Date().toISOString(),
     godownIds: ids,
     collections,
@@ -455,7 +462,7 @@ export async function restoreBackup(
   backup: Backup,
 ): Promise<Record<string, number>> {
   if (owner) assertOwner(owner);
-  if (backup.format !== BACKUP_FORMAT || backup.version !== 1) {
+  if (backup.format !== BACKUP_FORMAT || backup.version !== 2) {
     throw new ApiError(400, "BAD_REQUEST", "format");
   }
   const k = cols(db);
@@ -472,22 +479,23 @@ export async function restoreBackup(
         await db.collection(c).insertMany(docs as never[], { session });
         if (c === "accounts" || c === "locations") continue;
         for (const d of docs) {
+          const global = c === "godowns" || c === "businesses";
           entries.push({
-            godownId: c === "godowns" ? null : String(d.godownId),
+            godownId: global ? null : String(d.godownId),
             entity: c === "godowns" ? "godown" : (ENTITY_OF[c] ?? c),
             entityId: String(d._id),
             rev: Number(d.rev ?? 1),
           });
         }
       }
-      // Re-post every voucher per godown (canonical order) → ledger lines + stock moves.
-      const vouchers = (backup.collections.vouchers ?? []) as Voucher[];
-      const byGodown = new Map<string, Voucher[]>();
+      // Re-post every document per Gola (canonical order) → ledger lines + stock moves.
+      const vouchers = (backup.collections.vouchers ?? []) as Doc[];
+      const byGodown = new Map<string, Doc[]>();
       for (const v of vouchers) byGodown.set(v.godownId, [...(byGodown.get(v.godownId) ?? []), v]);
       let lines = 0;
       for (const vs of byGodown.values()) {
-        for (const r of replay(vs).results) {
-          const d = serializeDerived(r.voucher, { lines: r.lines, moves: r.moves });
+        for (const r of replayDocs(vs).results) {
+          const d = serializeDerived(r.doc, { lines: r.lines, moves: r.moves });
           if (d.lines.length) await k.ledgerLines.insertMany(d.lines.map(toDbLine), { session });
           if (d.moves.length) await k.stockMoves.insertMany(d.moves.map(toDbMove), { session });
           lines += d.lines.length;
@@ -528,6 +536,7 @@ export async function restoreBackup(
 }
 
 const ENTITY_OF: Record<string, string> = {
+  businesses: "business",
   godownSettings: "godownSettings",
   parties: "party",
   varieties: "variety",
@@ -538,7 +547,6 @@ const ENTITY_OF: Record<string, string> = {
   vouchers: "voucher",
   reminders: "reminder",
   dayStatus: "dayStatus",
-  transfers: "transfer",
 };
 const COLLECTION_OF: Record<string, string> = Object.fromEntries(
   Object.entries(ENTITY_OF).map(([c, e]) => [e, c]),

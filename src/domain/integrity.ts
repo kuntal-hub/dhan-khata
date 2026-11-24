@@ -4,9 +4,8 @@
  *  2. every voucher re-posted (in canonical order) must give exactly its stored lines;
  *  3. per-account totals compared between the device and the server.
  */
-import { replay } from "./posting/replay";
-import type { LedgerLine } from "./schemas/system";
-import type { Voucher } from "./schemas/vouchers";
+import { replayDocs } from "./v2/replay";
+import type { Doc, LedgerLineV2 as LedgerLine } from "./v2/schemas";
 
 export interface LineLike {
   account: string;
@@ -79,7 +78,7 @@ function canon(lines: Iterable<{ account: string; debit: bigint; credit: bigint 
  * return the ids whose stored lines differ from the re-posting.
  */
 export function repostMismatches(
-  vouchers: readonly Voucher[],
+  vouchers: readonly Doc[],
   stored: readonly Pick<LedgerLine, "voucherId" | "account" | "debitPaise" | "creditPaise">[],
 ): string[] {
   const byVoucher = new Map<string, Array<{ account: string; debit: bigint; credit: bigint }>>();
@@ -90,9 +89,9 @@ export function repostMismatches(
   }
   const out: string[] = [];
   const seen = new Set<string>();
-  for (const r of replay(vouchers).results) {
-    seen.add(r.voucher._id);
-    if (canon(r.lines) !== canon(byVoucher.get(r.voucher._id) ?? [])) out.push(r.voucher._id);
+  for (const r of replayDocs(vouchers).results) {
+    seen.add(r.doc._id);
+    if (canon(r.lines) !== canon(byVoucher.get(r.doc._id) ?? [])) out.push(r.doc._id);
   }
   // Stored lines of vouchers that no longer exist are mismatches too.
   for (const id of byVoucher.keys()) if (!seen.has(id)) out.push(id);

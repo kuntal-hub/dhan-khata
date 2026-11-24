@@ -3,22 +3,25 @@
  *   `${godownCode}-${deviceCode}-${typeCode}-${6-digit seq}`  e.g. "RP-A-PUR-000123"
  * The per-godown, per-device, per-type sequence lives in the device's meta table.
  */
-import type { VoucherType } from "./schemas/vouchers";
+import type { DocType } from "./v2/schemas";
 
-export const VOUCHER_TYPE_CODES: Record<VoucherType, string> = {
+type VoucherType = DocType;
+
+export const VOUCHER_TYPE_CODES: Record<DocType, string> = {
   PURCHASE: "PUR",
   SALE: "SAL",
-  LOAD: "LOD",
   PAYMENT: "PAY",
-  RECEIPT: "RCP",
   EXPENSE: "EXP",
+  LOAD: "LOD",
+  MILL_DISPATCH: "MDS",
+  MILL_RETURN: "MRT",
+  CONVERSION: "CNV",
   TRIP: "TRP",
-  CONTRA: "CON",
+  SECOND_PARTY: "SPE",
   STOCK_ADJUST: "SAD",
-  MILL_SETTLEMENT: "MST",
+  CONTRA: "CON",
   DAY_CLOSE: "DCL",
   OPENING: "OPN",
-  JOURNAL: "JNL",
 };
 
 export const GODOWN_CODE_RE = /^[A-Z][A-Z0-9]{1,5}$/;

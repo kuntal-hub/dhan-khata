@@ -2,7 +2,6 @@ import type { ReactNode } from "react";
 import { AppShell } from "@/components/layout/AppShell";
 import { AuthGate } from "@/components/system/AuthGate";
 import { ClientRuntime } from "@/components/system/ClientRuntime";
-import { OnboardingGate } from "@/components/system/OnboardingGate";
 
 // Client-gated app: see the note in src/app/layout.tsx.
 export const instant = false;
@@ -12,9 +11,7 @@ export default function AppLayout({ children }: { children: ReactNode }) {
   return (
     <ClientRuntime>
       <AuthGate>
-        <OnboardingGate>
-          <AppShell>{children}</AppShell>
-        </OnboardingGate>
+        <AppShell>{children}</AppShell>
       </AuthGate>
     </ClientRuntime>
   );

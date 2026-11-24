@@ -13,7 +13,7 @@ import {
   VehicleSchema,
 } from "./masters";
 import { GodownSettingsSchema, ReminderSchema, type LedgerLine, type StockMove } from "./system";
-import { VoucherSchema } from "./vouchers";
+import { DocSchema } from "../v2/schemas";
 
 /** Godown-scoped master entities written through the outbox (field-level LWW on conflict). */
 export const MASTER_ENTITIES = [
@@ -30,12 +30,12 @@ export type MasterEntity = (typeof MASTER_ENTITIES)[number];
 export const PUSH_ENTITIES = ["voucher", ...MASTER_ENTITIES, "godownSettings", "reminder"] as const;
 export type PushEntity = (typeof PUSH_ENTITIES)[number];
 
-/** Everything a device may receive. `godown` and `user` are global (godownId = null). */
-export const PULL_ENTITIES = [...PUSH_ENTITIES, "godown", "user", "dayStatus", "transfer"] as const;
+/** Everything a device may receive. `godown`, `user` and `business` are global (godownId = null). */
+export const PULL_ENTITIES = [...PUSH_ENTITIES, "godown", "user", "business", "dayStatus"] as const;
 export type PullEntity = (typeof PULL_ENTITIES)[number];
 
 export const PUSH_SCHEMAS = {
-  voucher: VoucherSchema,
+  voucher: DocSchema,
   party: PartySchema,
   variety: VarietySchema,
   bankAccount: BankAccountSchema,
@@ -63,12 +63,18 @@ export const PushOpSchema = z.strictObject({
   payload: z.unknown(),
   createdAt: IsoTimestamp,
   fields: z.array(z.string().max(60)).max(100).optional(),
+  /** Ops of one local transaction: applied by the server in ONE transaction, all or nothing. */
+  opGroup: Id.optional(),
 });
 export type PushOp = z.infer<typeof PushOpSchema>;
 
 export const PushRequestSchema = z.strictObject({
   deviceId: Id,
-  ops: z.array(PushOpSchema).min(1).max(MAX_PUSH_BATCH),
+  // A single op group may exceed the client's batch target; never split it.
+  ops: z
+    .array(PushOpSchema)
+    .min(1)
+    .max(MAX_PUSH_BATCH * 4),
 });
 export type PushRequest = z.infer<typeof PushRequestSchema>;
 
@@ -76,7 +82,12 @@ export type PushResultCode = "applied" | "duplicate" | "conflict" | "rejected";
 
 /** Reasons that are not domain rule codes. */
 export type PushRejectReason =
-  "DEPENDS_ON_FAILED" | "GODOWN_MISMATCH" | "ID_MISMATCH" | "UNKNOWN_ENTITY" | "SERVER_ERROR";
+  | "DEPENDS_ON_FAILED"
+  | "GROUP_FAILED"
+  | "GODOWN_MISMATCH"
+  | "ID_MISMATCH"
+  | "UNKNOWN_ENTITY"
+  | "SERVER_ERROR";
 
 export interface PushOpResult {
   opId: string;
@@ -140,6 +151,9 @@ export type ApiErrorCode =
   | "REFRESH_INVALID"
   | "REFRESH_REUSED"
   | "DEVICE_MISMATCH"
+  | "REGISTRATION_CLOSED"
+  | "RECOVERY_INVALID"
+  | "MOBILE_TAKEN"
   | "SERVER_ERROR";
 
 export const LoginRequestSchema = z.strictObject({

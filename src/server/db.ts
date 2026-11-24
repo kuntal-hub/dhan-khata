@@ -6,8 +6,9 @@
 import { MongoClient, type ClientSession, type Collection, type Db } from "mongodb";
 import type {
   BankAccount,
+  Business,
   DayStatus,
-  Transfer,
+  Doc,
   Device,
   ExpenseCategory,
   Godown,
@@ -19,7 +20,6 @@ import type {
   User,
   Variety,
   Vehicle,
-  Voucher,
 } from "@/domain/schemas";
 import { serverEnv } from "./env";
 
@@ -33,6 +33,7 @@ type WithMeta<T> = T & { _m?: ServerMeta };
 
 export interface DbLedgerLine {
   _id: string;
+  businessId: string;
   godownId: string;
   voucherId: string;
   voucherRev: number;
@@ -44,22 +45,26 @@ export interface DbLedgerLine {
   partyId?: string;
   varietyId?: string;
   vehicleId?: string;
-  loadId?: string;
-  season?: string;
   fy: string;
 }
 
 export interface DbStockMove {
   _id: string;
+  businessId: string;
   godownId: string;
-  location: "STORE" | "TRANSIT";
   voucherId: string;
   voucherRev: number;
+  voucherType: string;
   date: string;
-  varietyId: string;
+  product: "PADDY" | "RICE" | "OTHER";
+  otherProductName?: string;
+  varietyId?: string;
+  location: "WAREHOUSE" | "MILL" | "TRANSIT";
+  millPartyId?: string;
+  groupId?: string;
   qtyG: bigint;
   valuePaise: bigint;
-  groupId?: string;
+  bags?: number;
   ord: string;
 }
 
@@ -74,6 +79,8 @@ export interface ChangeLogDoc {
 
 export interface UserDoc extends User {
   passwordHash: string;
+  /** Hash of the account recovery code (shown to the owner once). */
+  recoveryCodeHash?: string;
 }
 
 export interface RefreshTokenDoc {
@@ -102,7 +109,19 @@ export interface AuditDoc {
   godownId?: string;
   entity: string;
   entityId: string;
-  action: "create" | "edit" | "void" | "unlock" | "login" | "logout" | "export" | "archive";
+  action:
+    | "create"
+    | "edit"
+    | "void"
+    | "unlock"
+    | "login"
+    | "logout"
+    | "export"
+    | "archive"
+    | "register"
+    | "password_reset"
+    | "recovery_regenerate"
+    | "business_edit";
   opId?: string;
   rev?: number;
   detail?: string;
@@ -165,10 +184,11 @@ export interface ConflictDoc {
 }
 
 export interface Collections {
+  businesses: Collection<Business>;
   godowns: Collection<WithMeta<Godown>>;
   users: Collection<UserDoc>;
   devices: Collection<Device>;
-  vouchers: Collection<Voucher>;
+  vouchers: Collection<Doc>;
   parties: Collection<WithMeta<Party>>;
   varieties: Collection<WithMeta<Variety>>;
   bankAccounts: Collection<WithMeta<BankAccount>>;
@@ -177,7 +197,7 @@ export interface Collections {
   expenseCategories: Collection<WithMeta<ExpenseCategory>>;
   godownSettings: Collection<WithMeta<GodownSettings>>;
   dayStatus: Collection<DayStatus>;
-  transfers: Collection<Transfer>;
+  transfers: Collection<{ _id: string; godownId: string }>;
   pushSubscriptions: Collection<PushSubscriptionDoc>;
   appSettings: Collection<AppSettingsDoc>;
   clientErrors: Collection<ClientErrorDoc>;
@@ -225,7 +245,7 @@ export function mongoClientOptions() {
     serverSelectionTimeoutMS: 8000,
     useBigInt64: true,
     ignoreUndefined: true,
-    appName: "dhan-khata",
+    appName: "dhan-gola",
   } as const;
 }
 
@@ -257,6 +277,7 @@ export async function getDb(): Promise<Db> {
 export function cols(db: Db): Collections {
   const c = <T extends object>(name: string) => db.collection<T>(name);
   return {
+    businesses: c("businesses"),
     godowns: c("godowns"),
     users: c("users"),
     devices: c("devices"),
@@ -293,22 +314,27 @@ export function cols(db: Db): Collections {
 export async function ensureIndexes(db: Db): Promise<void> {
   const k = cols(db);
   await Promise.all([
+    // Every business index starts with businessId + godownId (requirement_v2 §10).
     k.vouchers.createIndexes([
-      { key: { godownId: 1, type: 1, date: -1 } },
-      { key: { godownId: 1, partyId: 1, date: -1 } },
+      { key: { businessId: 1, godownId: 1, type: 1 } },
+      { key: { businessId: 1, godownId: 1, partyId: 1 } },
+      { key: { businessId: 1, godownId: 1, transactionDate: -1 } },
+      { key: { businessId: 1, godownId: 1, paymentDate: -1 } },
+      { key: { businessId: 1, godownId: 1, expenseDate: -1 } },
+      { key: { businessId: 1, godownId: 1, "source.id": 1 } },
+      { key: { businessId: 1, godownId: 1, dispatchId: 1 } },
       { key: { number: 1 }, unique: true },
       { key: { godownId: 1, groupId: 1 } },
-      { key: { godownId: 1, loadId: 1 } },
       { key: { serverSeq: 1 } },
     ]),
     k.ledgerLines.createIndexes([
-      { key: { godownId: 1, account: 1, date: 1 } },
-      { key: { godownId: 1, partyId: 1, date: 1 } },
+      { key: { businessId: 1, godownId: 1, account: 1, date: 1 } },
+      { key: { businessId: 1, godownId: 1, partyId: 1, date: 1 } },
       { key: { voucherId: 1 } },
     ]),
     k.stockMoves.createIndexes([
-      { key: { godownId: 1, varietyId: 1, location: 1, date: 1 } },
-      { key: { godownId: 1, varietyId: 1, location: 1, ord: 1 } },
+      { key: { businessId: 1, godownId: 1, product: 1, location: 1, date: 1 } },
+      { key: { businessId: 1, godownId: 1, product: 1, location: 1, ord: 1 } },
       { key: { voucherId: 1 } },
     ]),
     k.changelog.createIndexes([
@@ -323,7 +349,7 @@ export async function ensureIndexes(db: Db): Promise<void> {
       { key: { godownId: 1, searchKey: 1 } },
     ]),
     k.godowns.createIndexes([{ key: { code: 1 }, unique: true }]),
-    k.users.createIndexes([{ key: { phone: 1 }, unique: true }]),
+    k.users.createIndexes([{ key: { phone: 1 }, unique: true }, { key: { businessId: 1 } }]),
     k.devices.createIndexes([{ key: { userId: 1 } }]),
     k.varieties.createIndexes([{ key: { godownId: 1 } }]),
     k.bankAccounts.createIndexes([{ key: { godownId: 1 } }]),

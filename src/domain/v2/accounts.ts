@@ -87,3 +87,31 @@ export const EXPENSE_CATEGORY_CODES_V2 = [
   "OTHERS",
 ] as const;
 export const FARMER_PAYMENT_CODE = "FARMER_PAYMENT";
+
+/** Seed accounts recorded for a new Gola (informational; dynamic accounts come from masters). */
+export function seedChartOfAccountsV2(
+  godownId: string,
+): Array<{ godownId: string; key: string; type: AccountTypeV2; i18nKey: string }> {
+  return (Object.keys(SYSTEM) as SystemAccountV2[]).map((key) => ({
+    godownId,
+    key,
+    type: SYSTEM[key],
+    i18nKey: `account.${key}`,
+  }));
+}
+
+/**
+ * Widely known public varieties seeded (verified) into every new Gola (§12.2). Company varieties
+ * are added by the owner as he uses them; no invented company list.
+ */
+export const SEED_VARIETY_KEYS_V2 = [
+  "SWARNA",
+  "SATABDI",
+  "GOBINDOBHOG",
+  "MINIKIT",
+  "LAL_SWARNA",
+  "IR36",
+] as const;
+
+/** Colour chips for Golas (palette keys), assigned in creation order. */
+export const GOLA_COLOURS = ["green", "gold", "teal", "rose", "indigo", "amber"] as const;

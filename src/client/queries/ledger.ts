@@ -1,65 +1,59 @@
 /**
- * Ledger queries. Every function takes `godownId` (godown isolation, spec §5 principle 6).
- * Balances are always sums of stored ledger lines.
+ * Ledger reads (one Gola at a time; never mixes Golas).
+ * Account balance = Σdebit − Σcredit. Party: > 0 they owe us (পাওনা), < 0 we owe them (দেনা).
  */
-import { partyAccountKey } from "@/domain/posting/accounts";
-import { balancesByAccount, receivablePayable, trialBalance } from "@/domain/posting/balances";
-import type { LedgerLine } from "@/domain/schemas";
 import { db } from "../db/dexie";
 
-const MIN = "";
-const MAX = "￿";
-
-/** Lines of one account in a godown, optionally up to and including `toDate`. */
-export function accountLines(
+/** Every non-zero account balance of a Gola (optionally up to and including `upTo`). */
+export async function godownBalances(
   godownId: string,
-  account: string,
-  range: { from?: string; to?: string } = {},
-): Promise<LedgerLine[]> {
-  return db()
-    .ledgerLines.where("[godownId+account+date]")
-    .between(
-      [godownId, account, range.from ?? MIN],
-      [godownId, account, range.to ?? MAX],
-      true,
-      true,
-    )
+  upTo?: string,
+): Promise<Map<string, bigint>> {
+  const lines = await db()
+    .ledgerLines.where("[godownId+date]")
+    .between([godownId, ""], [godownId, upTo ?? "￿"], true, true)
     .toArray();
+  const m = new Map<string, bigint>();
+  for (const l of lines) {
+    m.set(l.account, (m.get(l.account) ?? 0n) + BigInt(l.debitPaise) - BigInt(l.creditPaise));
+  }
+  for (const [k, v] of m) if (v === 0n) m.delete(k);
+  return m;
 }
 
-/** Σdebit − Σcredit of one account in one godown. */
+/** Balance of one account of a Gola up to and including `upTo`. */
 export async function accountBalance(
   godownId: string,
   account: string,
-  range: { from?: string; to?: string } = {},
+  upTo?: string,
 ): Promise<bigint> {
-  let bal = 0n;
-  for (const l of await accountLines(godownId, account, range)) {
-    bal += BigInt(l.debitPaise) - BigInt(l.creditPaise);
-  }
-  return bal;
-}
-
-/** Party balance: > 0 = they owe us (পাওনা), < 0 = we owe them (দেনা). */
-export function partyBalance(godownId: string, partyId: string, toDate?: string): Promise<bigint> {
-  return accountBalance(godownId, partyAccountKey(partyId), toDate ? { to: toDate } : {});
-}
-
-export function godownLines(godownId: string): Promise<LedgerLine[]> {
-  return db()
-    .ledgerLines.where("[godownId+date]")
-    .between([godownId, MIN], [godownId, MAX], true, true)
+  const lines = await db()
+    .ledgerLines.where("[godownId+account+date]")
+    .between([godownId, account, ""], [godownId, account, upTo ?? "￿"], true, true)
     .toArray();
+  let b = 0n;
+  for (const l of lines) b += BigInt(l.debitPaise) - BigInt(l.creditPaise);
+  return b;
 }
 
-export async function godownBalances(godownId: string): Promise<Map<string, bigint>> {
-  return balancesByAccount(await godownLines(godownId));
+/** A party's balance (> 0 they owe us). */
+export function partyBalance(godownId: string, partyId: string, upTo?: string): Promise<bigint> {
+  return accountBalance(godownId, `PARTY:${partyId}`, upTo);
 }
 
-export async function godownTrialBalance(godownId: string) {
-  return trialBalance(await godownLines(godownId));
-}
-
-export async function godownReceivablePayable(godownId: string) {
-  return receivablePayable(await godownLines(godownId));
+/** Trial balance of a Gola: Σ debits == Σ credits (to the paisa). */
+export async function godownTrialBalance(
+  godownId: string,
+): Promise<{ debitPaise: bigint; creditPaise: bigint; balanced: boolean }> {
+  const lines = await db()
+    .ledgerLines.where("[godownId+date]")
+    .between([godownId, ""], [godownId, "￿"], true, true)
+    .toArray();
+  let dr = 0n;
+  let cr = 0n;
+  for (const l of lines) {
+    dr += BigInt(l.debitPaise);
+    cr += BigInt(l.creditPaise);
+  }
+  return { debitPaise: dr, creditPaise: cr, balanced: dr === cr };
 }

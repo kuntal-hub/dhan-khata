@@ -9,6 +9,7 @@ import { isReauthError, isRevokedError, onAuthEvent } from "../auth/session";
 import { withSyncLock } from "./locks";
 import { pullAll, type PullProgress } from "./pull";
 import { pushOnce, resetSending } from "./push";
+import { replayLegacyV1 } from "./legacy";
 import { quickIntegrity, uploadClientErrors } from "../diagnostics";
 import { NetworkError, apiCall } from "./transport";
 
@@ -147,6 +148,13 @@ export class SyncEngine {
           if (r.sent === 0 || !r.more) break;
         }
         await pullAll(opts.onProgress);
+        // Unsynced v1 work held by the Dexie v4 upgrade goes out again as v2 operations.
+        if (await replayLegacyV1()) {
+          for (let i = 0; i < 40; i++) {
+            const r = await pushOnce();
+            if (r.sent === 0 || !r.more) break;
+          }
+        }
       });
       // Best effort, never fails the sync: upload error reports, run the light integrity check.
       await uploadClientErrors().catch(() => 0);

@@ -1,14 +1,14 @@
 /**
- * Client-side test helpers: fake IndexedDB device databases seeded with a session, godowns,
- * varieties, parties and categories — plus voucher draft builders.
+ * Client-side test helpers: fake IndexedDB device databases seeded with a session, Golas,
+ * varieties, parties and categories — plus v2 document draft builders.
  */
 import "fake-indexeddb/auto";
 import { setClockForTests } from "@/client/clock";
 import { deleteDatabase, db, selectDatabase } from "@/client/db/dexie";
 import { META, godownSettingsKey, setMeta } from "@/client/db/meta";
-import type { VoucherDraft } from "@/client/repo";
+import type { DocDraft, DraftOf } from "@/client/repo";
 import { todayIST } from "@/domain/dates";
-import { SEED_VARIETY_KEYS, SYSTEM_EXPENSE_CODES } from "@/domain/posting/accounts";
+import { EXPENSE_CATEGORY_CODES_V2, SEED_VARIETY_KEYS_V2 } from "@/domain/v2/accounts";
 import {
   defaultGodownSettings,
   type ExpenseCategory,
@@ -19,13 +19,14 @@ import {
   type Variety,
 } from "@/domain/schemas";
 import { buildSearchKey } from "@/i18n/translit";
-import { line } from "./factory";
 
 export const T0 = "2026-11-23T04:30:00.000Z";
+export const BIZ = "B-TEST";
 
-export function godownDoc(id: string, code: string, name = code): Godown {
+export function godownDoc(id: string, code: string, name = code, businessId = BIZ): Godown {
   return {
     _id: id,
+    businessId,
     rev: 1,
     createdAt: T0,
     updatedAt: T0,
@@ -40,11 +41,13 @@ export function userDoc(
   id: string,
   opts: {
     isOwner?: boolean;
+    businessId?: string;
     access?: Array<{ godownId: string; role: GodownRole; consolidated?: boolean }>;
   } = {},
 ): User {
   return {
     _id: id,
+    businessId: opts.businessId ?? BIZ,
     name: id,
     phone: "9830000000",
     isOwner: opts.isOwner ?? true,
@@ -56,8 +59,9 @@ export function userDoc(
   };
 }
 
-const base = (godownId: string, id: string) => ({
+const base = (godownId: string, id: string, businessId = BIZ) => ({
   _id: id,
+  businessId,
   godownId,
   rev: 1,
   createdAt: T0,
@@ -74,9 +78,10 @@ export interface LocalGodown {
   variety: Record<string, string>;
   farmer: string;
   mill: string;
+  customer: string;
 }
 
-/** Create (or reset) a device database with a signed-in user and the given godowns. */
+/** Create (or reset) a device database with a signed-in user and the given Golas. */
 export async function setupDevice(
   name: string,
   opts: {
@@ -102,19 +107,26 @@ export async function setupDevice(
   });
   const out: Record<string, LocalGodown> = {};
   for (const g of opts.godowns ?? []) {
-    const godown = godownDoc(g.id, g.code);
+    const godown = godownDoc(g.id, g.code, g.code, user.businessId);
     await d.godowns.put(godown);
     await setMeta(godownSettingsKey(g.id), defaultGodownSettings(g.id, T0));
     const variety: Record<string, string> = {};
     if (opts.seedMasters !== false) {
-      for (const key of SEED_VARIETY_KEYS) {
-        const v: Variety = { ...base(g.id, `${g.id}-V-${key}`), name: "", systemKey: key };
+      for (const key of SEED_VARIETY_KEYS_V2) {
+        const v: Variety = {
+          ...base(g.id, `${g.id}-V-${key}`, user.businessId),
+          name: "",
+          systemKey: key,
+          product: "PADDY",
+          normalizedKey: `${key.toLowerCase()}|`,
+          verified: true,
+        };
         await d.varieties.put(v);
         variety[key] = v._id;
       }
-      for (const code of SYSTEM_EXPENSE_CODES) {
+      for (const code of EXPENSE_CATEGORY_CODES_V2) {
         const c: ExpenseCategory = {
-          ...base(g.id, `${g.id}-C-${code}`),
+          ...base(g.id, `${g.id}-C-${code}`, user.businessId),
           code,
           isSystem: true,
           enabled: true,
@@ -122,11 +134,12 @@ export async function setupDevice(
         await d.expenseCategories.put(c);
       }
       for (const [suffix, roles, nm] of [
-        ["FARMER", ["farmer"], "Ramesh"],
-        ["MILL", ["mill"], "Durga Mill"],
+        ["FARMER", ["FARMER"], "Ramesh"],
+        ["MILL", ["MILL"], "Durga Mill"],
+        ["CUSTOMER", ["CUSTOMER"], "Gopal Traders"],
       ] as const) {
         const p: Party = {
-          ...base(g.id, `${g.id}-P-${suffix}`),
+          ...base(g.id, `${g.id}-P-${suffix}`, user.businessId),
           name: nm,
           searchKey: buildSearchKey(nm),
           roles: [...roles],
@@ -134,7 +147,13 @@ export async function setupDevice(
         await d.parties.put(p);
       }
     }
-    out[g.id] = { godown, variety, farmer: `${g.id}-P-FARMER`, mill: `${g.id}-P-MILL` };
+    out[g.id] = {
+      godown,
+      variety,
+      farmer: `${g.id}-P-FARMER`,
+      mill: `${g.id}-P-MILL`,
+      customer: `${g.id}-P-CUSTOMER`,
+    };
   }
   return out;
 }
@@ -144,68 +163,91 @@ export function useClock(iso: string | null): void {
 }
 
 export const TODAY = todayIST();
+export const QTL = 100_000n;
+export const RS = 100n;
+
+export function manualWeight(g: bigint) {
+  return { mode: "MANUAL" as const, totalG: g.toString(), netG: g.toString() };
+}
 
 export function purchaseDraft(
   partyId: string,
   varietyId: string,
-  grossG: bigint,
+  g: bigint,
   rate: bigint,
   date = TODAY,
-): VoucherDraft {
+): DraftOf<"PURCHASE"> {
   return {
     type: "PURCHASE",
-    date,
+    transactionDate: date,
     partyId,
-    storeAt: "STORE",
-    lines: [line(varietyId, grossG, rate)],
-    charges: [],
-    roundToRupee: true,
+    varietyId,
+    storeAt: "WAREHOUSE",
+    weight: manualWeight(g),
+    ratePaisePerQtl: rate.toString(),
+    amountPaise: "0",
     roundOffPaise: "0",
     totalPaise: "0",
-  } as VoucherDraft;
+  };
 }
 
 export function saleDraft(
   partyId: string,
   varietyId: string,
-  grossG: bigint,
+  g: bigint,
   rate: bigint,
   date = TODAY,
-): VoucherDraft {
+): DraftOf<"SALE"> {
   return {
     type: "SALE",
-    date,
+    transactionDate: date,
     partyId,
-    vehicleNumber: "WB12AB3456",
-    source: "STORE",
-    lines: [line(varietyId, grossG, rate)],
-    charges: [],
-    roundToRupee: true,
+    product: "PADDY",
+    varietyId,
+    source: "WAREHOUSE",
+    weight: manualWeight(g),
+    ratePaisePerQtl: rate.toString(),
+    amountPaise: "0",
     roundOffPaise: "0",
     totalPaise: "0",
-    duePaise: "0",
-    settlementStatus: "PENDING",
-  } as VoucherDraft;
+    saleStatus: "CONFIRMED",
+    deliveryStatus: "PENDING",
+    deliveryLog: [],
+  };
 }
 
-export function paymentDraft(partyId: string, amountPaise: bigint, date = TODAY): VoucherDraft {
+export function paymentDraft(
+  direction: "IN" | "OUT",
+  amountPaise: bigint,
+  source: DraftOf<"PAYMENT">["source"],
+  extra: Partial<DraftOf<"PAYMENT">> = {},
+  date = TODAY,
+): DraftOf<"PAYMENT"> {
   return {
     type: "PAYMENT",
-    date,
-    partyId,
+    direction,
     amountPaise: amountPaise.toString(),
+    paymentDate: date,
     mode: "CASH",
-    purpose: "BILL",
-  } as VoucherDraft;
+    source,
+    isInitial: false,
+    ...extra,
+  };
 }
 
-export function expenseDraft(amountPaise: bigint, date = TODAY): VoucherDraft {
+export function expenseDraft(
+  amountPaise: bigint,
+  date = TODAY,
+  extra: Partial<DraftOf<"EXPENSE">> = {},
+): DraftOf<"EXPENSE"> {
   return {
     type: "EXPENSE",
-    date,
+    title: "loading labour",
     categoryCode: "LABOUR",
     amountPaise: amountPaise.toString(),
-    mode: "CASH",
-    description: "loading labour",
-  } as VoucherDraft;
+    expenseDate: date,
+    ...extra,
+  };
 }
+
+export type { DocDraft };

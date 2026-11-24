@@ -1,8 +1,9 @@
 /**
  * First-run seed (spec §18.3):
  *   pnpm seed --owner-phone=98300xxxxx --owner-name="Name" [--owner-password=…]
- *             [--godown-name=Rampur --godown-code=RP]
- * Creates the owner user (password printed once if generated) and, optionally, the first godown
+ *             [--business-name=…] [--godown-name=Rampur --godown-code=RP]
+ * Creates the business and its owner (password printed once if generated) and, optionally, the
+ * first Gola
  * with its chart of accounts, TRANSIT location, seeded varieties/categories and settings.
  * Reads `.env` / `.env.local` if present. Idempotent for an existing owner phone.
  */
@@ -11,7 +12,7 @@ import { randomBytes } from "node:crypto";
 import { normalizePhone } from "@/domain/phone";
 import { closeMongo, cols, getDb } from "@/server/db";
 import { createGodown } from "@/server/godownService";
-import { createUser } from "@/server/users";
+import { createBusinessWithOwner } from "@/server/business";
 
 function args(): Record<string, string> {
   const out: Record<string, string> = {};
@@ -39,7 +40,14 @@ async function main() {
     console.log(`Owner already exists: ${owner.name} (${owner._id})`);
   } else {
     const password = a["owner-password"] ?? randomBytes(9).toString("base64url");
-    owner = await createUser(db, { name, phone, password, isOwner: true });
+    const created = await createBusinessWithOwner(db, {
+      ownerName: name,
+      mobile: phone,
+      password,
+      businessName: a["business-name"]?.trim() || name,
+    });
+    owner = created.owner;
+    console.log(`Business created: ${created.business.name} (${created.business._id})`);
     console.log(`Owner created: ${owner.name} (${owner._id})`);
     if (!a["owner-password"]) console.log(`Generated password (shown once): ${password}`);
   }

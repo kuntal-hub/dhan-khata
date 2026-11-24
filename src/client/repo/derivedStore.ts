@@ -1,54 +1,54 @@
-/** Dexie implementation of the shared `DerivedStore` (positions, re-posting, dailyAgg). */
-import type { Derived, DerivedStore, StockKey } from "@/domain/posting/derive";
-import type { StockPosition } from "@/domain/posting/post";
-import type { StockMove, Voucher } from "@/domain/schemas";
+/** Dexie implementation of the shared v2 `DerivedStore` (positions, re-posting, dailyAgg). */
+import type { StockKeyV2, StockPosition } from "@/domain/v2/post";
+import { moveMatchesKey, type Derived, type DerivedStore } from "@/domain/v2/derive";
+import type { Doc, StockMove } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { applyAggDelta } from "./dailyAgg";
 
-function movesForKey(godownId: string, key: StockKey): Promise<StockMove[]> {
+function movesForKey(godownId: string, key: StockKeyV2): Promise<StockMove[]> {
   return db()
-    .stockMoves.where("[godownId+varietyId+location]")
-    .equals([godownId, key.varietyId, key.location])
-    .filter((m) => key.location !== "TRANSIT" || (m.groupId ?? "") === (key.groupId ?? ""))
+    .stockMoves.where("[godownId+product+location]")
+    .equals([godownId, key.product, key.location])
+    .filter((m) => moveMatchesKey(m, key))
     .toArray();
 }
 
 export const dexieDerivedStore: DerivedStore = {
-  async positionBefore(godownId, ord, key, excludeVoucherId): Promise<StockPosition> {
+  async positionBefore(godownId, ord, key, excludeDocId): Promise<StockPosition> {
     let qtyG = 0n;
     let valuePaise = 0n;
     for (const m of await movesForKey(godownId, key)) {
-      if (m.voucherId === excludeVoucherId || (m.ord ?? "") >= ord) continue;
+      if (m.voucherId === excludeDocId || (m.ord ?? "") >= ord) continue;
       qtyG += BigInt(m.qtyG);
       valuePaise += BigInt(m.valuePaise);
     }
     return { qtyG, valuePaise };
   },
 
-  async vouchersAfter(godownId, ord, keys) {
+  async docsAfter(godownId, ord, keys) {
     const out = new Map<string, string>();
     for (const key of keys) {
       for (const m of await movesForKey(godownId, key)) {
         if ((m.ord ?? "") > ord) out.set(m.voucherId, m.ord ?? "");
       }
     }
-    return [...out].map(([voucherId, o]) => ({ voucherId, ord: o }));
+    return [...out].map(([docId, o]) => ({ docId, ord: o }));
   },
 
-  async getVoucher(id): Promise<Voucher | undefined> {
+  async getDoc(id): Promise<Doc | undefined> {
     return db().vouchers.get(id);
   },
 
-  async readDerived(voucherId): Promise<Derived> {
+  async readDerived(docId): Promise<Derived> {
     const d = db();
     const [lines, moves] = await Promise.all([
-      d.ledgerLines.where("voucherId").equals(voucherId).toArray(),
-      d.stockMoves.where("voucherId").equals(voucherId).toArray(),
+      d.ledgerLines.where("voucherId").equals(docId).toArray(),
+      d.stockMoves.where("voucherId").equals(docId).toArray(),
     ]);
     return { lines, moves };
   },
 
-  async writeDerived(_v, before, after) {
+  async writeDerived(_d, before, after) {
     await replaceDerivedRows(before, after);
   },
 };

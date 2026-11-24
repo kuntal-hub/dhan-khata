@@ -10,7 +10,6 @@ import { CLOCK_SKEW_WARN_MS } from "@/client/sync/constants";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppSelector } from "@/store";
 import { useUpdateApp } from "@/components/pwa/PwaRuntime";
-import { DayBanners } from "@/components/daily/DayBanners";
 
 /** Non-blocking banners: re-login, app update, clock skew, storage eviction notice. */
 export function Banners() {
@@ -69,7 +68,6 @@ export function Banners() {
           </Button>
         </div>
       ) : null}
-      <DayBanners />
     </div>
   );
 }

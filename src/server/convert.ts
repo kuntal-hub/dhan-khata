@@ -32,12 +32,17 @@ export function fromDbMove(m: DbStockMove): StockMove {
     ...m,
     qtyG: BigInt(m.qtyG).toString(),
     valuePaise: BigInt(m.valuePaise).toString(),
-  };
+  } as StockMove;
 }
 
-/** Remove server-only fields (`_m`, password hashes) before sending a document to a client. */
+/** Remove server-only fields (`_m`, password/recovery hashes) before sending a document. */
 export function publicDoc<T>(doc: T): T {
   if (doc === null || typeof doc !== "object") return doc;
-  const { _m: _meta, passwordHash: _hash, ...rest } = doc as Record<string, unknown>;
+  const {
+    _m: _meta,
+    passwordHash: _hash,
+    recoveryCodeHash: _rc,
+    ...rest
+  } = doc as Record<string, unknown>;
   return rest as T;
 }

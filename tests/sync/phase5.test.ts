@@ -10,13 +10,7 @@ import { authedCall } from "@/client/auth/session";
 import { db } from "@/client/db/dexie";
 import { getSession } from "@/client/db/meta";
 import { reportClientError, uploadClientErrors } from "@/client/diagnostics";
-import {
-  createManualReminder,
-  createVoucher,
-  saveMoney,
-  savePurchase,
-  upsertMaster,
-} from "@/client/repo";
+import { createManualReminder, saveDoc, upsertMaster } from "@/client/repo";
 import { todayIST } from "@/domain/dates";
 import { accountTotals } from "@/domain/integrity";
 import type { Backup } from "@/server/admin";
@@ -26,8 +20,9 @@ import { closeMongo, cols, getDb, getMongoClient, type UserDoc } from "@/server/
 import { createGodown } from "@/server/godownService";
 import { sendDigest } from "@/server/push";
 import { cronDaily } from "@/server/routes/admin";
+import { createBusinessWithOwner } from "@/server/business";
 import { createUser } from "@/server/users";
-import { expenseDraft, purchaseDraft } from "../helpers/local";
+import { expenseDraft, paymentDraft, purchaseDraft } from "../helpers/local";
 import { TestDevice, useTestServer } from "../helpers/server";
 
 const QTL = 100_000n;
@@ -53,26 +48,34 @@ beforeAll(async () => {
   useTestServer("p5");
   process.env.CRON_SECRET = "cron-secret-for-tests-0123456789";
   const mdb = await getDb();
-  owner = await createUser(mdb, { name: "Owner", ...OWNER, isOwner: true });
+  owner = (
+    await createBusinessWithOwner(mdb, {
+      ownerName: "Owner",
+      mobile: OWNER.phone,
+      password: OWNER.password,
+      businessName: "P5 Business",
+    })
+  ).owner;
   GA = (await createGodown(mdb, owner, { name: "Rampur", code: "RP" }))._id;
   GB = (await createGodown(mdb, owner, { name: "Sonapur", code: "SP" }))._id;
-  await createUser(mdb, { name: "MA", ...MA, godownAccess: [{ godownId: GA, role: "manager" }] });
+  await createUser(mdb, {
+    businessId: owner.businessId,
+    name: "MA",
+    ...MA,
+    godownAccess: [{ godownId: GA, role: "manager" }],
+  });
   await od.reset();
   await od.login(OWNER.phone, OWNER.password);
   await od.sync();
-  const fa = await upsertMaster(GA, "party", { name: "Farmer A", roles: ["farmer"] });
-  const fb = await upsertMaster(GB, "party", { name: "Farmer B", roles: ["farmer"] });
-  await savePurchase(GA, purchaseDraft(fa._id, await swarna(GA), 10n * QTL, 200_000n));
-  await saveMoney(GA, {
-    type: "PAYMENT",
-    date: today(),
-    partyId: fa._id,
-    amountPaise: "500000",
-    mode: "CASH",
-    purpose: "BILL",
-  } as never);
-  await savePurchase(GB, purchaseDraft(fb._id, await swarna(GB), 4n * QTL, 210_000n));
-  await createVoucher(GB, expenseDraft(30_000n));
+  const fa = await upsertMaster(GA, "party", { name: "Farmer A", roles: ["FARMER"] });
+  const fb = await upsertMaster(GB, "party", { name: "Farmer B", roles: ["FARMER"] });
+  const pa = await saveDoc(GA, purchaseDraft(fa._id, await swarna(GA), 10n * QTL, 200_000n));
+  await saveDoc(
+    GA,
+    paymentDraft("OUT", 500000n, { type: "PURCHASE", id: pa._id }, { partyId: fa._id }),
+  );
+  await saveDoc(GB, purchaseDraft(fb._id, await swarna(GB), 4n * QTL, 210_000n));
+  await saveDoc(GB, expenseDraft(30_000n));
   await createManualReminder(GA, { title: "Call mill A", dueDate: today() });
   await createManualReminder(GB, { title: "Call mill B", dueDate: today() });
   await od.sync();

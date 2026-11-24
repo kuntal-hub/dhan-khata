@@ -8,8 +8,6 @@ import { MongoMemoryReplSet } from "mongodb-memory-server";
 
 export const E2E_PORT = Number(process.env.E2E_PORT ?? 3100);
 export const E2E_OWNER = { phone: "9830012345", password: "e2e-owner-pass", name: "E2E Owner" };
-/** Field staff: `entry` role in Rampur (RP) only (spec §2). */
-export const E2E_ENTRY = { phone: "9830054321", password: "e2e-entry-pass", name: "E2E Entry" };
 
 async function main() {
   const replSet = await MongoMemoryReplSet.create({
@@ -18,7 +16,7 @@ async function main() {
   const env = {
     ...process.env,
     MONGODB_URI: replSet.getUri(),
-    MONGODB_DB: "dhankhata_e2e",
+    MONGODB_DB: "dhangola_e2e",
     AUTH_JWT_SECRET: "e2e-jwt-secret-0123456789-0123456789-abcdefgh",
     AUTH_REFRESH_SECRET: "e2e-refresh-secret-0123456789-0123456789-xyz",
     AUTH_COOKIE_INSECURE: "1",
@@ -28,13 +26,17 @@ async function main() {
   Object.assign(process.env, env);
 
   const { getDb, closeMongo } = await import("@/server/db");
-  const { createUser } = await import("@/server/users");
+  const { createBusinessWithOwner } = await import("@/server/business");
   const { createGodown } = await import("@/server/godownService");
   const db = await getDb();
-  const owner = await createUser(db, { ...E2E_OWNER, isOwner: true });
-  const rampur = await createGodown(db, owner, { name: "Rampur", code: "RP" });
+  const { owner } = await createBusinessWithOwner(db, {
+    ownerName: E2E_OWNER.name,
+    mobile: E2E_OWNER.phone,
+    password: E2E_OWNER.password,
+    businessName: "ধান গোলা ট্রেডার্স",
+  });
+  await createGodown(db, owner, { name: "Rampur", code: "RP" });
   await createGodown(db, owner, { name: "Sonapur", code: "SP" });
-  await createUser(db, { ...E2E_ENTRY, godownAccess: [{ godownId: rampur._id, role: "entry" }] });
   await closeMongo();
 
   const require = createRequire(import.meta.url);

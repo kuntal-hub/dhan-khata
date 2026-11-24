@@ -10,7 +10,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 |---|---|---|---|
 | 0 | Audit, gap analysis | GAP_ANALYSIS.md | ✅ |
 | 1 | Domain core (units, WeightBlock, Payment, dates, posting v2, stock engine, cashbook classifier, voice number parser) | G1–G8 + property tests; Tests 1–6 as domain tests | ✅ |
-| 2 | Data layer & migration (Dexie v4, repo, server, op groups, businessId, `scripts/migrate-v2.ts`) | sync + isolation tests; migration dry-run reconciles | ⬜ |
+| 2 | Data layer & migration (Dexie v4, repo, server, op groups, businessId, `scripts/migrate-v2.ts`) | sync + isolation tests; migration dry-run reconciles | ✅ |
 | 3 | Auth & Gola management | Tests 7, 8, 9 | ⬜ |
 | 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ⬜ |
 | 5 | Purchase + Variety | Test 1 e2e | ⬜ |
@@ -330,3 +330,23 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - `DerivedStore`/`applyVoucherDerived` (`posting/derive.ts`) must be ported to `postDoc` with `StockKeyV2` (key = `stockKeyId`) and `ordOfDoc`.
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 345/345 (31 files).
+### v2 Phase 2 — Data layer & migration — 2026-11-25
+**Built:**
+- The v2 schemas ARE the schemas now (`@/domain/schemas` re-exports `v2/schemas`). The v1 voucher schemas live in `src/domain/legacy/v1Vouchers.ts`, used only by the migration. The v1 `posting/`, `calc/` and `transfer.ts` are removed. Masters are v2: party roles `FARMER…GOLA`, variety `company/product/normalizedKey/verified`, `Business` schema, `businessId` on every record, Gola `colour`, settings `lowStock`.
+- Domain: `v2/derive.ts` (the shared DerivedStore port with `StockKeyV2`), `v2/links.ts` (payment source/party/direction, return/conversion ↔ dispatch, consignment, load), `scope.ts` (v2 refs), `legacy/migrateV1.ts` (pure converter), `legacy/reconcile.ts`.
+- Device: Dexie **v4** (additive indexes for per-type dates, `source.id`, `dispatchId`, product/location) with `db/upgradeV4.ts`, which holds pending v1 work and clears data for a full re-download. Repo `repo/docs.ts`: `saveDoc`, `saveDocs` (several docs, one transaction, pre-assigned ids), `voidDoc` (LINKED_PAYMENTS / `withPayments`, ALREADY_LINKED), `paymentsOfSource`, `dependentsOf`; day close + "re-check" flags; business id + op group in the write context. Also `repo/reminders.ts` (manual + state only, D13), masters with the variety duplicate check, `queries/ledger.ts`, and `sync/legacy.ts` (`replayLegacyV1`). Sync push sends op groups whole (`cutAtGroup`) and pull handles `business`.
+- Server: `applyOp.ts` rewritten. `applyGroup` applies one op group in one transaction. It checks the business (`FORBIDDEN`), `CALC_MISMATCH` via `verifyDoc`, `validateDocRules`, links, `LINKED_PAYMENTS` / `ALREADY_LINKED` on void, load 1:1, day close, and re-check flags. Also: `mongoStore.ts` (v2 keys), the `businesses` collection with `businessId`-prefixed indexes, `business.ts` (`createBusinessWithOwner`), owners scoped to their business (`godownIdsFor`, admin, godown edit/archive, party merge), and admin backup/restore v2 (`dhan-gola-backup` version 2).
+- Migration: `src/server/migrateV2.ts` + `scripts/migrate-v2.ts` (`pnpm migrate:v2` dry run, `--copy-to-memory` rehearsal, `--apply`), `docs/MIGRATION_V2.md`.
+- Tests: `tests/repo/docs.test.ts` (stored rows == replay, back-dated re-post, linked voids, re-check, duplicate varieties), `tests/repo/upgrade-v4.test.ts`, `tests/unit/migrate-v1.test.ts`, the sync suite ported to v2 (+ op-group atomicity, linked void), and the isolation suite ported (+ owner separation, Test 9: cross-business pull/push and a forged payment source).
+
+**Migration rehearsal (demo database):** `pnpm migrate:v2 --copy-to-memory` → reconciliation OK, 39 figures checked; the only allowed difference is a ₹75,922 cheque in hand moving to the bank. Stored == re-posted, both Golas balanced. **The live database was not modified** (the rehearsal only reads it).
+
+**Decisions:** D12–D16.
+
+**Known issues / TODO:**
+- The app has only the shell, Home (Gola name), Sync, login and unlock until Phase 4 (D16). The cold-offline e2e covers those routes.
+- `tests/unit/i18n-usage.test.ts` "every key is used" is paused until Phase 12 (most v1 keys lost their screens).
+- `pnpm check:bundle` / `pnpm lighthouse` were not re-run (no UI to measure yet). They are re-run in Phase 4.
+- Inter-Gola transfers (paired sale + purchase across two Golas in one op group) are rebuilt in Phase 6.
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 236 passed, 1 skipped (19 files) · `pnpm build` ✅ · `pnpm test:e2e` ✅ 1/1 (cold offline, transitional routes) · migration rehearsal reconciles ✅

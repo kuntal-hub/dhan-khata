@@ -107,6 +107,19 @@ export const PurchaseSchema = z.strictObject({
   storeAt: z.enum(["WAREHOUSE", "TRANSIT"]),
   weight: WeightBlockSchema,
   ...BillShape,
+  /**
+   * Bill charges carried over from v1 data only (the v2 form has none): total = amount
+   * + Σ add − Σ deduct + roundOff. Shown read-only on the detail page.
+   */
+  legacyCharges: z
+    .array(
+      z.strictObject({
+        label: z.string().trim().min(1).max(60),
+        kind: z.enum(["add", "deduct"]),
+        amountPaise: NonNegIntStr,
+      }),
+    )
+    .optional(),
   dueDate: YmdStr.optional(),
   linkedLoadId: Id.optional(),
   interGola: InterGolaSchema.optional(),
@@ -294,7 +307,8 @@ export const TripSchema = z.strictObject({
   ...DocBaseShape,
   type: z.literal("TRIP"),
   transactionDate: YmdStr,
-  customerPartyId: Id,
+  /** Required when the trip earns income (an own load carried by our own truck earns none). */
+  customerPartyId: Id.optional(),
   vehicleId: Id,
   driverName: z.string().max(80).optional(),
   loadingLocation: z.string().max(80),

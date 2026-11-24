@@ -50,15 +50,19 @@ export function billsOf(d: Doc): Bill[] {
       ];
     case "TRIP":
       return [
-        bill(
-          "VEHICLE_TRIP",
-          d._id,
-          "IN",
-          d.totalIncomePaise,
-          d.transactionDate,
-          d.customerPartyId,
-          d.dueDate,
-        ),
+        ...(BigInt(d.totalIncomePaise) > 0n
+          ? [
+              bill(
+                "VEHICLE_TRIP",
+                d._id,
+                "IN",
+                d.totalIncomePaise,
+                d.transactionDate,
+                d.customerPartyId,
+                d.dueDate,
+              ),
+            ]
+          : []),
         ...d.costs.map((c) =>
           bill(
             "VEHICLE_COST",

@@ -8,21 +8,25 @@ import {
   NonNegIntStr,
 } from "./common";
 
-export const PartyRoleSchema = z.enum([
-  "farmer",
-  "party",
-  "mill",
-  "transporter",
-  "driver",
-  "labour",
-  "pump",
-  "other",
-  /** Auto-created party representing ANOTHER godown (inter-godown deals, spec §1.4 rule 5). */
-  "godown",
-]);
+/** Party roles (requirement_v2 §10). GOLA = auto-created party representing another Gola. */
+export const PARTY_ROLES = [
+  "FARMER",
+  "SUPPLIER",
+  "CUSTOMER",
+  "MILL",
+  "SECOND_PARTY",
+  "VEHICLE_CUSTOMER",
+  "DRIVER",
+  "LABOUR",
+  "OTHER",
+  "GOLA",
+] as const;
+export const PartyRoleSchema = z.enum(PARTY_ROLES);
 export type PartyRole = z.infer<typeof PartyRoleSchema>;
 
-const PhoneSchema = z.string().regex(/^(\+91)?[6-9]\d{9}$/, { error: "errors.validation.phone" });
+export const PhoneSchema = z.string().regex(/^(\+91)?[6-9]\d{9}$/, {
+  error: "errors.validation.phone",
+});
 
 export const PartySchema = z.strictObject({
   ...BaseDocShape,
@@ -30,8 +34,10 @@ export const PartySchema = z.strictObject({
   nameAlt: z.string().trim().max(120).optional(),
   searchKey: z.string().max(400),
   roles: z.array(PartyRoleSchema).min(1),
+  /** Mobile number (10-digit Indian). */
   phone: PhoneSchema.optional(),
   altPhone: PhoneSchema.optional(),
+  address: z.string().max(300).optional(),
   village: z.string().max(80).optional(),
   postOffice: z.string().max(80).optional(),
   block: z.string().max(80).optional(),
@@ -43,7 +49,7 @@ export const PartySchema = z.strictObject({
     .strictObject({
       holder: z.string().max(120).optional(),
       bank: z.string().max(120).optional(),
-      /** Never full account numbers (spec §14). */
+      /** Never full account numbers (spec §19). */
       accountLast4: z
         .string()
         .regex(/^\d{4}$/)
@@ -54,19 +60,19 @@ export const PartySchema = z.strictObject({
     .optional(),
   defaultRatePaisePerQtl: NonNegIntStr.optional(),
   defaultDeductions: DeductionDefaultsSchema.optional(),
-  openingBalancePaise: IntStr.optional(),
   notes: z.string().max(1000).optional(),
   tags: z.array(z.string().max(40)).optional(),
-  /** Set only for role "godown": the godown this party represents. */
+  /** Set only for role GOLA: the Gola this party represents. */
   linkedGodownId: Id.optional(),
   /** Set when the owner merged this duplicate into another party (status becomes void). */
   mergedInto: Id.optional(),
 });
 export type Party = z.infer<typeof PartySchema>;
 
-/** Godown = top-level independent business. NOT scoped by godownId (it IS the scope). */
+/** Gola (godown) = an independent set of books. NOT scoped by godownId (it IS the scope). */
 export const GodownSchema = z.strictObject({
   _id: Id,
+  businessId: Id,
   rev: z.number().int().min(1),
   createdAt: IsoTimestamp,
   updatedAt: IsoTimestamp,
@@ -80,11 +86,37 @@ export const GodownSchema = z.strictObject({
   gstin: z.string().max(15).optional(),
   logoAssetId: z.string().max(64).optional(),
   capacityG: NonNegIntStr.optional(),
+  /** Colour chip in the Gola switcher (palette key). */
+  colour: z.string().max(20).optional(),
   receiptLanguage: z.enum(["bn", "en", "both"]),
   status: z.enum(["active", "archived"]),
   serverSeq: z.number().int().min(0).optional(),
 });
 export type Godown = z.infer<typeof GodownSchema>;
+
+/** The owner's business (one per deployment). Global: not scoped by godownId. */
+export const BusinessSchema = z.strictObject({
+  _id: Id,
+  name: z.string().trim().min(1).max(120),
+  address: z.string().max(300).optional(),
+  mobile: z.string().max(15).optional(),
+  /** Small compressed logo (data URL), shown on receipts, invoices and reports. */
+  logoDataUrl: z.string().max(200_000).optional(),
+  ownerUserId: Id,
+  /** Kilograms in one mon (default 40). */
+  monKg: z.number().int().min(1).max(100),
+  settings: z.strictObject({
+    /** Optional weight deductions (ধলতা etc.), off by default (§6.3). */
+    deductionsEnabled: z.boolean(),
+  }),
+  rev: z.number().int().min(1),
+  createdAt: IsoTimestamp,
+  updatedAt: IsoTimestamp,
+  serverSeq: z.number().int().min(0).optional(),
+});
+export type Business = z.infer<typeof BusinessSchema>;
+
+export const VARIETY_COMPANIES = ["PAN", "MUNDRA", "TIASA", "GMS", "OTHER"] as const;
 
 export const VarietySchema = z.strictObject({
   ...BaseDocShape,
@@ -93,6 +125,14 @@ export const VarietySchema = z.strictObject({
   /** Seeded varieties keep their code; rendered via i18n `variety.<systemKey>` unless renamed. */
   systemKey: z.string().max(40).optional(),
   renamed: z.boolean().optional(),
+  company: z.enum(VARIETY_COMPANIES).optional(),
+  companyOther: z.string().trim().max(60).optional(),
+  product: z.enum(["PADDY", "RICE"]),
+  /** lower(trim(name)) + company: unique per Gola (duplicate prevention, §12.2). */
+  normalizedKey: z.string().max(200),
+  /** Seeded, widely known public variety. */
+  verified: z.boolean(),
+  lastUsedAt: IsoTimestamp.optional(),
   defaultDeductions: DeductionDefaultsSchema.optional(),
 });
 export type Variety = z.infer<typeof VarietySchema>;
@@ -117,6 +157,8 @@ export const VehicleSchema = z.strictObject({
   type: z.enum(["truck", "tractor", "pickup", "other"]).optional(),
   capacityG: NonNegIntStr.optional(),
   driverPartyId: Id.optional(),
+  driverName: z.string().max(80).optional(),
+  driverMobile: z.string().max(15).optional(),
 });
 export type Vehicle = z.infer<typeof VehicleSchema>;
 
@@ -128,7 +170,7 @@ export type Place = z.infer<typeof PlaceSchema>;
 
 export const ExpenseCategorySchema = z.strictObject({
   ...BaseDocShape,
-  /** Immutable, unique within the godown. System: LABOUR, TRANSPORT, OTHERS, …; user: "U_xxxx". */
+  /** Immutable, unique within the Gola. System: LABOUR, TRANSPORT, …; user: "U_xxxx". */
   code: z.string().regex(/^[A-Z][A-Z0-9_]{1,30}$/),
   isSystem: z.boolean(),
   enabled: z.boolean(),

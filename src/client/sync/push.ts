@@ -9,8 +9,8 @@ import {
   type PushOp,
   type PushOpResult,
   type PushResponse,
+  type Doc,
   type Reminder,
-  type Voucher,
 } from "@/domain/schemas";
 import { authedCall } from "../auth/session";
 import { db, writeTables, type OutboxRow } from "../db/dexie";
@@ -27,19 +27,70 @@ export interface PushSummary {
   more: boolean;
 }
 
-/** Ops that can be sent now: pending, not behind an earlier failed/conflicted op of the entity. */
+/**
+ * Ops that can be sent now: pending, not behind an earlier failed/conflicted op of the same
+ * entity, and never a partial op group (a group is applied by the server all or nothing, so it
+ * travels whole: a failed member blocks the whole group).
+ */
 export async function sendableOps(limit = MAX_PUSH_BATCH): Promise<OutboxRow[]> {
   const all = await db().outbox.orderBy("seq").toArray();
-  const blocked = new Set<string>();
-  const out: OutboxRow[] = [];
+  const blockedEntities = new Set<string>();
+  const blockedGroups = new Set<string>();
   for (const op of all) {
     if (op.status === "error" || op.status === "conflict") {
-      blocked.add(op.entityId);
-      continue;
+      blockedEntities.add(op.entityId);
+      if (op.opGroup) blockedGroups.add(op.opGroup);
     }
-    if (blocked.has(op.entityId)) continue;
-    out.push(op);
-    if (out.length > limit) break;
+  }
+  // A group is blocked when ANY member waits behind a blocked entity.
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const op of all) {
+      if (!op.opGroup || blockedGroups.has(op.opGroup)) continue;
+      if (blockedEntities.has(op.entityId)) {
+        blockedGroups.add(op.opGroup);
+        changed = true;
+      }
+    }
+    for (const op of all) {
+      if (op.opGroup && blockedGroups.has(op.opGroup) && !blockedEntities.has(op.entityId)) {
+        blockedEntities.add(op.entityId);
+        changed = true;
+      }
+    }
+  }
+  const out: OutboxRow[] = [];
+  let i = 0;
+  while (i < all.length) {
+    const op = all[i]!;
+    // Take a whole group (consecutive seqs written in one transaction) or a single op.
+    const members = op.opGroup ? all.filter((o) => o.opGroup === op.opGroup) : [op];
+    const ok = members.every(
+      (m) => m.status !== "error" && m.status !== "conflict" && !blockedEntities.has(m.entityId),
+    );
+    if (ok) {
+      out.push(...members);
+      if (out.length > limit) break; // more than one batch: the caller cuts at a group boundary
+    }
+    const taken = new Set(members.map((m) => m.seq));
+    i++;
+    while (i < all.length && taken.has(all[i]!.seq)) i++;
+  }
+  return out;
+}
+
+/** Take whole op groups from the front while they fit in `limit` (the first one always). */
+export function cutAtGroup(ops: readonly OutboxRow[], limit: number): OutboxRow[] {
+  const out: OutboxRow[] = [];
+  let i = 0;
+  while (i < ops.length) {
+    const g = ops[i]!.opGroup;
+    let j = i + 1;
+    while (g && j < ops.length && ops[j]!.opGroup === g) j++;
+    if (out.length > 0 && out.length + (j - i) > limit) break;
+    out.push(...ops.slice(i, j));
+    i = j;
   }
   return out;
 }
@@ -55,6 +106,7 @@ function toWire(op: OutboxRow): PushOp {
     payload: op.payload,
     createdAt: op.createdAt,
     ...(op.fields ? { fields: op.fields } : {}),
+    ...(op.opGroup ? { opGroup: op.opGroup } : {}),
   };
 }
 
@@ -66,13 +118,13 @@ export async function resetSending(): Promise<void> {
 export async function pushOnce(): Promise<PushSummary> {
   const d = db();
   const candidates = await sendableOps(MAX_PUSH_BATCH);
-  const batch = candidates.slice(0, MAX_PUSH_BATCH);
+  const batch = cutAtGroup(candidates, MAX_PUSH_BATCH);
   const summary: PushSummary = {
     sent: batch.length,
     applied: 0,
     conflicts: 0,
     errors: 0,
-    more: candidates.length > MAX_PUSH_BATCH,
+    more: candidates.length > batch.length,
   };
   if (batch.length === 0) return summary;
   const session = await getSession();
@@ -116,7 +168,7 @@ export async function pushOnce(): Promise<PushSummary> {
           conflict: { doc: r.doc, lines: r.lines ?? [], moves: r.moves ?? [], rev: r.rev },
         });
         summary.conflicts++;
-      } else if (r.reason === "DEPENDS_ON_FAILED") {
+      } else if (r.reason === "DEPENDS_ON_FAILED" || r.reason === "GROUP_FAILED") {
         await d.outbox.update(op.seq!, { status: "pending" });
       } else {
         await d.outbox.update(op.seq!, {
@@ -145,7 +197,7 @@ async function acceptServerVersion(op: OutboxRow, r: PushOpResult): Promise<void
       }
       return;
     }
-    const doc = r.doc as Voucher;
+    const doc = r.doc as Doc;
     await d.vouchers.put(doc);
     if (r.lines && r.moves) {
       const before = await dexieDerivedStore.readDerived(doc._id);

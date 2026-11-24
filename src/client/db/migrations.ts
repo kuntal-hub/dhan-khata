@@ -6,6 +6,7 @@
  * `assertAdditive` enforces this for every consecutive pair of versions (tested).
  */
 import type Dexie from "dexie";
+import { upgradeToV4 } from "./upgradeV4";
 
 export type StoreSpec = Record<string, string>;
 
@@ -47,10 +48,25 @@ export const SCHEMA_V3: StoreSpec = {
   clientErrors: "++id, at",
 };
 
+/**
+ * v4 (requirement_v2): the `vouchers` store holds v2 documents (DECISIONS D1). New indexes for
+ * the per-type business dates, payment sources and product/location stock; all additive.
+ * The data move from v1 documents happens in `upgradeToV4` (see `./upgradeV4.ts`).
+ */
+export const SCHEMA_V4: StoreSpec = {
+  vouchers:
+    "_id, godownId, [godownId+type+date], [godownId+date], [godownId+partyId+date], number, [godownId+groupId], [godownId+loadId], status, serverSeq, [godownId+type], [godownId+transactionDate], [godownId+paymentDate], [godownId+expenseDate], [godownId+dispatchDate], [godownId+returnDate], [godownId+conversionDate], source.id, [godownId+partyId], dispatchId",
+  ledgerLines:
+    "_id, voucherId, [godownId+account+date], [godownId+partyId+date], [godownId+date], [godownId+voucherType+date]",
+  stockMoves:
+    "_id, voucherId, [godownId+varietyId+location], [godownId+date], [godownId+product+location], [godownId+product+date]",
+};
+
 export const SCHEMA_VERSIONS: readonly SchemaVersion[] = [
   { version: 1, stores: SCHEMA_V1 },
   { version: 2, stores: SCHEMA_V2 },
   { version: 3, stores: SCHEMA_V3 },
+  { version: 4, stores: SCHEMA_V4, upgrade: (tx) => upgradeToV4(tx) },
 ];
 
 function indexList(spec: string): string[] {

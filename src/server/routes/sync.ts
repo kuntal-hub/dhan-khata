@@ -1,6 +1,6 @@
 /** Sync route logic: push (apply ops) and pull (godown-filtered feed). */
 import { MAX_PULL_LIMIT, PushRequestSchema, type PushOpResult } from "@/domain/schemas";
-import { applyOp } from "../apply/applyOp";
+import { applyGroup } from "../apply/applyOp";
 import { authenticate } from "../auth";
 import { getDb } from "../db";
 import { ApiError, handle, json, log, readJson } from "../http";
@@ -15,24 +15,37 @@ export function push(request: Request): Promise<Response> {
 
     const results: PushOpResult[] = [];
     const failed = new Set<string>();
-    for (const op of body.ops) {
-      if (failed.has(op.entityId)) {
-        results.push({ opId: op.opId, result: "rejected", reason: "DEPENDS_ON_FAILED" });
+    // Consecutive ops sharing an opGroup are applied in ONE transaction (all or nothing).
+    let i = 0;
+    while (i < body.ops.length) {
+      const first = body.ops[i]!;
+      let j = i + 1;
+      while (first.opGroup && j < body.ops.length && body.ops[j]!.opGroup === first.opGroup) j++;
+      const group = body.ops.slice(i, j);
+      i = j;
+      if (group.some((op) => failed.has(op.entityId))) {
+        for (const op of group) {
+          results.push({ opId: op.opId, result: "rejected", reason: "DEPENDS_ON_FAILED" });
+          failed.add(op.entityId);
+        }
         continue;
       }
       const started = Date.now();
-      const r = await applyOp({ db, user: auth.user, deviceId: auth.device._id }, op);
-      log({
-        route: "sync/push/op",
-        opId: op.opId,
-        deviceId: auth.device._id,
-        entity: op.entity,
-        result: r.result,
-        reason: r.reason,
-        durationMs: Date.now() - started,
+      const rs = await applyGroup({ db, user: auth.user, deviceId: auth.device._id }, group);
+      group.forEach((op, k) => {
+        const r = rs[k]!;
+        log({
+          route: "sync/push/op",
+          opId: op.opId,
+          deviceId: auth.device._id,
+          entity: op.entity,
+          result: r.result,
+          reason: r.reason,
+          durationMs: Date.now() - started,
+        });
+        if (r.result === "rejected" || r.result === "conflict") failed.add(op.entityId);
+        results.push(r);
       });
-      if (r.result === "rejected" || r.result === "conflict") failed.add(op.entityId);
-      results.push(r);
     }
     return json({ results, serverTime: new Date().toISOString() });
   });

@@ -9,6 +9,7 @@ import Dexie, { type Table } from "dexie";
 import type {
   BankAccount,
   DayStatus,
+  Doc,
   ExpenseCategory,
   Godown,
   LedgerLine,
@@ -20,7 +21,6 @@ import type {
   Transfer,
   Variety,
   Vehicle,
-  Voucher,
 } from "@/domain/schemas";
 import { applyVersions } from "./migrations";
 
@@ -37,11 +37,13 @@ export interface DailyAggRow {
   date: string;
   /** account → Σdebit / Σcredit (paise, decimal strings) for the day. */
   accounts: Record<string, { dr: string; cr: string }>;
-  /** `${varietyId}|${location}` → Σ signed qty (g) and value (paise) for the day. */
+  /** stock position key (`stockKeyId`) → Σ signed qty (g) and value (paise) for the day. */
   stock: Record<string, { qtyG: string; valuePaise: string }>;
 }
 
 export type OutboxRow = OutboxOp & { seq?: number; godownId: string | null };
+
+export type { Doc };
 
 export interface AuditLocalRow {
   id?: number;
@@ -72,7 +74,8 @@ export class DhanKhataDB extends Dexie {
   vehicles!: Table<Vehicle, string>;
   places!: Table<Place, string>;
   expenseCategories!: Table<ExpenseCategory, string>;
-  vouchers!: Table<Voucher, string>;
+  /** v2 business documents (purchase, sale, payment, expense, …), discriminated by `type`. */
+  vouchers!: Table<Doc, string>;
   ledgerLines!: Table<LedgerLine, string>;
   stockMoves!: Table<StockMove, string>;
   dailyAgg!: Table<DailyAggRow, [string, string]>;

@@ -90,8 +90,13 @@ export function computeBill(
   netG: bigint,
   ratePaisePerQtl: bigint,
   roundToRupee = false,
+  /** Legacy v1 purchase charges (Σ add − Σ deduct); 0 for v2 bills. */
+  chargesPaise = 0n,
 ): BillResult {
   const amountPaise = amountForWeight(netG, ratePaisePerQtl);
-  const roundOffPaise = roundToRupee ? nearestRupee(amountPaise) - amountPaise : 0n;
-  return { amountPaise, roundOffPaise, totalPaise: amountPaise + roundOffPaise };
+  const before = amountPaise + chargesPaise;
+  const roundOffPaise = roundToRupee ? nearestRupee(before) - before : 0n;
+  const totalPaise = before + roundOffPaise;
+  if (totalPaise < 0n) throw new DomainError("TOTAL_NEGATIVE");
+  return { amountPaise, roundOffPaise, totalPaise };
 }

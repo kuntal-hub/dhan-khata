@@ -18,6 +18,7 @@ import {
   type Vehicle,
 } from "@/domain/schemas";
 import { checkRefs, collectMasterRefs } from "@/domain/scope";
+import { normalizedVarietyKey } from "@/domain/legacy/migrateV1";
 import { buildSearchKey } from "@/i18n/translit";
 import { db, writeTables, type DhanKhataDB } from "../db/dexie";
 import { godownSettingsKey, setMeta } from "../db/meta";
@@ -43,6 +44,7 @@ export interface MasterDocs {
 
 type BaseKeys =
   | "_id"
+  | "businessId"
   | "godownId"
   | "rev"
   | "createdAt"
@@ -78,6 +80,7 @@ export function masterTable(entity: MasterEntity, d: DhanKhataDB = db()) {
 
 const BOOKKEEPING = new Set([
   "_id",
+  "businessId",
   "godownId",
   "rev",
   "createdAt",
@@ -111,6 +114,14 @@ function normalize<E extends MasterEntity>(entity: E, input: Record<string, unkn
   }
   if (entity === "vehicle" && typeof out.number === "string") {
     out.number = normalizeVehicleNumber(out.number);
+  }
+  if (entity === "variety") {
+    out.product = out.product ?? "PADDY";
+    out.verified = out.verified ?? false;
+    out.normalizedKey = normalizedVarietyKey(
+      String(out.name || out.systemKey || ""),
+      out.company as string | undefined,
+    );
   }
   if (entity === "expenseCategory" && !out.code) {
     out.code = `U_${uuidv7().replace(/-/g, "").slice(-10).toUpperCase()}`;
@@ -165,6 +176,7 @@ export async function upsertMasterInTx<E extends MasterEntity>(
     const raw = normalize(entity, {
       ...(input as Record<string, unknown>),
       _id: id,
+      businessId: existing?.businessId ?? ctx.businessId,
       godownId,
       rev: existing ? existing.rev + 1 : 1,
       createdAt: existing?.createdAt ?? ctx.nowIso,
@@ -189,6 +201,17 @@ export async function upsertMasterInTx<E extends MasterEntity>(
         .equals([godownId, code])
         .first();
       if (clash && clash._id !== id) throw new RepoError("VALIDATION_FAILED", "duplicate code");
+    }
+
+    if (entity === "variety") {
+      // Duplicate prevention (§12.2): normalized name + company is unique per Gola.
+      const key = (next as Variety).normalizedKey;
+      const clash = await d.varieties
+        .where("godownId")
+        .equals(godownId)
+        .filter((v) => v._id !== id && v.status === "active" && v.normalizedKey === key)
+        .first();
+      if (clash) throw new RepoError("DUPLICATE_VARIETY", clash._id);
     }
 
     const refs = collectMasterRefs(entity, next as unknown as Record<string, unknown>);

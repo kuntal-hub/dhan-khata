@@ -33,5 +33,20 @@ An expense with a party posts Cr PARTY:person, and its payments settle that part
 ### D11: Conversion loss is derived
 `lossG = paddy consumed − Σ outputs` is recomputed (and verified by the server). The user confirms the loss shown, so the stored loss can never disagree with the quantities.
 
+### D12: Devices re-download after the v2 migration
+The Dexie v4 upgrade does not convert synced data on the device. It holds pending v1 work, clears the business tables and re-downloads the server's migrated data. The held work is replayed through the same converter after the first pull. **Why:** one converter run (on the server) is the single truth, and FIFO allocation of old payments can't differ between devices.
+
+### D13: Automatic reminders are derived, not stored
+Due reminders come from the `dueDate` of open bills (a query). Stored reminder records are only manual reminders and the owner's done/snooze state for an automatic one (`auto:<sourceId>`). A reminder therefore can never go stale when a bill is paid or edited.
+
+### D14: Staff roles stay internal
+v2 exposes only the owner (staff logins are out of scope). The role engine (`domain/rbac.ts`) and its server checks stay, because they cost nothing and keep a future staff feature safe. The owner can always write any day: the old "day lock" applies to internal roles only. A closed day that gets a back-dated cash entry is flagged "re-check" (§7.1) instead.
+
+### D15: Op groups
+Every op written in one local transaction carries the same `opGroup`. The device sends a group whole, and the server applies it in ONE Mongo transaction (all or nothing; the other members get `GROUP_FAILED`). A bill and its initial payment can therefore never be half-synced (§17).
+
+### D16: The v1 screens were removed in v2 Phase 2
+The v1 UI was built on the v1 data model and is replaced by the 8 v2 sections in Phases 4–11. Between Phase 2 and those phases the app has only the shell, Home, Sync, login and unlock. The cold-offline e2e covers exactly these routes until the sections return.
+
 ### D9: Payment modes CASH / BANK / UPI only
 v1 modes CHEQUE, DD, BANK_TRANSFER and OTHER are migrated to BANK, with the bank account kept. The `CHEQUE_IN_HAND` stage disappears. This is an intentional v2 semantic change, listed in the migration report.

@@ -12,8 +12,9 @@ export const Id = z.string().min(1).max(64);
 export const YmdStr = z.string().refine(isValidYmd, { error: "errors.validation.date" });
 export const IsoTimestamp = z.string().min(10).max(40);
 
-export const PayModeSchema = z.enum(["CASH", "BANK_TRANSFER", "UPI", "CHEQUE", "DD", "OTHER"]);
-export type PayMode = z.infer<typeof PayModeSchema>;
+/** v1 payment modes (legacy only; v2 uses CASH / BANK / UPI). */
+export const PayModeV1Schema = z.enum(["CASH", "BANK_TRANSFER", "UPI", "CHEQUE", "DD", "OTHER"]);
+export type PayModeV1 = z.infer<typeof PayModeV1Schema>;
 
 export const SeasonSchema = z.enum(["AMAN", "BORO", "AUS"]);
 export const DhaltaModeSchema = z.enum(["PER_QUINTAL", "PER_BAG", "FIXED"]);
@@ -22,8 +23,8 @@ export const StockLocationSchema = z.enum(["STORE", "TRANSIT"]);
 export type StockLocation = z.infer<typeof StockLocationSchema>;
 export const DocStatusSchema = z.enum(["active", "void"]);
 
-/** Fields on EVERY synced business document (spec §8). `godownId` is required and immutable. */
-export const BaseDocShape = {
+/** v1 base fields (no businessId): used only by the legacy v1 schemas and the migration. */
+export const BaseDocShapeV1 = {
   _id: Id,
   godownId: Id,
   rev: z.number().int().min(1),
@@ -35,6 +36,15 @@ export const BaseDocShape = {
   serverSeq: z.number().int().min(0).optional(),
   status: DocStatusSchema,
   voidReason: z.string().max(500).optional(),
+};
+
+/**
+ * Fields on EVERY synced business record (requirement_v2 §10). `godownId` is required and
+ * immutable; `businessId` lets the server check the owner on every read/write (§2.4).
+ */
+export const BaseDocShape = {
+  ...BaseDocShapeV1,
+  businessId: Id,
 };
 
 export const BaseDocSchema = z.strictObject(BaseDocShape);

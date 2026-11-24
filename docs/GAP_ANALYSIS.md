@@ -31,11 +31,11 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
 | 0.2 | Integer paise/grams, no floats | done | `src/domain/{money,weight,decimal,rounding}.ts`, `scripts/check-no-float.mjs`, ESLint | Keep; extend to new modules | 1 |
-| 0.2 | One financial event = one record (unified payments) | conflicts | `schemas/vouchers.ts` (`paidNow`, `advanceReceived`, PAYMENT/RECEIPT `allocations`) | Unified PAYMENT doc with `source` | 1–2 |
+| 0.2 | One financial event = one record (unified payments) | done (data layer) | `schemas/vouchers.ts` (`paidNow`, `advanceReceived`, PAYMENT/RECEIPT `allocations`) | Unified PAYMENT doc with `source` | 1–2 |
 | 0.2 | Stock & balances derived | done | `posting/*`, `queries/*` | Keep (derived lines/moves) | — |
 | 0.2 | Strict Gola separation | done | `domain/scope.ts`, server `applyOp` | Keep; add `businessId` checks | 2 |
 | 0.2 | Credit purchase/sale doesn't move cash | done | `posting/post.ts` | Keep in v2 posting | 1 |
-| 0.2 | Paddy/rice/other never combined | missing | — | `product` dimension | 1 |
+| 0.2 | Paddy/rice/other never combined | done (engine) | — | `product` dimension | 1 |
 | 0.2 | Exactly 8 navigation sections | conflicts | `components/layout/nav.tsx`, `(app)/more` | New shell | 4 |
 | 0.2 | No dummy buttons / hard-coded data | partial | Home stubs, "coming soon" badges in `more/page.tsx` | Remove during section rebuilds | 4–12 |
 | 0.2 | Bengali default + full English | done | `src/i18n/*` | New keys for every new screen | all |
@@ -47,7 +47,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 ### §2 Accounts, auth, Golas
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
-| 2.1 | Business entity (profile, logo) + `businessId` on docs | missing | — | `Business` doc; `businessId` on all docs; server checks | 2–3 |
+| 2.1 | Business entity (profile, logo) + `businessId` on docs | partial (entity + businessId done; profile UI Phase 3) | — | `Business` doc; `businessId` on all docs; server checks | 2–3 |
 | 2.2 | Registration while no owner; `REGISTRATION_CLOSED`; `ALLOW_REGISTRATION` | missing | `scripts/seed.ts` only | `/api/auth/register`, `/register` screen, env flag | 3 |
 | 2.2 | Recovery code (shown once, hashed) | missing | — | generate/hash/verify/regenerate | 3 |
 | 2.2 | Login with show/hide, rate-limited | partial | `(auth)/login`, `server/auth.ts` (rate limit done) | Show/hide toggle, new design | 3 |
@@ -63,33 +63,33 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 2.3 | Combined (all Golas) read-only view | done | `queries/consolidated` | Rebuild as side-by-side + total in Dashboard & reports | 8 |
 | 2.3 | Parties per Gola + "copy from other Gola" | done | `PartyForm` | Keep | — |
 | 2.3 | Inter-Gola transfer = linked sale + purchase | partial | `repo/transfer.ts` (paddy + money transfers) | Keep paddy transfer as Sales action; money transfer via payments | 6 |
-| 2.4 | Server checks session/owner/godown/same-Gola refs | done | `applyOp.ts`, `scope.ts` | Add `businessId` | 2 |
+| 2.4 | Server checks session/owner/godown/same-Gola refs (+ businessId) | done | `applyOp.ts`, `scope.ts` | Add `businessId` | 2 |
 
 ### §5–§9 Core engine
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
-| 5 | Documents + payments → pure postLedger/postStock | partial | `posting/post.ts`, `derive.ts` | v2 document union + new posting | 1 |
+| 5 | Documents + payments → pure postLedger/postStock | done | `posting/post.ts`, `derive.ts` | v2 document union + new posting | 1 |
 | 5 | Edit = new revision, derived rows replaced atomically | done | `repo/vouchers.ts`, `derive.ts` | Keep | — |
 | 5 | Void (soft) with reason, excluded from totals | done | repo `voidVoucher` | Keep | — |
-| 5 | Linked records edited/voided together or blocked with message | partial | `saveVoucherWithLinked` | Payments linked by `source`; block/cascade dialog | 2, 5 |
+| 5 | Linked records edited/voided together or blocked with message | done (repo/server; dialog Phase 4+) | `saveVoucherWithLinked` | Payments linked by `source`; block/cascade dialog | 2, 5 |
 | 6.1 | Storage units; parse rejects >2 dp money / >3 dp kg | done | `decimal.ts`, `client/ui/parse.ts` | Keep | — |
 | 6.2 | kg / quintal / mon (monKg configurable) + 3-unit display line | missing | `i18n/parse.ts` (qtl + kg) | `domain/units.ts`, `UnitToggle`, `QtyTriple` | 1, 4 |
-| 6.3 | WeightBlock (bag-wise / manual), avg bag | missing | `TradeLine` (gross + deductions) | `domain/weightBlock.ts` | 1 |
+| 6.3 | WeightBlock (bag-wise / manual), avg bag | done (domain) | `TradeLine` (gross + deductions) | `domain/weightBlock.ts` | 1 |
 | 6.3 | Deductions optional, off by default | conflicts | trade lines always deduct | `deductions?` in WeightBlock + setting | 1, 5 |
 | 6.3 | Closing paddy/mill formulas, vehicle net profit | missing/partial | `calc/vehicle.ts` | Stock engine v2, `calc/trip` v2 | 1 |
-| 6.4 | Golden G1–G8 | partial | `tests/unit/golden.test.ts` (G1, G4–G7 equivalents) | Add G2 (mon), G3 (bags), G8 (cashbook) | 1 |
-| 6.4 | Property tests (balanced, void restores, edit-back, Gola isolation) | done (v1 types) | `tests/property/*` | Re-target to v2 documents | 1 |
-| 7.1 | Separate date fields + entryDate | conflicts | single `date` | Per-type dates, `businessDate()`, `entryDate` | 1 |
+| 6.4 | Golden G1–G8 | done | `tests/unit/golden.test.ts` (G1, G4–G7 equivalents) | Add G2 (mon), G3 (bags), G8 (cashbook) | 1 |
+| 6.4 | Property tests (balanced, void restores, edit-back, Gola isolation) | done (v2) | `tests/property/*` | Re-target to v2 documents | 1 |
+| 7.1 | Separate date fields + entryDate | done | single `date` | Per-type dates, `businessDate()`, `entryDate` | 1 |
 | 7.1 | Future business dates blocked (except dueDate) | partial | `validateVoucherRules` | Keep for v2 | 1 |
 | 7.1 | Backdated entry on closed day → "re-check" | partial | `dayStatus.lateEntry` | Recheck flag computed from day-close vs later entries | 8 |
-| 7.2 | Unified Payment model | conflicts | PAYMENT/RECEIPT vouchers | New PAYMENT document | 1 |
+| 7.2 | Unified Payment model | done | PAYMENT/RECEIPT vouchers | New PAYMENT document | 1 |
 | 7.2 | Overpayment → split bill + PARTY_ADVANCE with shared groupId | missing | — | `splitPayment()` domain helper | 1 |
 | 7.2 | Payment receipt (bilingual, logo, words) | partial | `print/Receipt.tsx` | Re-target to Payment | 11 |
-| 7.3 | Cashbook classifier (received / paid / expenses; farmer payment = paid) | missing | `queries/cashbank.ts` (account book) | `domain/cashbook.ts` | 1 |
+| 7.3 | Cashbook classifier (received / paid / expenses; farmer payment = paid) | done (domain) | `queries/cashbank.ts` (account book) | `domain/cashbook.ts` | 1 |
 | 8 | Chart of accounts per Gola incl. STOCK_PADDY/RICE/OTHER/AT_MILL, EXP_PAYABLE, MILLING_* | partial | `posting/accounts.ts` | New account keys | 1 |
-| 8 | Event → posting table | partial | `post.ts` | Rewrite for v2 events | 1 |
-| 9.1 | StockMove product/location/mill/bags | missing | `StockMove` (variety, STORE/TRANSIT) | New move shape | 1 |
-| 9.2 | Movement rules per transaction | partial | `post.ts` | v2 rules | 1 |
+| 8 | Event → posting table | done | `post.ts` | Rewrite for v2 events | 1 |
+| 9.1 | StockMove product/location/mill/bags | done | `StockMove` (variety, STORE/TRANSIT) | New move shape | 1 |
+| 9.2 | Movement rules per transaction | done | `post.ts` | v2 rules | 1 |
 | 9.3 | No silent negative stock ("Save anyway") | partial | integrity check | `wouldGoNegative()` + UI confirm | 1, 5–9 |
 | 9.3 | Date-wise stock ledger | partial | `stockRegister` | Per product/location | 8 |
 | 9.3 | Physical verification + reasoned adjustment | partial | `StockAdjustForm` | Count → approve | 8 |
@@ -98,12 +98,12 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 ### §10 Data model
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
-| 10 | BaseDoc incl. `businessId`, `entryDate` | partial | `schemas/common.ts` | Add fields | 1–2 |
-| 10 | Party roles v2 (FARMER, SUPPLIER, CUSTOMER, MILL, SECOND_PARTY, VEHICLE_CUSTOMER, DRIVER, LABOUR, OTHER), mobile, address, opening balance | partial | `schemas/masters.ts` (lowercase roles) | New role enum + migration mapping | 1–2 |
+| 10 | BaseDoc incl. `businessId`, `entryDate` | done | `schemas/common.ts` | Add fields | 1–2 |
+| 10 | Party roles v2 (FARMER, SUPPLIER, CUSTOMER, MILL, SECOND_PARTY, VEHICLE_CUSTOMER, DRIVER, LABOUR, OTHER), mobile, address, opening balance | done (schema) | `schemas/masters.ts` (lowercase roles) | New role enum + migration mapping | 1–2 |
 | 10 | Variety: company, product, normalizedKey, verified, lastUsedAt | missing | `VarietySchema` | Extend + dedupe | 1, 5 |
 | 10 | Vehicle (OWN/EXTERNAL, driver) | partial | `VehicleSchema` | Keep shape, add driver fields | 10 |
-| 10 | Purchase/Sale/Expense/Load/MillDispatch/MillReturn/Conversion/ConsignmentSettlement/Trip/SecondParty/StockCount/DayClose/Contra/Reminder/AuditLog | partial/missing | `schemas/vouchers.ts` | v2 document union (see DECISIONS D1) | 1 |
-| 10 | Indexes prefixed `businessId, godownId` | partial | `server/db.ts` (godownId only) | Add businessId to compound indexes | 2 |
+| 10 | Purchase/Sale/Expense/Load/MillDispatch/MillReturn/Conversion/ConsignmentSettlement/Trip/SecondParty/StockCount/DayClose/Contra/Reminder/AuditLog | done (schemas; D5 settlement = sale, StockCount = STOCK_ADJUST lines) | `schemas/vouchers.ts` | v2 document union (see DECISIONS D1) | 1 |
+| 10 | Indexes prefixed `businessId, godownId` | done | `server/db.ts` (godownId only) | Add businessId to compound indexes | 2 |
 
 ### §11 Navigation & §12 Sections
 | § | Requirement | Status | Files | Planned change | Phase |
@@ -147,7 +147,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 15.5 | Responsive 360/768/1280 | partial | mobile-first only | Sidebar + grids | 4 |
 | 15.6 | Reusable components list | partial | `forms/*`, `money/*` | Build missing ones | 4–11 |
 | 16 | Bengali default, toggle on login + avatar, natural WB terms, digits, key parity CI | partial | i18n | Terminology pass (গোলা, মণ, বস্তা…) | 4, 12 |
-| 17 | Offline-first sync, conflicts never merged for money, **op groups** | partial | `client/sync/*`, `applyOp.ts` (one op per tx) | Op groups applied in one Mongo transaction | 2 |
+| 17 | Offline-first sync, conflicts never merged for money, **op groups** | done | `client/sync/*`, `applyOp.ts` (one op per tx) | Op groups applied in one Mongo transaction | 2 |
 | 18 | Manifest name, shortcuts (নতুন কেনা, নতুন বিক্রি, খরচ, ক্যাশবই), icons | partial | `manifest.ts` | Update | 4 |
 | 19 | Security (argon2id, rate limits, recovery rate limit, audit incl. password reset/export) | partial | `server/auth.ts` | Recovery rate limit + audit actions | 3 |
 | 20 | Ops: env `ALLOW_REGISTRATION`, `NEXT_PUBLIC_APP_NAME=Dhan Gola` | missing | `.env.example` | Add | 3–4 |

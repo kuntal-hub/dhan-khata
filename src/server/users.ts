@@ -10,24 +10,29 @@ import { cols, getMongoClient, type UserDoc } from "./db";
 import { ApiError } from "./http";
 
 export interface CreateUserInput {
+  businessId: string;
   name: string;
   phone: string;
   password: string;
   isOwner?: boolean;
   godownAccess?: UserDoc["godownAccess"];
   language?: "bn" | "en";
+  /** Hash of the account recovery code (owner registration / recovery). */
+  recoveryCodeHash?: string;
 }
 
 export async function createUser(db: Db, input: CreateUserInput): Promise<UserDoc> {
   const phone = normalizePhone(input.phone);
   if (!phone) throw new ApiError(400, "BAD_REQUEST", "phone");
-  if (input.password.length < 6) throw new ApiError(400, "BAD_REQUEST", "password");
+  if (input.password.length < 8) throw new ApiError(400, "BAD_REQUEST", "password");
   const now = new Date().toISOString();
   const user: UserDoc = {
     _id: uuidv7(),
+    businessId: input.businessId,
     name: input.name.trim(),
     phone,
     passwordHash: await hashPassword(input.password),
+    ...(input.recoveryCodeHash ? { recoveryCodeHash: input.recoveryCodeHash } : {}),
     isOwner: input.isOwner ?? false,
     godownAccess: input.godownAccess ?? [],
     language: input.language ?? "bn",

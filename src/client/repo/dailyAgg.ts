@@ -1,9 +1,11 @@
 /**
- * `dailyAgg`: per (godown, day) sums of ledger lines by account and stock moves by
- * variety|location. Maintained incrementally by the write path (delta of old → new derived rows)
+ * `dailyAgg`: per (Gola, day) sums of ledger lines by account and stock moves by position
+ * (`stockKeyId`: product|location|variety|other|mill|transit group). Maintained incrementally by the write path (delta of old → new derived rows)
  * and rebuildable from scratch at any time (`rebuildDailyAgg`).
  */
 import type { LedgerLine, StockMove } from "@/domain/schemas";
+import { moveKey } from "@/domain/v2/derive";
+import { stockKeyId } from "@/domain/v2/post";
 import { db, type DailyAggRow } from "../db/dexie";
 
 type Acc = Map<string, { dr: bigint; cr: bigint }>;
@@ -20,8 +22,8 @@ function dayKey(godownId: string, date: string) {
   return `${godownId}\u0000${date}`;
 }
 
-export function stockAggKey(varietyId: string, location: string): string {
-  return `${varietyId}|${location}`;
+export function stockAggKey(m: StockMove): string {
+  return stockKeyId(moveKey(m));
 }
 
 function collect(
@@ -48,7 +50,7 @@ function collect(
   }
   for (const m of moves) {
     const d = get(m.godownId, m.date);
-    const k = stockAggKey(m.varietyId, m.location);
+    const k = stockAggKey(m);
     const s = d.stock.get(k) ?? { qtyG: 0n, valuePaise: 0n };
     s.qtyG += sign * BigInt(m.qtyG);
     s.valuePaise += sign * BigInt(m.valuePaise);

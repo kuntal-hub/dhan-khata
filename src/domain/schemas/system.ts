@@ -1,62 +1,20 @@
 import { z } from "zod";
-import {
-  DeductionDefaultsSchema,
-  Id,
-  IntStr,
-  IsoTimestamp,
-  NonNegIntStr,
-  StockLocationSchema,
-  YmdStr,
-} from "./common";
-import { VoucherTypeSchema } from "./vouchers";
+import { DeductionDefaultsSchema, Id, IntStr, IsoTimestamp, NonNegIntStr, YmdStr } from "./common";
 
-/** Derived ledger line (spec §8.3). One of debit/credit is "0". */
-export const LedgerLineSchema = z.strictObject({
-  _id: z.string(),
-  godownId: Id,
-  voucherId: Id,
-  voucherRev: z.number().int().min(1),
-  voucherType: VoucherTypeSchema,
-  date: YmdStr,
-  account: z.string(),
-  debitPaise: NonNegIntStr,
-  creditPaise: NonNegIntStr,
-  partyId: Id.optional(),
-  varietyId: Id.optional(),
-  vehicleId: Id.optional(),
-  loadId: Id.optional(),
-  season: z.string().optional(),
-  fy: z.string(),
-});
-export type LedgerLine = z.infer<typeof LedgerLineSchema>;
+export {
+  LedgerLineV2Schema as LedgerLineSchema,
+  StockMoveV2Schema as StockMoveSchema,
+  type LedgerLineV2 as LedgerLine,
+  type StockMoveV2 as StockMove,
+} from "../v2/schemas";
 
-export const StockMoveSchema = z.strictObject({
-  _id: z.string(),
-  godownId: Id,
-  location: StockLocationSchema,
-  voucherId: Id,
-  voucherRev: z.number().int().min(1),
-  date: YmdStr,
-  varietyId: Id,
-  /** Signed grams. */
-  qtyG: IntStr,
-  /** Signed value at cost (paise). */
-  valuePaise: IntStr,
-  /** Group scope for TRANSIT (specific cost of direct loads). */
-  groupId: Id.optional(),
-  /**
-   * Canonical posting order of the owning voucher (`ordOf`): stock position "before" a voucher
-   * is the sum of moves with a smaller `ord`. Set by the local write path and the server.
-   */
-  ord: z.string().max(160).optional(),
-});
-export type StockMove = z.infer<typeof StockMoveSchema>;
-
+/** Internal per-Gola roles (staff logins are out of scope for v2; only the owner is exposed). */
 export const GodownRoleSchema = z.enum(["manager", "entry", "viewer"]);
 export type GodownRole = z.infer<typeof GodownRoleSchema>;
 
 export const UserSchema = z.strictObject({
   _id: Id,
+  businessId: Id,
   name: z.string().min(1).max(80),
   phone: z.string().min(10).max(15),
   isOwner: z.boolean(),
@@ -99,6 +57,8 @@ export const OutboxOpSchema = z.strictObject({
   attempts: z.number().int().min(0),
   lastError: z.string().optional(),
   status: z.enum(["pending", "sending", "error", "conflict"]),
+  /** Ops written in one local transaction: the server applies them in ONE transaction (§17). */
+  opGroup: Id.optional(),
   /** Master edits: the fields this edit changed (server merges them field by field). */
   fields: z.array(z.string()).optional(),
   /** Conflict items: the server's version, shown side by side on the Sync screen. */
@@ -108,10 +68,12 @@ export type OutboxOp = z.infer<typeof OutboxOpSchema>;
 
 export const ReminderSchema = z.strictObject({
   _id: Id,
+  businessId: Id,
   godownId: Id,
-  kind: z.enum(["PAY_DUE", "COLLECT_DUE", "CHEQUE", "CUSTOM"]),
+  kind: z.enum(["PAY", "COLLECT", "CUSTOM"]),
   partyId: Id.optional(),
-  voucherId: Id.optional(),
+  /** The bill this reminder is about (payment source type + id). */
+  source: z.strictObject({ type: z.string().max(30), id: z.string().max(140) }).optional(),
   dueDate: YmdStr,
   amountPaise: NonNegIntStr.optional(),
   title: z.string().max(200),
@@ -140,6 +102,13 @@ export const GodownSettingsSchema = z.strictObject({
   dayCloseRequired: z.boolean(),
   lockAfterDays: z.number().int().min(0).max(365),
   seasonMap: SeasonMapSchema,
+  /** Low-stock alerts (§9.3): warehouse paddy thresholds in grams. */
+  lowStock: z
+    .strictObject({
+      totalG: NonNegIntStr.optional(),
+      perVariety: z.record(z.string(), NonNegIntStr).optional(),
+    })
+    .optional(),
   rev: z.number().int().min(1),
   updatedAt: IsoTimestamp,
 });
@@ -157,37 +126,11 @@ export const DayStatusSchema = z.strictObject({
   expectedCashPaise: IntStr.optional(),
   closedBy: Id.optional(),
   closedAt: IsoTimestamp.optional(),
-  /** Set by the server when an offline-created voucher arrives for an already-closed day. */
+  /** A cash entry was added on/before this day after it was closed: "re-check" (§7.1). */
   lateEntry: z.boolean().optional(),
 });
 export type DayStatus = z.infer<typeof DayStatusSchema>;
 
-/**
- * Pending inter-godown receipt (spec §9.11): written by the SERVER into the receiving godown's
- * feed when a transfer's SEND voucher arrives without its RECEIVE side. A user of the receiving
- * godown accepts it (creating the RECEIVE voucher with the same groupId = `_id`).
- * Carries no ids of the sending godown's masters (godown isolation): only quantities and amounts.
- */
-export const TransferSchema = z.strictObject({
-  /** = the transfer's voucher groupId. */
-  _id: Id,
-  /** The RECEIVING godown (whose users see it). */
-  godownId: Id,
-  fromGodownId: Id,
-  fromGodownName: z.string().max(80),
-  fromGodownCode: z.string().max(10),
-  kind: z.enum(["PADDY", "MONEY"]),
-  date: YmdStr,
-  qtyG: NonNegIntStr.optional(),
-  ratePaisePerQtl: NonNegIntStr.optional(),
-  amountPaise: NonNegIntStr,
-  sendVoucherId: Id,
-  sendNumber: z.string().max(40),
-  notes: z.string().max(1000).optional(),
-  status: z.enum(["pending", "accepted", "cancelled"]),
-  acceptedVoucherId: Id.optional(),
-  rev: z.number().int().min(1),
-  updatedAt: IsoTimestamp,
-  serverSeq: z.number().int().min(0).optional(),
-});
+/** v1 pending inter-godown receipt (table kept for additive Dexie migrations; unused in v2). */
+export const TransferSchema = z.looseObject({ _id: Id, godownId: Id });
 export type Transfer = z.infer<typeof TransferSchema>;

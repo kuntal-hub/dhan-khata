@@ -5,11 +5,13 @@ import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { db } from "@/client/db/dexie";
 import { META, getMeta, getSession } from "@/client/db/meta";
 import {
-  createVoucher,
-  editVoucher,
+  newId,
+  rebuildDailyAgg,
+  saveDoc,
+  saveDocs,
   updateGodownSettings,
   upsertMaster,
-  voidVoucher,
+  voidDoc,
 } from "@/client/repo";
 import { godownBalances } from "@/client/queries/ledger";
 import { ApiCallError, NetworkError } from "@/client/sync/transport";
@@ -17,15 +19,18 @@ import { applyMineAsNewRevision, keepServer } from "@/client/sync/resolve";
 import { pullAll } from "@/client/sync/pull";
 import { pushOnce } from "@/client/sync/push";
 import { nextBackoff, MAX_BACKOFF_MS, MIN_BACKOFF_MS } from "@/client/sync/engine";
-import type { Party, PushResponse, Voucher } from "@/domain/schemas";
+import type { Doc, Party, PushResponse } from "@/domain/schemas";
 import { closeMongo, cols, getDb, type UserDoc } from "@/server/db";
 import { createGodown } from "@/server/godownService";
-import { createUser } from "@/server/users";
+import { createBusinessWithOwner } from "@/server/business";
 import { TestDevice, nonZero, serverBalances, useTestServer } from "../helpers/server";
-import { purchaseDraft, paymentDraft, saleDraft } from "../helpers/local";
+import { paymentDraft, purchaseDraft, saleDraft } from "../helpers/local";
 
 const QTL = 100_000n;
 const OWNER = { phone: "9830000001", password: "owner-pass-1" };
+const advanceOut = (partyId: string, paise: bigint) =>
+  paymentDraft("OUT", paise, { type: "PARTY_ADVANCE", id: null }, { partyId });
+const totalG = (d: Doc | null | undefined) => (d && "weight" in d ? d.weight.totalG : undefined);
 
 let owner: UserDoc;
 let GA: string;
@@ -44,18 +49,20 @@ async function refs(godownId: string) {
 }
 
 async function addFarmer(godownId: string, name = "Ramesh"): Promise<Party> {
-  return upsertMaster(godownId, "party", { name, roles: ["farmer"] });
+  return upsertMaster(godownId, "party", { name, roles: ["FARMER"] });
 }
 
 beforeAll(async () => {
   useTestServer("sync");
   const mdb = await getDb();
-  owner = await createUser(mdb, {
-    name: "Owner",
-    phone: OWNER.phone,
-    password: OWNER.password,
-    isOwner: true,
-  });
+  owner = (
+    await createBusinessWithOwner(mdb, {
+      ownerName: "Owner",
+      mobile: OWNER.phone,
+      password: OWNER.password,
+      businessName: "Test Business",
+    })
+  ).owner;
   GA = (await createGodown(mdb, owner, { name: "Rampur", code: "RP" }))._id;
   GB = (await createGodown(mdb, owner, { name: "Sonapur", code: "SP" }))._id;
   for (const dev of [d1, d2]) {
@@ -70,12 +77,13 @@ afterAll(async () => {
 });
 
 describe("login + bootstrap", () => {
-  it("registers devices with codes A, B and pulls godowns, seeded masters and settings", async () => {
+  it("registers devices with codes A, B and pulls Golas, business, seeded masters and settings", async () => {
     d1.use();
     expect((await getSession())?.deviceCode).toBe("A");
     expect(await db().godowns.count()).toBe(2);
-    expect(await db().varieties.count()).toBe(16);
-    expect(await db().expenseCategories.count()).toBe(18);
+    expect(await db().varieties.count()).toBe(12);
+    expect(await db().expenseCategories.count()).toBe(16);
+    expect(await getMeta(META.business)).toMatchObject({ name: "Test Business", monKg: 40 });
     expect(await getMeta(`godownSettings:${GA}`)).toBeDefined();
     expect(await getMeta(META.cursor)).toBeGreaterThan(0);
     d2.use();
@@ -95,10 +103,7 @@ describe("push / pull", () => {
   it("idempotent re-push of the same op returns duplicate, no double posting", async () => {
     d1.use();
     const f = await addFarmer(GA);
-    const v = await createVoucher(
-      GA,
-      purchaseDraft(f._id, (await refs(GA)).swarna, 5n * QTL, 200000n),
-    );
+    const v = await saveDoc(GA, purchaseDraft(f._id, (await refs(GA)).swarna, 5n * QTL, 200000n));
     const ops = await db().outbox.orderBy("seq").toArray();
     await d1.sync();
     expect(await db().outbox.count()).toBe(0);
@@ -124,7 +129,7 @@ describe("push / pull", () => {
     d1.use();
     const f = await addFarmer(GA, "Kartik");
     await d1.sync();
-    const v = await createVoucher(GA, paymentDraft(f._id, 12345n));
+    const v = await saveDoc(GA, advanceOut(f._id, 12345n));
     d1.dropResponseFor = "POST /api/sync/push";
     await expect(pushOnce()).rejects.toBeInstanceOf(NetworkError);
     const op = await db().outbox.toArray();
@@ -149,11 +154,11 @@ describe("push / pull", () => {
     d1.offline = true;
     d2.offline = true;
     d1.use();
-    await createVoucher(GA, purchaseDraft(f1._id, sw, 10n * QTL, 200000n));
-    await createVoucher(GA, paymentDraft(f1._id, 500000n));
+    await saveDoc(GA, purchaseDraft(f1._id, sw, 10n * QTL, 200000n));
+    await saveDoc(GA, advanceOut(f1._id, 500000n));
     d2.use();
-    await createVoucher(GA, purchaseDraft(f1._id, sw, 3n * QTL, 210000n));
-    await createVoucher(GA, paymentDraft(f1._id, 100000n));
+    await saveDoc(GA, purchaseDraft(f1._id, sw, 3n * QTL, 210000n));
+    await saveDoc(GA, advanceOut(f1._id, 100000n));
 
     d1.offline = false;
     d2.offline = false;
@@ -177,46 +182,45 @@ describe("push / pull", () => {
     d1.use();
     const f = await addFarmer(GA, "Sujit");
     const sw = (await refs(GA)).swarna;
-    const v = await createVoucher(GA, purchaseDraft(f._id, sw, 4n * QTL, 200000n));
+    const v = await saveDoc(GA, purchaseDraft(f._id, sw, 4n * QTL, 200000n));
     await d1.sync();
     await d2.sync();
 
     d1.offline = true;
     d2.offline = true;
     d1.use();
-    await editVoucher(GA, v._id, purchaseDraft(f._id, sw, 5n * QTL, 200000n));
+    await saveDoc(GA, purchaseDraft(f._id, sw, 5n * QTL, 200000n), { id: v._id });
     d2.use();
-    await editVoucher(GA, v._id, purchaseDraft(f._id, sw, 6n * QTL, 200000n));
+    await saveDoc(GA, purchaseDraft(f._id, sw, 6n * QTL, 200000n), { id: v._id });
     d1.offline = false;
     d2.offline = false;
     await d1.sync();
     await d2.sync();
 
     const mdb = await getDb();
-    const server = (await cols(mdb).vouchers.findOne({ _id: v._id })) as Voucher;
-    expect(server.rev).toBe(2);
-    expect(server.type === "PURCHASE" && server.lines[0]!.grossG).toBe(String(5n * QTL));
+    const server = await cols(mdb).vouchers.findOne({ _id: v._id });
+    expect(server?.rev).toBe(2);
+    expect(totalG(server)).toBe(String(5n * QTL));
     d2.use();
     const [op] = await db().outbox.toArray();
     expect(op?.status).toBe("conflict");
-    const mine = (await db().vouchers.get(v._id)) as Voucher;
-    expect(mine.type === "PURCHASE" && mine.lines[0]!.grossG).toBe(String(6n * QTL));
+    expect(totalG(await db().vouchers.get(v._id))).toBe(String(6n * QTL));
 
     // Apply mine as a new revision → server takes D2's numbers as rev 3.
     await applyMineAsNewRevision(op!.seq!);
     await d2.sync();
-    const after = (await cols(mdb).vouchers.findOne({ _id: v._id })) as Voucher;
-    expect(after.rev).toBe(3);
-    expect(after.type === "PURCHASE" && after.lines[0]!.grossG).toBe(String(6n * QTL));
+    const after = await cols(mdb).vouchers.findOne({ _id: v._id });
+    expect(after?.rev).toBe(3);
+    expect(totalG(after)).toBe(String(6n * QTL));
 
     // Another conflict, resolved by keeping the server version.
     d1.use();
     await d1.sync();
     d1.offline = true;
     d2.offline = true;
-    await editVoucher(GA, v._id, purchaseDraft(f._id, sw, 7n * QTL, 200000n));
+    await saveDoc(GA, purchaseDraft(f._id, sw, 7n * QTL, 200000n), { id: v._id });
     d2.use();
-    await editVoucher(GA, v._id, purchaseDraft(f._id, sw, 8n * QTL, 200000n));
+    await saveDoc(GA, purchaseDraft(f._id, sw, 8n * QTL, 200000n), { id: v._id });
     d1.offline = false;
     d2.offline = false;
     await d1.sync();
@@ -224,9 +228,9 @@ describe("push / pull", () => {
     const [op2] = await db().outbox.toArray();
     expect(op2?.status).toBe("conflict");
     await keepServer(op2!.seq!);
-    const local = (await db().vouchers.get(v._id)) as Voucher;
-    expect(local.rev).toBe(4);
-    expect(local.type === "PURCHASE" && local.lines[0]!.grossG).toBe(String(7n * QTL));
+    const local = await db().vouchers.get(v._id);
+    expect(local?.rev).toBe(4);
+    expect(totalG(local)).toBe(String(7n * QTL));
     expect(nonZero(await godownBalances(GA))).toEqual(nonZero(await serverBalances(GA)));
   });
 
@@ -234,16 +238,16 @@ describe("push / pull", () => {
     d1.use();
     const f = await addFarmer(GA, "Nitai");
     const sw = (await refs(GA)).swarna;
-    const v = await createVoucher(GA, purchaseDraft(f._id, sw, 2n * QTL, 200000n));
+    const v = await saveDoc(GA, purchaseDraft(f._id, sw, 2n * QTL, 200000n));
     await d1.sync();
     await d2.sync();
 
     d1.offline = true;
     d2.offline = true;
     d1.use();
-    await voidVoucher(GA, v._id, "duplicate");
+    await voidDoc(GA, v._id, "duplicate");
     d2.use();
-    await editVoucher(GA, v._id, purchaseDraft(f._id, sw, 3n * QTL, 200000n));
+    await saveDoc(GA, purchaseDraft(f._id, sw, 3n * QTL, 200000n), { id: v._id });
     d1.offline = false;
     d2.offline = false;
     await d2.sync(); // edit lands first (rev 2)
@@ -264,23 +268,22 @@ describe("push / pull", () => {
     d1.use();
     const f = await addFarmer(GA, "Haru");
     const sw = (await refs(GA)).swarna;
-    const v = await createVoucher(GA, purchaseDraft(f._id, sw, 2n * QTL, 200000n));
+    const v = await saveDoc(GA, purchaseDraft(f._id, sw, 2n * QTL, 200000n));
     await d1.sync();
     await d2.sync();
 
     d2.use();
     d2.offline = true;
-    await editVoucher(GA, v._id, purchaseDraft(f._id, sw, 9n * QTL, 200000n));
+    await saveDoc(GA, purchaseDraft(f._id, sw, 9n * QTL, 200000n), { id: v._id });
     d2.offline = false;
 
     d1.use();
-    await editVoucher(GA, v._id, purchaseDraft(f._id, sw, 4n * QTL, 200000n));
+    await saveDoc(GA, purchaseDraft(f._id, sw, 4n * QTL, 200000n), { id: v._id });
     await d1.sync();
 
     d2.use();
     await pullAll(); // pull only
-    const local = (await db().vouchers.get(v._id)) as Voucher;
-    expect(local.type === "PURCHASE" && local.lines[0]!.grossG).toBe(String(9n * QTL));
+    expect(totalG(await db().vouchers.get(v._id))).toBe(String(9n * QTL));
     expect(await db().outbox.where("entityId").equals(v._id).count()).toBe(1);
     // Push → conflict; keep server so later tests start clean.
     await d2.sync();
@@ -292,9 +295,9 @@ describe("push / pull", () => {
     d1.use();
     const f = await addFarmer(GA, "Bablu");
     await d1.sync();
-    await createVoucher(GA, paymentDraft(f._id, 100n));
-    await createVoucher(GA, paymentDraft(f._id, 200n));
-    await createVoucher(GA, paymentDraft(f._id, 300n));
+    await saveDoc(GA, advanceOut(f._id, 100n));
+    await saveDoc(GA, advanceOut(f._id, 200n));
+    await saveDoc(GA, advanceOut(f._id, 300n));
     d1.dropAccessToken();
     d1.jar.clear(); // refresh cookie gone/expired
     await expect(d1.sync()).rejects.toBeInstanceOf(ApiCallError);
@@ -376,6 +379,18 @@ describe("push / pull", () => {
   });
 });
 
+/** Remove documents that were only built to craft a request (never meant to sync). */
+async function forgetLocal(...ids: string[]): Promise<void> {
+  const d = db();
+  for (const id of ids) {
+    const doc = await d.vouchers.get(id);
+    await d.vouchers.delete(id);
+    await d.ledgerLines.where("voucherId").equals(id).delete();
+    await d.stockMoves.where("voucherId").equals(id).delete();
+    if (doc) await rebuildDailyAgg(doc.godownId);
+  }
+}
+
 describe("server checks", () => {
   async function craftPush(dev: TestDevice, ops: unknown[]): Promise<PushResponse> {
     dev.use();
@@ -392,11 +407,12 @@ describe("server checks", () => {
     const f = await addFarmer(GA, "Calc");
     await d1.sync();
     d1.offline = true;
-    const v = await createVoucher(GA, purchaseDraft(f._id, (await refs(GA)).swarna, QTL, 200000n));
+    const v = await saveDoc(GA, purchaseDraft(f._id, (await refs(GA)).swarna, QTL, 200000n));
     d1.offline = false;
     const [op] = await db().outbox.toArray();
     await db().outbox.clear();
-    const tampered = { ...(op!.payload as Voucher), totalPaise: "1" };
+    await forgetLocal(v._id);
+    const tampered = { ...(op!.payload as Doc), totalPaise: "1" };
     const res = await craftPush(d1, [
       {
         opId: op!.opId,
@@ -410,6 +426,83 @@ describe("server checks", () => {
       },
     ]);
     expect(res.results[0]).toMatchObject({ result: "rejected", reason: "CALC_MISMATCH" });
+  });
+
+  it("a bill and its initial payment travel as ONE op group and apply together", async () => {
+    d1.use();
+    const f = await addFarmer(GA, "Group");
+    await d1.sync();
+    const billId = newId();
+    const [bill, pay] = await saveDocs(GA, [
+      {
+        draft: {
+          ...purchaseDraft(f._id, (await refs(GA)).swarna, 56n * QTL, 240000n),
+          _id: billId,
+        },
+      },
+      {
+        draft: paymentDraft(
+          "OUT",
+          5000000n,
+          { type: "PURCHASE", id: billId },
+          { partyId: f._id, isInitial: true },
+        ),
+      },
+    ]);
+    expect(bill!.type === "PURCHASE" && bill!.totalPaise).toBe("13440000");
+    const ops = await db().outbox.toArray();
+    expect(new Set(ops.map((o) => o.opGroup)).size).toBe(1);
+    await d1.sync();
+    const mdb = await getDb();
+    expect(await cols(mdb).vouchers.countDocuments({ _id: { $in: [bill!._id, pay!._id] } })).toBe(
+      2,
+    );
+    const party = (await serverBalances(GA)).get(`PARTY:${f._id}`) ?? 0n;
+    expect(party).toBe(-8440000n);
+  });
+
+  it("all or nothing: a rejected member rejects the whole group (nothing written)", async () => {
+    d1.use();
+    const f = await addFarmer(GA, "Atomic");
+    const other = await addFarmer(GA, "Other");
+    await d1.sync();
+    d1.offline = true;
+    const billId = newId();
+    await saveDocs(GA, [
+      { draft: { ...purchaseDraft(f._id, (await refs(GA)).swarna, QTL, 200000n), _id: billId } },
+      { draft: paymentDraft("OUT", 1000n, { type: "PURCHASE", id: billId }, { partyId: f._id }) },
+    ]);
+    d1.offline = false;
+    const ops = await db().outbox.orderBy("seq").toArray();
+    await db().outbox.clear();
+    await forgetLocal(...ops.map((o) => o.entityId));
+    // Tamper: the payment claims to pay someone else than the bill's party.
+    const wire = ops.map(({ seq: _s, status: _st, attempts: _a, ...o }) =>
+      o.entityId === billId ? o : { ...o, payload: { ...(o.payload as Doc), partyId: other._id } },
+    );
+    const res = await craftPush(d1, wire);
+    expect(res.results.map((r) => r.reason)).toEqual(["GROUP_FAILED", "SOURCE_MISMATCH"]);
+    const mdb = await getDb();
+    expect(await cols(mdb).vouchers.countDocuments({ _id: billId })).toBe(0);
+  });
+
+  it("voiding a bill with payments is blocked, or voids them together", async () => {
+    d1.use();
+    const f = await addFarmer(GA, "Voider");
+    const billId = newId();
+    await saveDocs(GA, [
+      { draft: { ...purchaseDraft(f._id, (await refs(GA)).swarna, QTL, 200000n), _id: billId } },
+      { draft: paymentDraft("OUT", 1000n, { type: "PURCHASE", id: billId }, { partyId: f._id }) },
+    ]);
+    await d1.sync();
+    await expect(voidDoc(GA, billId, "ভুল")).rejects.toMatchObject({ code: "LINKED_PAYMENTS" });
+    const voided = await voidDoc(GA, billId, "ভুল", { withPayments: true });
+    expect(voided.map((x) => x.type)).toEqual(["PAYMENT", "PURCHASE"]);
+    await d1.sync();
+    expect(await db().outbox.count()).toBe(0);
+    const mdb = await getDb();
+    expect((await cols(mdb).vouchers.findOne({ _id: billId }))?.status).toBe("void");
+    expect(nonZero(await godownBalances(GA))).toEqual(nonZero(await serverBalances(GA)));
   });
 });
 

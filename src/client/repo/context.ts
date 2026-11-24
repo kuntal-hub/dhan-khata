@@ -39,6 +39,7 @@ export function validationError(err: ZodError): RepoError {
 
 export interface WriteCtx {
   session: SessionMeta;
+  businessId: string;
   userId: string;
   deviceId: string;
   deviceCode: string;
@@ -47,6 +48,8 @@ export interface WriteCtx {
   role: EffectiveRole;
   nowIso: string;
   today: string;
+  /** Every op written in this transaction shares it: the server applies them together (§17). */
+  opGroup: string;
 }
 
 /** Resolve the writer and the godown; refuses unknown / archived / inaccessible godowns. */
@@ -64,6 +67,7 @@ export async function writeContext(godownId: string): Promise<WriteCtx> {
   const settings = (await getGodownSettings(godownId)) ?? defaultGodownSettings(godownId, nowIso);
   return {
     session,
+    businessId: session.user.businessId,
     userId: session.user._id,
     deviceId: session.deviceId,
     deviceCode: session.deviceCode,
@@ -72,6 +76,7 @@ export async function writeContext(godownId: string): Promise<WriteCtx> {
     role,
     nowIso,
     today: todayIST(d),
+    opGroup: uuidv7(),
   };
 }
 
@@ -152,6 +157,7 @@ export async function enqueueOp(
     createdAt: ctx.nowIso,
     attempts: 0,
     status: "pending",
+    opGroup: ctx.opGroup,
     ...(op.fields ? { fields: op.fields } : {}),
   });
   return opId;

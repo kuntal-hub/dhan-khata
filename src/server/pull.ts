@@ -8,7 +8,7 @@ import type { PullChange, PullEntity, PullResponse } from "@/domain/schemas";
 import { publicDoc } from "./convert";
 import { cols, type ChangeLogDoc, type UserDoc } from "./db";
 import { ApiError } from "./http";
-import { readVoucherDerived } from "./apply/mongoStore";
+import { readDocDerived } from "./apply/mongoStore";
 import { godownIdsFor } from "./rbac";
 
 export interface PullParams {
@@ -36,6 +36,7 @@ export async function pullChanges(db: Db, user: UserDoc, p: PullParams): Promise
         { godownId: { $in: accessible } },
         { godownId: null, entity: "godown", entityId: { $in: accessible } },
         { godownId: null, entity: "user", entityId: user._id },
+        { godownId: null, entity: "business", entityId: user.businessId },
       ],
     };
   }
@@ -64,8 +65,8 @@ export async function pullChanges(db: Db, user: UserDoc, p: PullParams): Promise
     godownSettings: k.godownSettings,
     godown: k.godowns,
     user: k.users,
+    business: k.businesses,
     dayStatus: k.dayStatus,
-    transfer: k.transfers,
     reminder: k.reminders,
   } as unknown as Record<string, { find: (f: object) => { toArray(): Promise<object[]> } }>;
   for (const [entity, ids] of idsBy) {
@@ -75,7 +76,7 @@ export async function pullChanges(db: Db, user: UserDoc, p: PullParams): Promise
       docs.set(`${entity}:${(d as { _id: string })._id}`, publicDoc(d));
     }
   }
-  const derived = await readVoucherDerived(db, idsBy.get("voucher") ?? []);
+  const derived = await readDocDerived(db, idsBy.get("voucher") ?? []);
 
   const changes: PullChange[] = ordered.map((e) => {
     const doc = docs.get(`${e.entity}:${e.entityId}`) ?? null;

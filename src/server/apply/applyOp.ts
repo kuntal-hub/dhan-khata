@@ -1,36 +1,34 @@
 /**
- * Apply one pushed outbox op (spec §12.3), in ONE Mongo transaction (Phase 4 adds: a DAY_CLOSE
- * publishes its day's lock, an unpaired transfer SEND publishes a pending receipt to the receiving
- * godown, and a transfer can only change with access to both books):
+ * Apply pushed outbox ops (requirement_v2 §17, §2.4). An op GROUP (ops written in one local
+ * transaction, e.g. a purchase and its initial payment) is applied in ONE Mongo transaction:
+ * all ops or none, so the cashbook can never show half a transaction.
+ *
+ * Per op:
  *  1. idempotency (appliedOps) → `duplicate` with the stored result
- *  2. authZ per godown/role, archived godown, DAY_LOCKED (late-entry flag), GODOWN_IMMUTABLE,
- *     CROSS_GODOWN_REFERENCE
- *  3. Zod; recompute → CALC_MISMATCH on the voucher's own derived fields; business rules
- *  4. baseRev concurrency (§12.5): vouchers never auto-merge (conflict item; void beats edit);
- *     masters merge field by field, overlapping fields keep the server value (loser → conflicts)
+ *  2. authZ: session user owns the business (`businessId`) and may write the Gola; archived Gola;
+ *     GODOWN_IMMUTABLE; same-Gola references (CROSS_GODOWN_REFERENCE)
+ *  3. Zod; recompute → CALC_MISMATCH on the document's own derived fields; business rules;
+ *     cross-document links (payment source, dispatch, consignment, load); dependents on void
+ *  4. baseRev concurrency: documents never auto-merge (conflict item; void beats edit);
+ *     masters merge field by field (overlapping fields keep the server value → conflicts)
  *  5. write doc + ledgerLines/stockMoves (recomputed HERE from the server's own stock position,
- *     dependent vouchers re-posted) + changelog/serverSeq + appliedOps + audit.
+ *     dependent documents re-posted) + changelog/serverSeq + appliedOps + audit.
  * Rejections write nothing and are NOT recorded as applied (a retry re-evaluates them).
  */
 import type { ClientSession, Collection, Db } from "mongodb";
-import { recomputeVoucher, validateVoucherRules, verifyVoucher } from "@/domain/calc/recompute";
 import { todayIST } from "@/domain/dates";
-import type { DomainErrorCode } from "@/domain/errors";
-import { applyVoucherDerived } from "@/domain/posting/derive";
+import { DomainError, type DomainErrorCode } from "@/domain/errors";
 import { can, entryMayChange, isDayLocked, roleIn, type EffectiveRole } from "@/domain/rbac";
 import {
   PUSH_SCHEMAS,
   defaultGodownSettings,
   isMasterEntity,
   type DayStatus,
+  type Doc,
   type GodownSettings,
-  type InterGodown,
   type PushOp,
   type PushOpResult,
-  type Transfer,
-  type Voucher,
 } from "@/domain/schemas";
-import { termsOfSendVoucher } from "@/domain/transfer";
 import {
   checkRefs,
   checkSameGodown,
@@ -39,11 +37,15 @@ import {
   type GodownLookup,
   type Ref,
 } from "@/domain/scope";
+import { cashEffects } from "@/domain/v2/cashbook";
+import { applyDocDerived } from "@/domain/v2/derive";
+import { linkedDocIds, validateLinks } from "@/domain/v2/links";
+import { recomputeDoc, validateDocRules, verifyDoc } from "@/domain/v2/recompute";
 import { audit, logChanges, type ChangeEntry } from "../changelog";
 import { publicDoc } from "../convert";
 import { cols, getMongoClient, type ServerMeta, type UserDoc } from "../db";
 import { log } from "../http";
-import { mongoDerivedStore, readVoucherDerived } from "./mongoStore";
+import { mongoDerivedStore, readDocDerived } from "./mongoStore";
 
 export interface ApplyContext {
   db: Db;
@@ -127,20 +129,54 @@ function rejected(op: PushOp, code: string, detail?: string): PushOpResult {
   return { opId: op.opId, result: "rejected", reason: code, ...(detail ? { detail } : {}) };
 }
 
-/** Apply a single op. Never throws for business rejections; throws on infrastructure errors. */
+/** Apply a single op (a group of one). */
 export async function applyOp(ctx: ApplyContext, op: PushOp): Promise<PushOpResult> {
-  const k = cols(ctx.db);
-  const prior = await k.appliedOps.findOne({ _id: op.opId });
-  if (prior) return { ...prior.result, opId: op.opId, result: "duplicate" };
+  const [r] = await applyGroup(ctx, [op]);
+  return r!;
+}
 
+/**
+ * Apply ops that belong together in ONE transaction. If any op is rejected or conflicts, the
+ * transaction is aborted: that op gets its result and every other op `GROUP_FAILED`.
+ * Never throws for business rejections; throws on infrastructure errors.
+ */
+export async function applyGroup(
+  ctx: ApplyContext,
+  ops: readonly PushOp[],
+): Promise<PushOpResult[]> {
+  const k = cols(ctx.db);
+  const priors = await k.appliedOps.find({ _id: { $in: ops.map((o) => o.opId) } }).toArray();
+  if (priors.length === ops.length) {
+    const byId = new Map(priors.map((p) => [p._id, p] as const));
+    return ops.map((op) => ({ ...byId.get(op.opId)!.result, opId: op.opId, result: "duplicate" }));
+  }
   const client = await getMongoClient();
+  let failedAt = -1;
+  let failure: PushOpResult | null = null;
   try {
     return await client.withSession((session) =>
-      session.withTransaction(() => applyInTx(ctx, op, session)),
+      session.withTransaction(async () => {
+        const out: PushOpResult[] = [];
+        for (let i = 0; i < ops.length; i++) {
+          try {
+            out.push(await applyInTx(ctx, ops[i]!, session));
+          } catch (e) {
+            failedAt = i;
+            if (e instanceof Reject) failure = rejected(ops[i]!, e.code, e.detail);
+            else if (e instanceof Conflict) failure = e.result;
+            throw e;
+          }
+        }
+        return out;
+      }),
     );
   } catch (e) {
-    if (e instanceof Reject) return rejected(op, e.code, e.detail);
-    if (e instanceof Conflict) return e.result;
+    if (failure && (e instanceof Reject || e instanceof Conflict)) {
+      const f: PushOpResult = failure;
+      return ops.map((op, i) =>
+        i === failedAt ? f : { opId: op.opId, result: "rejected", reason: "GROUP_FAILED" },
+      );
+    }
     throw e;
   }
 }
@@ -161,6 +197,11 @@ async function applyInTx(
 
   const godown = await k.godowns.findOne({ _id: op.godownId }, { session });
   if (!godown) throw new Reject("GODOWN_NOT_FOUND");
+  // Owner separation (§2.4): the Gola and the record must belong to the user's business.
+  if (godown.businessId !== user.businessId) throw new Reject("FORBIDDEN", "business");
+  if ("businessId" in payload && payload.businessId !== user.businessId) {
+    throw new Reject("FORBIDDEN", "businessId");
+  }
   const role = roleIn(user, op.godownId);
   if (!role) throw new Reject("FORBIDDEN");
   if (godown.status === "archived") throw new Reject("GODOWN_ARCHIVED");
@@ -168,6 +209,9 @@ async function applyInTx(
   const coll = collectionFor(db, op.entity);
   const current = await coll.findOne({ _id: op.entityId }, { session });
   if (current && current.godownId !== op.godownId) throw new Reject("GODOWN_IMMUTABLE");
+  if (current && "businessId" in current && current.businessId !== user.businessId) {
+    throw new Reject("FORBIDDEN", "business");
+  }
 
   const schema = PUSH_SCHEMAS[op.entity];
   const parsed = schema.safeParse(payload);
@@ -177,7 +221,7 @@ async function applyInTx(
   }
 
   if (op.entity === "voucher") {
-    return applyVoucher(ctx, op, session, role, parsed.data as Voucher, current as Voucher | null);
+    return applyDoc(ctx, op, session, role, parsed.data as Doc, current as Doc | null);
   }
   return applyMaster(ctx, op, session, role, parsed.data as AnyDoc, current);
 }
@@ -193,26 +237,30 @@ async function settingsOf(
   );
 }
 
-async function applyVoucher(
+function asReject(e: unknown): never {
+  if (e instanceof DomainError) throw new Reject(e.code, e.detail);
+  throw e;
+}
+
+async function applyDoc(
   ctx: ApplyContext,
   op: PushOp,
   session: ClientSession,
   role: EffectiveRole,
-  incoming: Voucher,
-  current: Voucher | null,
+  incoming: Doc,
+  current: Doc | null,
 ): Promise<PushOpResult> {
   const { db, user } = ctx;
   const k = cols(db);
   const g = op.godownId;
   const isVoid = op.op === "void";
+  const today = ctx.today ?? todayIST();
   if (isVoid !== (incoming.status === "void")) throw new Reject("VALIDATION_FAILED", "status");
 
   // ── AuthZ ──
   if (!current) {
     if (op.baseRev !== 0) throw new Reject("NOT_FOUND");
-    if (
-      !can(user, g, "voucher.create", { voucherType: incoming.type, grouped: !!incoming.groupId })
-    ) {
+    if (!can(user, g, "voucher.create", { voucherType: incoming.type, grouped: !!op.opGroup })) {
       throw new Reject("FORBIDDEN", incoming.type);
     }
   } else {
@@ -228,37 +276,70 @@ async function applyVoucher(
     }
   }
 
-  // ── Day lock (owner may write any day) ──
-  let lateEntryDay: string | null = null;
+  // ── Day lock (internal roles only; the owner may write any day) ──
   if (role !== "owner") {
     const settings = await settingsOf(db, g, session);
-    const today = ctx.today ?? todayIST();
-    for (const date of new Set([incoming.date, ...(current ? [current.date] : [])])) {
+    const dates = new Set([
+      businessDateOf(incoming),
+      ...(current ? [businessDateOf(current)] : []),
+    ]);
+    for (const date of dates) {
       const ds = await k.dayStatus.findOne({ _id: `${g}:${date}` }, { session });
-      const lockArgs = { date, today, lockAfterDays: settings.lockAfterDays };
-      if (!isDayLocked({ ...lockArgs, dayClosed: ds?.closed ?? false })) continue;
-      // An offline-created voucher written BEFORE the day was closed is accepted and flagged.
-      const late =
-        !current &&
-        ds?.closed === true &&
-        ds.closedAt !== undefined &&
-        incoming.createdAt < ds.closedAt &&
-        !isDayLocked({ ...lockArgs, dayClosed: false });
-      if (!late) throw new Reject("DAY_LOCKED", date);
-      lateEntryDay = date;
+      if (
+        isDayLocked({
+          date,
+          today,
+          lockAfterDays: settings.lockAfterDays,
+          dayClosed: ds?.closed ?? false,
+        })
+      ) {
+        throw new Reject("DAY_LOCKED", date);
+      }
     }
   }
 
-  // ── Same-godown references ──
+  // ── Same-Gola references ──
   const lookup = await buildServerLookup(db, g, collectRefs(incoming), session);
   const scope = checkSameGodown(incoming, lookup);
   if (!scope.ok) throw new Reject(scope.code, `${scope.ref.kind}:${scope.ref.id}`);
 
-  // ── Inter-godown transfer: the counter godown must exist; a paired/accepted transfer can only
-  //    be changed by someone who may also change the other book (spec §1.4 rule 5). ──
-  await checkTransfer(ctx, session, g, incoming, current);
+  // ── Recompute: the document's own derived fields must match exactly; rules; links ──
+  if (!isVoid) {
+    const diffs = verifyDoc(incoming);
+    if (diffs.length > 0) {
+      log({ level: "error", event: "CALC_MISMATCH", opId: op.opId, deviceId: ctx.deviceId, diffs });
+      throw new Reject("CALC_MISMATCH", diffs.join(","));
+    }
+    try {
+      validateDocRules(incoming, today);
+    } catch (e) {
+      asReject(e);
+    }
+    const linked = new Map<string, Doc>();
+    for (const id of linkedDocIds(incoming)) {
+      const x = await k.vouchers.findOne({ _id: id, godownId: g }, { session });
+      if (x) linked.set(id, x);
+    }
+    try {
+      validateLinks(incoming, (id) => linked.get(id));
+    } catch (e) {
+      asReject(e);
+    }
+    await checkLoadLinkUnique(db, session, incoming);
+    if (
+      current &&
+      "partyId" in current &&
+      "partyId" in incoming &&
+      current.partyId !== incoming.partyId
+    ) {
+      if (await hasActivePayments(db, session, current._id)) throw new Reject("LINKED_PAYMENTS");
+    }
+  } else if (current) {
+    if (await hasActivePayments(db, session, current._id)) throw new Reject("LINKED_PAYMENTS");
+    if (await hasDependents(db, session, current)) throw new Reject("ALREADY_LINKED");
+  }
 
-  // ── One day close per godown and day ──
+  // ── One day close per Gola and day ──
   if (!current && !isVoid && incoming.type === "DAY_CLOSE") {
     const other = await k.vouchers.findOne(
       { godownId: g, type: "DAY_CLOSE", date: incoming.date, status: "active" },
@@ -267,27 +348,13 @@ async function applyVoucher(
     if (other) throw new Reject("DAY_ALREADY_CLOSED", incoming.date);
   }
 
-  // ── Recompute: the voucher's own derived fields must match exactly ──
-  if (!isVoid) {
-    const diffs = verifyVoucher(incoming);
-    if (diffs.length > 0) {
-      log({ level: "error", event: "CALC_MISMATCH", opId: op.opId, deviceId: ctx.deviceId, diffs });
-      throw new Reject("CALC_MISMATCH", diffs.join(","));
-    }
-    const rules = validateVoucherRules(incoming);
-    if (rules.length > 0) throw new Reject(rules[0]!);
-  }
-
   // ── Concurrency ──
-  let next: Voucher;
+  let next: Doc;
   if (!current) {
     if (incoming.rev !== 1) throw new Reject("VALIDATION_FAILED", "rev");
     next = incoming;
   } else if (current.status === "void") {
-    if (isVoid) {
-      // Already void (another device voided it too): nothing to change.
-      return appliedNoop(ctx, op, session, current);
-    }
+    if (isVoid) return appliedNoop(ctx, op, session, current);
     throw await conflictOf(db, op, current, session, "VOIDED");
   } else if (op.baseRev !== current.rev) {
     if (!isVoid) throw await conflictOf(db, op, current, session, "REV_CONFLICT");
@@ -299,21 +366,25 @@ async function applyVoucher(
       voidReason: incoming.voidReason,
       updatedAt: incoming.updatedAt,
       updatedBy: incoming.updatedBy,
-    } as Voucher;
+    } as Doc;
   } else {
     if (incoming.rev !== current.rev + 1) throw new Reject("VALIDATION_FAILED", "rev");
-    if (incoming.number !== current.number || incoming.createdAt !== current.createdAt) {
+    if (
+      incoming.number !== current.number ||
+      incoming.createdAt !== current.createdAt ||
+      incoming.entryDate !== current.entryDate
+    ) {
       throw new Reject("VALIDATION_FAILED", "immutable");
     }
     next = incoming;
   }
-  if (!isVoid) next = recomputeVoucher(next);
+  if (!isVoid) next = recomputeDoc(next);
 
   // ── Write ──
-  const { serverSeq: _drop, ...clean } = next as Voucher & { serverSeq?: number };
+  const { serverSeq: _drop, ...clean } = next as Doc & { serverSeq?: number };
   const store = mongoDerivedStore(db, session);
-  await k.vouchers.replaceOne({ _id: next._id }, clean as Voucher, { upsert: true, session });
-  const res = await applyVoucherDerived(store, clean as Voucher, current ?? undefined);
+  await k.vouchers.replaceOne({ _id: next._id }, clean as Doc, { upsert: true, session });
+  const res = await applyDocDerived(store, clean as Doc, current ?? undefined);
 
   const entries: ChangeEntry[] = [
     { godownId: g, entity: "voucher", entityId: next._id, rev: next.rev },
@@ -322,17 +393,11 @@ async function applyVoucher(
     const w = await k.vouchers.findOne({ _id: id }, { session });
     if (w) entries.push({ godownId: g, entity: "voucher", entityId: id, rev: w.rev });
   }
-  if (lateEntryDay) {
-    entries.push({ godownId: g, entity: "dayStatus", entityId: `${g}:${lateEntryDay}`, rev: 1 });
-  }
-  if (next.type === "DAY_CLOSE") {
-    const dayId = await publishDayStatus(ctx, session, clean as Voucher);
-    if (dayId !== `${g}:${lateEntryDay}`) {
-      entries.push({ godownId: g, entity: "dayStatus", entityId: dayId, rev: 1 });
-    }
-  }
-  const transferEntry = await publishTransfer(ctx, session, clean as Voucher);
-  if (transferEntry) entries.push(transferEntry);
+  const dayIds = new Set<string>();
+  if (next.type === "DAY_CLOSE") dayIds.add(await publishDayStatus(ctx, session, clean as Doc));
+  for (const id of await flagRecheck(db, session, g, cashDatesOf(current, next))) dayIds.add(id);
+  for (const id of dayIds) entries.push({ godownId: g, entity: "dayStatus", entityId: id, rev: 1 });
+
   const seqs = await logChanges(db, session, entries);
   const serverSeq = seqs[0]!;
   await k.vouchers.updateOne({ _id: next._id }, { $set: { serverSeq } }, { session });
@@ -344,20 +409,7 @@ async function applyVoucher(
         { $set: { serverSeq: seqs[i]! } },
         { session },
       );
-    } else if (e.entity === "transfer") {
-      await k.transfers.updateOne(
-        { _id: e.entityId },
-        { $set: { serverSeq: seqs[i]! } },
-        { session },
-      );
     }
-  }
-  if (lateEntryDay) {
-    await k.dayStatus.updateOne(
-      { _id: `${g}:${lateEntryDay}` },
-      { $set: { lateEntry: true } },
-      { session },
-    );
   }
   const result: PushOpResult = { opId: op.opId, result: "applied", serverSeq, rev: next.rev };
   await k.appliedOps.insertOne(
@@ -382,64 +434,127 @@ async function applyVoucher(
   };
 }
 
-function interGodownOf(v: Voucher | null | undefined): InterGodown | undefined {
-  return v && "interGodown" in v ? v.interGodown : undefined;
-}
-
-async function checkTransfer(
-  ctx: ApplyContext,
-  session: ClientSession,
-  g: string,
-  incoming: Voucher,
-  current: Voucher | null,
-): Promise<void> {
-  const ig = interGodownOf(incoming) ?? interGodownOf(current);
-  if (!ig) return;
-  const k = cols(ctx.db);
-  const counter = await k.godowns.findOne({ _id: ig.counterGodownId }, { session });
-  if (!counter || counter._id === g) throw new Reject("INVALID_REFERENCE", "counterGodownId");
-  if (!current) return;
-  const groupId = current.groupId ?? incoming.groupId;
-  if (!groupId) return;
-  const other = await k.vouchers.findOne(
-    { godownId: counter._id, groupId, status: "active" },
-    { session },
-  );
-  const action = incoming.status === "void" ? "voucher.void" : "voucher.edit";
-  if (other && !can(ctx.user, counter._id, action, { voucherType: other.type })) {
-    throw new Reject("TRANSFER_NEEDS_BOTH");
+function businessDateOf(d: Doc): string {
+  switch (d.type) {
+    case "EXPENSE":
+      return d.expenseDate;
+    case "MILL_DISPATCH":
+      return d.dispatchDate;
+    case "MILL_RETURN":
+      return d.returnDate;
+    case "CONVERSION":
+      return d.conversionDate;
+    case "PAYMENT":
+      return d.paymentDate;
+    case "DAY_CLOSE":
+      return d.date;
+    default:
+      return d.transactionDate;
   }
 }
 
-/** A DAY_CLOSE locks (active) or reopens (void) its day; returns the dayStatus id to publish. */
+function cashDatesOf(...docs: Array<Doc | null | undefined>): string[] {
+  return docs
+    .filter((d): d is Doc => !!d && d.type !== "DAY_CLOSE")
+    .flatMap((d) => cashEffects({ ...d, status: "active" } as Doc).map((e) => e.date));
+}
+
+async function hasActivePayments(db: Db, session: ClientSession, docId: string): Promise<boolean> {
+  const esc = docId.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+  const p = await cols(db).vouchers.findOne(
+    {
+      type: "PAYMENT",
+      status: "active",
+      $or: [{ "source.id": docId }, { "source.id": { $regex: `^${esc}:` } }],
+    },
+    { session, projection: { _id: 1 } },
+  );
+  return p !== null;
+}
+
+async function hasDependents(db: Db, session: ClientSession, d: Doc): Promise<boolean> {
+  const k = cols(db);
+  if (d.type === "MILL_DISPATCH") {
+    const x = await k.vouchers.findOne(
+      {
+        status: "active",
+        $or: [{ dispatchId: d._id }, { type: "SALE", consignmentDispatchId: d._id }],
+      },
+      { session, projection: { _id: 1 } },
+    );
+    return x !== null;
+  }
+  if (d.type === "MILL_RETURN") {
+    const x = await k.vouchers.findOne(
+      { status: "active", type: "CONVERSION", "outputs.returnId": d._id },
+      { session, projection: { _id: 1 } },
+    );
+    return x !== null;
+  }
+  return false;
+}
+
+/** A load links to at most one record, and a record to at most one load (§12.5). */
+async function checkLoadLinkUnique(db: Db, session: ClientSession, d: Doc): Promise<void> {
+  const k = cols(db);
+  if (d.type === "LOAD" && d.link) {
+    const other = await k.vouchers.findOne(
+      {
+        _id: { $ne: d._id },
+        godownId: d.godownId,
+        type: "LOAD",
+        status: "active",
+        "link.id": d.link.id,
+      },
+      { session, projection: { _id: 1 } },
+    );
+    if (other) throw new Reject("ALREADY_LINKED", d.link.id);
+  }
+  if ((d.type === "SALE" || d.type === "MILL_DISPATCH") && d.linkedLoadId) {
+    const other = await k.vouchers.findOne(
+      {
+        _id: { $ne: d._id },
+        godownId: d.godownId,
+        type: { $in: ["SALE", "MILL_DISPATCH"] },
+        status: "active",
+        linkedLoadId: d.linkedLoadId,
+      },
+      { session, projection: { _id: 1 } },
+    );
+    if (other) throw new Reject("ALREADY_LINKED", d.linkedLoadId);
+  }
+}
+
+/** A DAY_CLOSE locks (active) or reopens (void) its day; returns the dayStatus id. */
 async function publishDayStatus(
   ctx: ApplyContext,
   session: ClientSession,
-  v: Voucher,
+  d: Doc,
 ): Promise<string> {
   const k = cols(ctx.db);
-  const id = `${v.godownId}:${v.date}`;
-  if (v.type === "DAY_CLOSE" && v.status === "active") {
+  if (d.type !== "DAY_CLOSE") return "";
+  const id = `${d.godownId}:${d.date}`;
+  if (d.status === "active") {
     const doc: DayStatus = {
       _id: id,
-      godownId: v.godownId,
-      date: v.date,
+      godownId: d.godownId,
+      date: d.date,
       closed: true,
-      countedCashPaise: v.countedCashPaise,
-      expectedCashPaise: v.expectedCashPaise,
-      closedBy: v.createdBy,
-      closedAt: v.createdAt,
+      countedCashPaise: d.actualClosingPaise,
+      expectedCashPaise: d.expectedClosingPaise,
+      closedBy: d.createdBy,
+      closedAt: d.updatedAt,
     };
     await k.dayStatus.replaceOne({ _id: id }, doc, { upsert: true, session });
   } else {
     const still = await k.vouchers.findOne(
-      { godownId: v.godownId, type: "DAY_CLOSE", date: v.date, status: "active" },
+      { godownId: d.godownId, type: "DAY_CLOSE", date: d.date, status: "active" },
       { session },
     );
     if (!still) {
       await k.dayStatus.replaceOne(
         { _id: id },
-        { godownId: v.godownId, date: v.date, closed: false },
+        { godownId: d.godownId, date: d.date, closed: false },
         { upsert: true, session },
       );
     }
@@ -447,76 +562,32 @@ async function publishDayStatus(
   return id;
 }
 
-/**
- * Pending receipt bookkeeping (spec §9.11): an unpaired SEND publishes/updates/cancels the
- * receiving godown's pending receipt; a RECEIVE accepts it (void → pending again).
- */
-async function publishTransfer(
-  ctx: ApplyContext,
+/** Closed days on/after a changed cash date get "re-check" (§7.1); returns the flagged ids. */
+async function flagRecheck(
+  db: Db,
   session: ClientSession,
-  v: Voucher,
-): Promise<ChangeEntry | null> {
-  const ig = interGodownOf(v);
-  if (!ig || !v.groupId) return null;
-  const k = cols(ctx.db);
-  const now = new Date().toISOString();
-  if (ig.side === "SEND") {
-    if (ig.paired) return null;
-    if (v.type !== "SALE" && v.type !== "PAYMENT") return null;
-    const existing = await k.transfers.findOne({ _id: v.groupId }, { session });
-    const from = await k.godowns.findOne({ _id: v.godownId }, { session });
-    const terms = termsOfSendVoucher(v);
-    const status: Transfer["status"] =
-      v.status === "void" ? "cancelled" : existing?.status === "accepted" ? "accepted" : "pending";
-    const doc: Transfer = {
-      _id: v.groupId,
-      godownId: ig.counterGodownId,
-      fromGodownId: v.godownId,
-      fromGodownName: from?.name ?? "",
-      fromGodownCode: from?.code ?? "",
-      kind: terms.kind,
-      date: v.date,
-      ...(terms.qtyG !== undefined ? { qtyG: terms.qtyG.toString() } : {}),
-      ...(terms.ratePaisePerQtl !== undefined
-        ? { ratePaisePerQtl: terms.ratePaisePerQtl.toString() }
-        : {}),
-      amountPaise: (terms.amountPaise ?? 0n).toString(),
-      sendVoucherId: v._id,
-      sendNumber: v.number,
-      ...(terms.notes ? { notes: terms.notes } : {}),
-      status,
-      ...(existing?.acceptedVoucherId && status === "accepted"
-        ? { acceptedVoucherId: existing.acceptedVoucherId }
-        : {}),
-      rev: (existing?.rev ?? 0) + 1,
-      updatedAt: now,
-    };
-    await k.transfers.replaceOne({ _id: doc._id }, doc, { upsert: true, session });
-    return { godownId: doc.godownId, entity: "transfer", entityId: doc._id, rev: doc.rev };
-  }
-  const t = await k.transfers.findOne({ _id: v.groupId, godownId: v.godownId }, { session });
-  if (!t) return null;
-  let next: Transfer;
-  if (v.status === "active") {
-    next = { ...t, status: "accepted", acceptedVoucherId: v._id };
-  } else {
-    const send = await k.vouchers.findOne({ _id: t.sendVoucherId }, { session });
-    const { acceptedVoucherId: _drop, ...rest } = t;
-    next = { ...rest, status: send?.status === "active" ? "pending" : "cancelled" };
-  }
-  const { serverSeq: _seq, ...doc } = { ...next, rev: t.rev + 1, updatedAt: now };
-  await k.transfers.replaceOne({ _id: t._id }, doc, { session });
-  return { godownId: t.godownId, entity: "transfer", entityId: t._id, rev: doc.rev };
+  godownId: string,
+  dates: string[],
+): Promise<string[]> {
+  if (dates.length === 0) return [];
+  const from = [...dates].sort()[0]!;
+  const k = cols(db);
+  const rows = await k.dayStatus
+    .find({ godownId, date: { $gte: from }, closed: true, lateEntry: { $ne: true } }, { session })
+    .toArray();
+  for (const r of rows)
+    await k.dayStatus.updateOne({ _id: r._id }, { $set: { lateEntry: true } }, { session });
+  return rows.map((r) => r._id);
 }
 
 async function conflictOf(
   db: Db,
   op: PushOp,
-  current: Voucher,
+  current: Doc,
   session: ClientSession,
   reason: string,
 ): Promise<Conflict> {
-  const derived = (await readVoucherDerived(db, [current._id], session)).get(current._id)!;
+  const derived = (await readDocDerived(db, [current._id], session)).get(current._id)!;
   return new Conflict({
     opId: op.opId,
     result: "conflict",
@@ -533,7 +604,7 @@ async function appliedNoop(
   ctx: ApplyContext,
   op: PushOp,
   session: ClientSession,
-  current: Voucher,
+  current: Doc,
 ): Promise<PushOpResult> {
   const result: PushOpResult = {
     opId: op.opId,

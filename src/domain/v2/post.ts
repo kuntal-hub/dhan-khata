@@ -380,13 +380,15 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
 
     case "TRIP": {
       const income = BigInt(d.totalIncomePaise);
-      b.entry(
-        partyKey(d.customerPartyId),
-        vehIncomeKey(d.vehicleId),
-        income,
-        { partyId: d.customerPartyId, vehicleId: d.vehicleId },
-        { vehicleId: d.vehicleId },
-      );
+      if (income > 0n && !d.customerPartyId) throw new DomainError("PARTY_REQUIRED");
+      if (d.customerPartyId)
+        b.entry(
+          partyKey(d.customerPartyId),
+          vehIncomeKey(d.vehicleId),
+          income,
+          { partyId: d.customerPartyId, vehicleId: d.vehicleId },
+          { vehicleId: d.vehicleId },
+        );
       for (const c of d.costs) {
         b.entry(
           vehExpenseKey(d.vehicleId, c.kind),

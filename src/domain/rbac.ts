@@ -7,7 +7,9 @@
  */
 import { diffDays } from "./dates";
 import type { GodownRole } from "./schemas/system";
-import type { VoucherType } from "./schemas/vouchers";
+import type { DocType } from "./v2/schemas";
+
+type VoucherType = DocType;
 
 export interface AccessUser {
   isOwner: boolean;
@@ -42,7 +44,7 @@ export const ENTRY_CREATE_TYPES: ReadonlySet<VoucherType> = new Set([
 ]);
 
 /** Owner-only voucher types (go-live balances and the manual journal). */
-export const OWNER_ONLY_TYPES: ReadonlySet<VoucherType> = new Set(["OPENING", "JOURNAL"]);
+export const OWNER_ONLY_TYPES: ReadonlySet<VoucherType> = new Set(["OPENING"]);
 
 export function roleIn(user: AccessUser, godownId: string): EffectiveRole | null {
   if (user.active === false) return null;

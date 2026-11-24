@@ -1,31 +1,33 @@
 /**
- * Godown isolation + RBAC (spec §19.1, §14): the server never lets data cross godowns, and a
- * user without access to a godown can't read or write any of it, even with crafted requests.
+ * Gola isolation, owner separation and RBAC (requirement_v2 §2.4, §21 Test 9): the server never
+ * lets data cross Golas or businesses, even with crafted requests; tampered totals are rejected.
  */
 import { afterAll, beforeAll, describe, expect, it } from "vitest";
 import { authedCall } from "@/client/auth/session";
 import { db } from "@/client/db/dexie";
 import { META, getMeta, getSession } from "@/client/db/meta";
-import {
-  createVoucher,
-  editVoucher,
-  rebuildDailyAgg,
-  upsertMaster,
-  voidVoucher,
-} from "@/client/repo";
-import { allGodownsTotals, godownTotals } from "@/client/queries/consolidated";
+import { rebuildDailyAgg, saveDoc, upsertMaster, voidDoc } from "@/client/repo";
 import { godownBalances, godownTrialBalance } from "@/client/queries/ledger";
 import { discardOp } from "@/client/sync/resolve";
-import type { PullResponse, PushResponse, Voucher } from "@/domain/schemas";
-import { closeMongo, getDb, type UserDoc } from "@/server/db";
+import type { Doc as Voucher, PullResponse, PushResponse } from "@/domain/schemas";
+import { createBusinessWithOwner } from "@/server/business";
+import { closeMongo, cols, getDb, type UserDoc } from "@/server/db";
 import { archiveGodown, createGodown } from "@/server/godownService";
 import { createUser, setGodownAccess } from "@/server/users";
 import { expenseDraft, paymentDraft, purchaseDraft, saleDraft } from "../helpers/local";
+
+const createVoucher = (g: string, d: Parameters<typeof saveDoc>[1]) => saveDoc(g, d);
+const editVoucher = (g: string, id: string, d: Parameters<typeof saveDoc>[1], reason?: string) =>
+  saveDoc(g, d, { id, ...(reason ? { reason } : {}) });
+const voidVoucher = (g: string, id: string, reason: string) => voidDoc(g, id, reason);
+const advance = (partyId: string, paise: bigint) =>
+  paymentDraft("OUT", paise, { type: "PARTY_ADVANCE", id: null }, { partyId });
 import { TestDevice, nonZero, serverBalances, useTestServer } from "../helpers/server";
 
 const QTL = 100_000n;
 const OWNER = { phone: "9830000101", password: "owner-pass-1" };
 const MGR = { phone: "9830000102", password: "manager-pass" };
+const OTHER = { phone: "9830000103", password: "other-owner-pass" };
 
 let owner: UserDoc;
 let manager: UserDoc;
@@ -83,10 +85,18 @@ let partyB: string;
 beforeAll(async () => {
   useTestServer("iso");
   const mdb = await getDb();
-  owner = await createUser(mdb, { name: "Owner", ...OWNER, isOwner: true });
+  owner = (
+    await createBusinessWithOwner(mdb, {
+      ownerName: "Owner",
+      mobile: OWNER.phone,
+      password: OWNER.password,
+      businessName: "Business One",
+    })
+  ).owner;
   GA = (await createGodown(mdb, owner, { name: "Rampur", code: "RP" }))._id;
   GB = (await createGodown(mdb, owner, { name: "Sonapur", code: "SP" }))._id;
   manager = await createUser(mdb, {
+    businessId: owner.businessId,
     name: "Munshi",
     ...MGR,
     godownAccess: [{ godownId: GA, role: "manager" }],
@@ -95,8 +105,8 @@ beforeAll(async () => {
   await od.reset();
   await od.login(OWNER.phone, OWNER.password);
   await od.sync();
-  partyA = (await upsertMaster(GA, "party", { name: "Farmer A", roles: ["farmer"] }))._id;
-  partyB = (await upsertMaster(GB, "party", { name: "Farmer B", roles: ["farmer"] }))._id;
+  partyA = (await upsertMaster(GA, "party", { name: "Farmer A", roles: ["FARMER"] }))._id;
+  partyB = (await upsertMaster(GB, "party", { name: "Farmer B", roles: ["FARMER"] }))._id;
   await createVoucher(GB, purchaseDraft(partyB, await swarna(GB), 3n * QTL, 200000n));
   await od.sync();
 
@@ -116,7 +126,7 @@ describe("godown isolation", () => {
     const sw = await swarna(GA);
     await createVoucher(GA, purchaseDraft(partyA, sw, 8n * QTL, 200000n));
     await createVoucher(GA, saleDraft(partyA, sw, 2n * QTL, 230000n));
-    await createVoucher(GA, paymentDraft(partyA, 70000n));
+    await createVoucher(GA, advance(partyA, 70000n));
     await createVoucher(GA, expenseDraft(4000n));
     await od.sync();
     expect(nonZero(await serverBalances(GB))).toEqual(before);
@@ -129,7 +139,7 @@ describe("godown isolation", () => {
     expect(res.godownIds).toEqual([GA]);
     for (const c of res.changes) {
       if (c.godownId === null) {
-        expect(["godown", "user"]).toContain(c.entity);
+        expect(["godown", "user", "business"]).toContain(c.entity);
         if (c.entity === "godown") expect(c.entityId).toBe(GA);
         if (c.entity === "user") expect(c.entityId).toBe(manager._id);
       } else expect(c.godownId).toBe(GA);
@@ -150,7 +160,7 @@ describe("godown isolation", () => {
   it("server rejects a voucher whose party belongs to another godown", async () => {
     od.use();
     od.offline = true;
-    const v = await createVoucher(GA, paymentDraft(partyA, 100n));
+    const v = await createVoucher(GA, advance(partyA, 100n));
     od.offline = false;
     await forgetLocal(v);
     const res = await crafted(od, [opFor({ ...v, partyId: partyB } as Voucher)]);
@@ -159,7 +169,7 @@ describe("godown isolation", () => {
 
   it("server rejects changing godownId on edit", async () => {
     od.use();
-    const v = await createVoucher(GA, paymentDraft(partyA, 100n));
+    const v = await createVoucher(GA, advance(partyA, 100n));
     await od.sync();
     const moved = { ...v, godownId: GB, partyId: partyB, rev: 2 } as Voucher;
     const res = await crafted(od, [opFor(moved, 1)]);
@@ -182,20 +192,73 @@ describe("godown isolation", () => {
       code: "GODOWN_ARCHIVED",
     });
   });
+});
 
-  it("'All godowns' totals == Σ per-godown totals == server", async () => {
+describe("owner separation (Test 9)", () => {
+  const xd = new TestDevice("iso-other-owner");
+  let other: UserDoc;
+  let GX: string;
+  beforeAll(async () => {
+    const mdb = await getDb();
+    other = (
+      await createBusinessWithOwner(mdb, {
+        ownerName: "Other",
+        mobile: OTHER.phone,
+        password: OTHER.password,
+        businessName: "Business Two",
+      })
+    ).owner;
+    GX = (await createGodown(mdb, other, { name: "Other Gola", code: "OX" }))._id;
+    await xd.reset();
+    await xd.login(OTHER.phone, OTHER.password);
+    await xd.sync();
+  });
+
+  it("another business's owner sees none of business one", async () => {
+    xd.use();
+    expect((await db().godowns.toArray()).map((g) => g._id)).toEqual([GX]);
+    const res = await authedCall<PullResponse>("/api/sync/pull?since=0&limit=500");
+    expect(res.godownIds).toEqual([GX]);
+    for (const c of res.changes) {
+      expect(JSON.stringify(c)).not.toContain(GA);
+      expect(JSON.stringify(c)).not.toContain(GB);
+    }
+    await expect(authedCall(`/api/sync/pull?since=0&godownId=${GA}`)).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(other.businessId).not.toBe(owner.businessId);
+  });
+
+  it("crafted pushes into another business's Gola are rejected, whatever the payload says", async () => {
     od.use();
+    od.offline = true;
+    const v = await createVoucher(GA, advance(partyA, 100n));
+    od.offline = false;
+    await forgetLocal(v);
+    // Same payload (business one) pushed by business two's owner.
+    let res = await crafted(xd, [opFor(v)]);
+    expect(res.results[0]).toMatchObject({ result: "rejected", reason: "FORBIDDEN" });
+    // Payload rewritten to claim business two, still into business one's Gola.
+    res = await crafted(xd, [opFor({ ...v, businessId: other.businessId } as Voucher)]);
+    expect(res.results[0]).toMatchObject({ result: "rejected", reason: "FORBIDDEN" });
+    // And business one's owner can't write a document claiming business two.
+    res = await crafted(od, [opFor({ ...v, businessId: other.businessId } as Voucher)]);
+    expect(res.results[0]).toMatchObject({ result: "rejected", reason: "FORBIDDEN" });
+    const mdb = await getDb();
+    expect(await cols(mdb).vouchers.countDocuments({ _id: v._id })).toBe(0);
+  });
+
+  it("a payment that points at a bill of another Gola is rejected", async () => {
+    od.use();
+    const bill = await createVoucher(GB, purchaseDraft(partyB, await swarna(GB), QTL, 200000n));
     await od.sync();
-    const all = await allGodownsTotals([GA, GB]);
-    const a = await godownTotals(GA);
-    const b = await godownTotals(GB);
-    expect(all.total.cashPaise).toBe(a.cashPaise + b.cashPaise);
-    expect(all.total.receivablePaise).toBe(a.receivablePaise + b.receivablePaise);
-    expect(all.total.payablePaise).toBe(a.payablePaise + b.payablePaise);
-    expect(all.total.stockValuePaise).toBe(a.stockValuePaise + b.stockValuePaise);
-    const sa = await serverBalances(GA);
-    const sb = await serverBalances(GB);
-    expect(all.total.cashPaise).toBe((sa.get("CASH") ?? 0n) + (sb.get("CASH") ?? 0n));
+    od.offline = true;
+    const p = await createVoucher(GA, advance(partyA, 100n));
+    od.offline = false;
+    await forgetLocal(p);
+    const forged = { ...p, source: { type: "PURCHASE", id: bill._id } } as Voucher;
+    const res = await crafted(od, [opFor(forged)]);
+    expect(res.results[0]).toMatchObject({ result: "rejected", reason: "CROSS_GODOWN_REFERENCE" });
   });
 });
 
@@ -203,7 +266,7 @@ describe("RBAC on the server", () => {
   it("crafted push to a godown without access is rejected", async () => {
     od.use();
     od.offline = true;
-    const v = await createVoucher(GB, paymentDraft(partyB, 100n));
+    const v = await createVoucher(GB, advance(partyB, 100n));
     od.offline = false;
     await forgetLocal(v);
     const res = await crafted(md, [opFor(v)]);
@@ -278,7 +341,7 @@ describe("RBAC on the server", () => {
     await md.sync();
     expect(await db().godowns.get(GB)).toBeDefined();
     expect(nonZero(await godownBalances(GB))).toEqual(nonZero(await serverBalances(GB)));
-    expect(await db().varieties.where("godownId").equals(GB).count()).toBe(8);
+    expect(await db().varieties.where("godownId").equals(GB).count()).toBe(6);
   });
 });
 
@@ -293,9 +356,9 @@ describe("exit criterion: offline create/edit/void in two godowns, then sync", (
     const pA = await createVoucher(GA, purchaseDraft(partyA, swA, 10n * QTL, 200000n));
     const pB = await createVoucher(GB, purchaseDraft(partyB, swB, 6n * QTL, 220000n));
     await editVoucher(GA, pA._id, purchaseDraft(partyA, swA, 11n * QTL, 200000n), "re-weighed");
-    const payB = await createVoucher(GB, paymentDraft(partyB, 300000n));
+    const payB = await createVoucher(GB, advance(partyB, 300000n));
     await voidVoucher(GB, payB._id, "entered twice");
-    await createVoucher(GB, paymentDraft(partyB, 250000n));
+    await createVoucher(GB, advance(partyB, 250000n));
     await createVoucher(GA, saleDraft(partyA, swA, 4n * QTL, 240000n));
     await editVoucher(GB, pB._id, purchaseDraft(partyB, swB, 6n * QTL, 225000n));
 

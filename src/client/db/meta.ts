@@ -5,7 +5,7 @@
  */
 import { v7 as uuidv7 } from "uuid";
 import { voucherSeqKey } from "@/domain/numbering";
-import type { GodownSettings, User, VoucherType } from "@/domain/schemas";
+import type { Business, DocType, GodownSettings, User } from "@/domain/schemas";
 import { db } from "./dexie";
 
 export const META = {
@@ -23,6 +23,10 @@ export const META = {
   storageNoticeShown: "storageNoticeShown",
   iosInstallShown: "iosInstallShown",
   syncLock: "syncLock",
+  /** The owner's business (profile, mon size, deductions switch), pulled from the server. */
+  business: "business",
+  /** Pending v1 work held by the Dexie v4 upgrade (see db/upgradeV4.ts). */
+  legacyV1: "legacyV1",
 } as const;
 
 export interface SessionMeta {
@@ -70,7 +74,7 @@ export async function getOrCreateDeviceId(): Promise<string> {
 }
 
 /** Next number in the per-godown, per-device, per-type sequence (call inside a transaction). */
-export async function nextVoucherSeq(godownId: string, type: VoucherType): Promise<number> {
+export async function nextVoucherSeq(godownId: string, type: DocType): Promise<number> {
   const key = voucherSeqKey(godownId, type);
   const cur = (await getMeta<number>(key)) ?? 0;
   const next = cur + 1;
@@ -88,4 +92,8 @@ export function godownSettingsKey(godownId: string): string {
 
 export function getGodownSettings(godownId: string): Promise<GodownSettings | undefined> {
   return getMeta<GodownSettings>(godownSettingsKey(godownId));
+}
+
+export function getBusiness(): Promise<Business | undefined> {
+  return getMeta<Business>(META.business);
 }

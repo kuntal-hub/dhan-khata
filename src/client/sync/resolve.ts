@@ -2,15 +2,15 @@
  * Sync-screen actions (spec §12.5 / §12.9): retry a failed op, resolve a voucher conflict
  * ("Keep server" / "Apply mine as new revision"), and export unsynced data as JSON.
  */
-import { applyVoucherDerived } from "@/domain/posting/derive";
-import type { LedgerLine, StockMove, Voucher } from "@/domain/schemas";
+import { applyDocDerived } from "@/domain/v2/derive";
+import type { Doc, LedgerLine, StockMove } from "@/domain/schemas";
 import { db, writeTables, type OutboxRow } from "../db/dexie";
 import { RepoError, auditLocal, enqueueOp, writeContext } from "../repo/context";
 import { dexieDerivedStore, replaceDerivedRows } from "../repo/derivedStore";
 import { emitLocalWrite } from "../repo/notify";
 
 export interface ConflictPayload {
-  doc: Voucher;
+  doc: Doc;
   lines: LedgerLine[];
   moves: StockMove[];
   rev?: number;
@@ -52,7 +52,7 @@ export async function keepServer(seq: number): Promise<void> {
 }
 
 /** Re-apply this device's version on top of the server's as a NEW revision (never a void). */
-export async function applyMineAsNewRevision(seq: number): Promise<Voucher> {
+export async function applyMineAsNewRevision(seq: number): Promise<Doc> {
   const d = db();
   const out = await d.transaction("rw", writeTables(d), async () => {
     const op = await d.outbox.get(seq);
@@ -68,11 +68,11 @@ export async function applyMineAsNewRevision(seq: number): Promise<Voucher> {
       updatedAt: ctx.nowIso,
       updatedBy: ctx.userId,
       ...(c.doc.serverSeq !== undefined ? { serverSeq: c.doc.serverSeq } : {}),
-    } as Voucher;
+    } as Doc;
     const ops = await d.outbox.where("entityId").equals(op.entityId).primaryKeys();
     await d.outbox.bulkDelete(ops);
     await d.vouchers.put(next);
-    await applyVoucherDerived(dexieDerivedStore, next, mine);
+    await applyDocDerived(dexieDerivedStore, next, mine);
     await enqueueOp(ctx, {
       entity: "voucher",
       entityId: next._id,
@@ -118,7 +118,7 @@ export async function exportUnsynced(): Promise<string> {
     else docs[op.entityId] = op.payload;
   }
   return JSON.stringify(
-    { kind: "dhan-khata-unsynced", exportedAt: new Date().toISOString(), ops, docs },
+    { kind: "dhan-gola-unsynced", exportedAt: new Date().toISOString(), ops, docs },
     null,
     2,
   );

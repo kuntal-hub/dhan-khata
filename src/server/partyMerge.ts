@@ -5,28 +5,27 @@
  * voided with `mergedInto`. Audited.
  */
 import type { Db, Filter } from "mongodb";
-import { applyVoucherDerived } from "@/domain/posting/derive";
-import { VoucherSchema, type Voucher } from "@/domain/schemas";
+import { DocSchema, type Doc } from "@/domain/schemas";
+import { applyDocDerived } from "@/domain/v2/derive";
 import { mongoDerivedStore } from "./apply/mongoStore";
 import { audit, logChanges, type ChangeEntry } from "./changelog";
 import { publicDoc } from "./convert";
 import { cols, getMongoClient, type UserDoc } from "./db";
 import { ApiError } from "./http";
 
+/** Every v2 document field that holds a party id. */
 const PARTY_FIELDS = [
   "partyId",
-  "millPartyId",
+  "sourceMillId",
   "fromPartyId",
-  "toMillPartyId",
+  "destinationMillId",
   "secondPartyId",
-  "payeePartyId",
-  "driverPartyId",
-  "hirerPartyId",
-  "loading.labourPartyId",
-  "delivery.transporterPartyId",
-  "expenses.creditPartyId",
+  "millPartyId",
+  "customerPartyId",
+  "costs.partyId",
   "items.refId",
-  "lines.partyId",
+  "items.millPartyId",
+  "lines.millPartyId",
 ];
 
 /** Replace every exact string `from` (and account `PARTY:from`) with `to`, deep. */
@@ -62,7 +61,13 @@ export async function mergeParties(
       // Sequential: concurrent first operations can't share one transaction's session.
       const keep = await k.parties.findOne({ _id: input.keepId }, { session });
       const drop = await k.parties.findOne({ _id: input.dropId }, { session });
-      if (!keep || !drop || keep.godownId !== g || drop.godownId !== g)
+      if (
+        !keep ||
+        !drop ||
+        keep.godownId !== g ||
+        drop.godownId !== g ||
+        keep.businessId !== owner.businessId
+      )
         throw new ApiError(404, "NOT_FOUND");
       if (keep.status !== "active" || drop.status !== "active")
         throw new ApiError(400, "BAD_REQUEST");
@@ -71,23 +76,20 @@ export async function mergeParties(
 
       const vFilter = {
         godownId: g,
-        $or: [
-          ...PARTY_FIELDS.map((f) => ({ [f]: input.dropId })),
-          { "lines.account": `PARTY:${input.dropId}` },
-        ],
-      } as Filter<Voucher>;
+        $or: PARTY_FIELDS.map((f) => ({ [f]: input.dropId })),
+      } as Filter<Doc>;
       const vouchers = await k.vouchers.find(vFilter, { session }).toArray();
       const store = mongoDerivedStore(db, session);
       for (const current of vouchers) {
-        const { serverSeq: _s, ...clean } = current as Voucher & { serverSeq?: number };
-        const next = VoucherSchema.parse({
+        const { serverSeq: _s, ...clean } = current as Doc & { serverSeq?: number };
+        const next = DocSchema.parse({
           ...repoint(clean, input.dropId, input.keepId),
           rev: current.rev + 1,
           updatedAt: now,
           updatedBy: owner._id,
         });
         await k.vouchers.replaceOne({ _id: next._id }, next, { session });
-        await applyVoucherDerived(store, next, current);
+        await applyDocDerived(store, next, current);
         entries.push({ godownId: g, entity: "voucher", entityId: next._id, rev: next.rev });
       }
 

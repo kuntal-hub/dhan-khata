@@ -7,11 +7,11 @@
 import { MongoServerError, type Db } from "mongodb";
 import { v7 as uuidv7 } from "uuid";
 import {
-  OPTIONAL_EXPENSE_CODES,
-  SEED_VARIETY_KEYS,
-  SYSTEM_EXPENSE_CODES,
-  seedChartOfAccounts,
-} from "@/domain/posting/accounts";
+  EXPENSE_CATEGORY_CODES_V2,
+  GOLA_COLOURS,
+  SEED_VARIETY_KEYS_V2,
+  seedChartOfAccountsV2,
+} from "@/domain/v2/accounts";
 import {
   CreateGodownRequestSchema,
   UpdateGodownRequestSchema,
@@ -42,8 +42,11 @@ export async function createGodown(
   const req = CreateGodownRequestSchema.parse(input);
   const now = new Date().toISOString();
   const godownId = uuidv7();
+  const existingCount = await cols(db).godowns.countDocuments({ businessId: owner.businessId });
   const godown: Godown = {
     _id: godownId,
+    businessId: owner.businessId,
+    colour: GOLA_COLOURS[existingCount % GOLA_COLOURS.length]!,
     rev: 1,
     createdAt: now,
     updatedAt: now,
@@ -57,6 +60,7 @@ export async function createGodown(
     status: "active",
   };
   const base = {
+    businessId: owner.businessId,
     godownId,
     rev: 1,
     createdAt: now,
@@ -66,15 +70,22 @@ export async function createGodown(
     updatedBy: owner._id,
     status: "active" as const,
   };
-  const varieties: Variety[] = SEED_VARIETY_KEYS.map((key) => ({
+  const varieties: Variety[] = SEED_VARIETY_KEYS_V2.map((key) => ({
     ...base,
     _id: uuidv7(),
     name: "",
     systemKey: key,
+    product: "PADDY",
+    normalizedKey: `${key.toLowerCase()}|`,
+    verified: true,
   }));
-  const categories: ExpenseCategory[] = [...SYSTEM_EXPENSE_CODES, ...OPTIONAL_EXPENSE_CODES].map(
-    (code) => ({ ...base, _id: uuidv7(), code, isSystem: true, enabled: true }),
-  );
+  const categories: ExpenseCategory[] = EXPENSE_CATEGORY_CODES_V2.map((code) => ({
+    ...base,
+    _id: uuidv7(),
+    code,
+    isSystem: true,
+    enabled: true,
+  }));
   const settings = defaultGodownSettings(godownId, now);
 
   const client = await getMongoClient();
@@ -84,7 +95,7 @@ export async function createGodown(
         const k = cols(db);
         await k.godowns.insertOne(godown, { session });
         await k.accounts.insertMany(
-          seedChartOfAccounts(godownId).map((a) => ({ _id: `${godownId}:${a.key}`, ...a })),
+          seedChartOfAccountsV2(godownId).map((a) => ({ _id: `${godownId}:${a.key}`, ...a })),
           { session },
         );
         await k.locations.insertOne(
@@ -147,7 +158,7 @@ export async function updateGodown(
     session.withTransaction(async () => {
       const k = cols(db);
       const g = await k.godowns.findOne({ _id: req.godownId }, { session });
-      if (!g) throw new ApiError(404, "NOT_FOUND");
+      if (!g || g.businessId !== owner.businessId) throw new ApiError(404, "NOT_FOUND");
       const rev = g.rev + 1;
       const [seq] = await logChanges(db, session, [
         { godownId: null, entity: "godown", entityId: g._id, rev },
@@ -155,6 +166,8 @@ export async function updateGodown(
       const opt = (v: string | undefined) => (v && v.trim() ? v.trim() : undefined);
       const next: Godown = {
         _id: g._id,
+        businessId: g.businessId,
+        ...(g.colour ? { colour: g.colour } : {}),
         rev,
         createdAt: g.createdAt,
         updatedAt: new Date().toISOString(),
@@ -200,7 +213,7 @@ export async function archiveGodown(
     session.withTransaction(async () => {
       const k = cols(db);
       const g = await k.godowns.findOne({ _id: godownId }, { session });
-      if (!g) throw new ApiError(404, "NOT_FOUND");
+      if (!g || g.businessId !== owner.businessId) throw new ApiError(404, "NOT_FOUND");
       if (g.status === "archived") return;
       const rev = g.rev + 1;
       const [seq] = await logChanges(db, session, [
