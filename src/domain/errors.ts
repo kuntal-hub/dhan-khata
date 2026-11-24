@@ -36,7 +36,17 @@ export type DomainErrorCode =
   | "DAY_NOT_CLOSED"
   | "TRANSFER_SAME_GODOWN"
   | "TRANSFER_NEEDS_BOTH"
-  | "TRANSFER_NOT_PENDING";
+  | "TRANSFER_NOT_PENDING"
+  // v2 (requirement_v2).
+  | "MILL_REQUIRED"
+  | "FUTURE_DATE"
+  | "OVERPAYMENT"
+  | "SOURCE_MISMATCH"
+  | "LINKED_PAYMENTS"
+  | "ALREADY_LINKED"
+  | "CATEGORY_IS_PAYMENT"
+  | "DISPATCH_TYPE_MISMATCH"
+  | "DUPLICATE_VARIETY";
 
 export class DomainError extends Error {
   constructor(

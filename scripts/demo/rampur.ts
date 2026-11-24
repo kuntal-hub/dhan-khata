@@ -49,7 +49,13 @@ export interface Devices {
 type Who = "o" | "m" | "e";
 type PayCode = "C" | "U" | "B";
 
-export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (s: string) => void) {
+export function rampurStory(
+  t: Timeline,
+  b: Book,
+  sn: Book,
+  dev: Devices,
+  log: (s: string) => void,
+) {
   const gid = b.gid;
   const P = (k: string) => b.party[k]!;
   const V = (k: string) => b.variety[k]!;
@@ -65,7 +71,7 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
   });
 
   /** Amount (whole rupees, in paise) = `pct`% of an outstanding balance. */
-  const part = (bal: bigint, pct: number): bigint => (((bal * BigInt(pct)) / 100n) / 100n) * 100n;
+  const part = (bal: bigint, pct: number): bigint => ((bal * BigInt(pct)) / 100n / 100n) * 100n;
 
   // ── Go-live: settings + opening balances (owner) ───────────────────────────
   t.add(30, dev.own, "settings", async () => {
@@ -103,7 +109,19 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
 
   // ── Purchases from farmers ─────────────────────────────────────────────────
   // [daysAgo, by, farmer, variety, grossKg, ₹/qtl, bags, moistBps, paid, mode, dueInDays]
-  type PRow = [number, Who, string, string, number, number, number, number, number, PayCode, number];
+  type PRow = [
+    number,
+    Who,
+    string,
+    string,
+    number,
+    number,
+    number,
+    number,
+    number,
+    PayCode,
+    number,
+  ];
   const purchases: PRow[] = [
     [28, "o", "f1", "SWARNA", 4200, 2280, 84, 0, 20_000, "C", 10],
     [28, "o", "f2", "MINIKIT", 3600, 2350, 72, 100, 30_000, "C", 7],
@@ -143,7 +161,11 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
           ...(paid > 0 ? { paid: pay(code, paid) } : {}),
           dueDate: addDays(date, due),
           ...(bags >= 120
-            ? { charges: [{ label: "হামালি (বোঝাই খরচ)", kind: "deduct" as const, amountRs: bags * 2 }] }
+            ? {
+                charges: [
+                  { label: "হামালি (বোঝাই খরচ)", kind: "deduct" as const, amountRs: bags * 2 },
+                ],
+              }
             : {}),
         }),
       );
@@ -173,16 +195,134 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
     expectInDays: number;
   }
   const saleSpecs: SaleSpec[] = [
-    { id: "S1", back: 26, by: "o", buyer: "t1", variety: "SWARNA", kg: 14_000, rs: 2345, vehicle: "own1", loading: { rs: 10 }, advance: { rs: 100_000, code: "U" }, expectInDays: 8 },
-    { id: "S2", back: 23, by: "o", buyer: "m1", variety: "MINIKIT", kg: 16_000, rs: 2410, vehicle: "ext1", loading: { rs: 12, labour: true }, delivery: { rsPerQtl: 35, payer: "US" }, vehicleAdvanceRs: 5000, advance: { rs: 150_000, code: "B" }, expectInDays: 7 },
-    { id: "S3", back: 20, by: "o", buyer: "m2", variety: "LAL_SWARNA", kg: 15_000, rs: 2285, vehicle: "ext1", loading: { rs: 10 }, delivery: { fixedRs: 6000, payer: "MILL" }, expectInDays: 10 },
-    { id: "S4", back: 17, by: "m", buyer: "m3", variety: "SWARNA", kg: 18_000, rs: 2370, vehicle: "own1", loading: { rs: 12, labour: true }, expectInDays: 6 },
-    { id: "S5", back: 13, by: "o", buyer: "m1", variety: "MINIKIT", kg: 14_000, rs: 2440, vehicle: "ext1", loading: { rs: 10 }, delivery: { rsPerQtl: 30, payer: "US" }, vehicleAdvanceRs: 4000, advance: { rs: 100_000, code: "B" }, expectInDays: 7 },
-    { id: "S6", back: 9, by: "o", buyer: "t2", variety: "SWARNA", kg: 17_000, rs: 2395, vehicle: "own1", advance: { rs: 50_000, code: "C" }, expectInDays: 5 },
-    { id: "S7", back: 6, by: "o", buyer: "m2", variety: "LAL_SWARNA", kg: 12_000, rs: 2300, vehicle: "ext1", delivery: { payer: "BUYER" }, expectInDays: 8 },
-    { id: "S8", back: 4, by: "o", buyer: "m3", variety: "SWARNA", kg: 15_000, rs: 2410, vehicle: "own1", loading: { rs: 12, labour: true }, expectInDays: 5 },
-    { id: "S9", back: 2, by: "o", buyer: "t1", variety: "MINIKIT", kg: 10_000, rs: 2455, vehicle: "own1", advance: { rs: 100_000, code: "U" }, expectInDays: 3 },
-    { id: "S10", back: 0, by: "o", buyer: "m1", variety: "SWARNA", kg: 12_000, rs: 2425, vehicle: "own1", loading: { rs: 10 }, expectInDays: 7 },
+    {
+      id: "S1",
+      back: 26,
+      by: "o",
+      buyer: "t1",
+      variety: "SWARNA",
+      kg: 14_000,
+      rs: 2345,
+      vehicle: "own1",
+      loading: { rs: 10 },
+      advance: { rs: 100_000, code: "U" },
+      expectInDays: 8,
+    },
+    {
+      id: "S2",
+      back: 23,
+      by: "o",
+      buyer: "m1",
+      variety: "MINIKIT",
+      kg: 16_000,
+      rs: 2410,
+      vehicle: "ext1",
+      loading: { rs: 12, labour: true },
+      delivery: { rsPerQtl: 35, payer: "US" },
+      vehicleAdvanceRs: 5000,
+      advance: { rs: 150_000, code: "B" },
+      expectInDays: 7,
+    },
+    {
+      id: "S3",
+      back: 20,
+      by: "o",
+      buyer: "m2",
+      variety: "LAL_SWARNA",
+      kg: 15_000,
+      rs: 2285,
+      vehicle: "ext1",
+      loading: { rs: 10 },
+      delivery: { fixedRs: 6000, payer: "MILL" },
+      expectInDays: 10,
+    },
+    {
+      id: "S4",
+      back: 17,
+      by: "m",
+      buyer: "m3",
+      variety: "SWARNA",
+      kg: 18_000,
+      rs: 2370,
+      vehicle: "own1",
+      loading: { rs: 12, labour: true },
+      expectInDays: 6,
+    },
+    {
+      id: "S5",
+      back: 13,
+      by: "o",
+      buyer: "m1",
+      variety: "MINIKIT",
+      kg: 14_000,
+      rs: 2440,
+      vehicle: "ext1",
+      loading: { rs: 10 },
+      delivery: { rsPerQtl: 30, payer: "US" },
+      vehicleAdvanceRs: 4000,
+      advance: { rs: 100_000, code: "B" },
+      expectInDays: 7,
+    },
+    {
+      id: "S6",
+      back: 9,
+      by: "o",
+      buyer: "t2",
+      variety: "SWARNA",
+      kg: 17_000,
+      rs: 2395,
+      vehicle: "own1",
+      advance: { rs: 50_000, code: "C" },
+      expectInDays: 5,
+    },
+    {
+      id: "S7",
+      back: 6,
+      by: "o",
+      buyer: "m2",
+      variety: "LAL_SWARNA",
+      kg: 12_000,
+      rs: 2300,
+      vehicle: "ext1",
+      delivery: { payer: "BUYER" },
+      expectInDays: 8,
+    },
+    {
+      id: "S8",
+      back: 4,
+      by: "o",
+      buyer: "m3",
+      variety: "SWARNA",
+      kg: 15_000,
+      rs: 2410,
+      vehicle: "own1",
+      loading: { rs: 12, labour: true },
+      expectInDays: 5,
+    },
+    {
+      id: "S9",
+      back: 2,
+      by: "o",
+      buyer: "t1",
+      variety: "MINIKIT",
+      kg: 10_000,
+      rs: 2455,
+      vehicle: "own1",
+      advance: { rs: 100_000, code: "U" },
+      expectInDays: 3,
+    },
+    {
+      id: "S10",
+      back: 0,
+      by: "o",
+      buyer: "m1",
+      variety: "SWARNA",
+      kg: 12_000,
+      rs: 2425,
+      vehicle: "own1",
+      loading: { rs: 10 },
+      expectInDays: 7,
+    },
   ];
   const vehNo = { own1: "WB44A1234", own2: "WB44B5678", ext1: "WB52C9012" } as const;
   for (const s of saleSpecs) {
@@ -213,7 +353,9 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
           ...(s.delivery
             ? {
                 delivery: {
-                  ...(s.delivery.rsPerQtl !== undefined ? { ratePerQtlRs: s.delivery.rsPerQtl } : {}),
+                  ...(s.delivery.rsPerQtl !== undefined
+                    ? { ratePerQtlRs: s.delivery.rsPerQtl }
+                    : {}),
                   ...(s.delivery.fixedRs !== undefined ? { fixedRs: s.delivery.fixedRs } : {}),
                   payer: s.delivery.payer,
                   ...(s.delivery.payer === "US" ? { transporterPartyId: P("tr1") } : {}),
@@ -343,7 +485,11 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
     key: string,
     pct: number,
     code: PayCode,
-    extra: { cheque?: { no: string; dateBack: number; bank: string }; ref?: string; id?: string } = {},
+    extra: {
+      cheque?: { no: string; dateBack: number; bank: string };
+      ref?: string;
+      id?: string;
+    } = {},
   ) =>
     t.add(back, who(by), `receipt ${key}`, async () => {
       const bal = await partyBalance(gid, P(key));
@@ -371,15 +517,24 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
       );
       if (extra.id) receipts[extra.id] = saved.primary;
     });
-  collect(19, "o", "t1", 60, "C", { cheque: { no: "003412", dateBack: 19, bank: "Bandhan Bank, Bolpur" }, id: "CHQ1" });
+  collect(19, "o", "t1", 60, "C", {
+    cheque: { no: "003412", dateBack: 19, bank: "Bandhan Bank, Bolpur" },
+    id: "CHQ1",
+  });
   collect(15, "o", "m1", 100, "B", { ref: "SBIN526114820931" });
   collect(12, "o", "m2", 100, "B", { ref: "ICIC526117702254" });
   collect(8, "o", "m3", 100, "B", { ref: "UTIB526120118833" });
-  collect(7, "o", "t2", 40, "C", { cheque: { no: "771209", dateBack: 7, bank: "UBI, Durgapur" }, id: "CHQ2" });
+  collect(7, "o", "t2", 40, "C", {
+    cheque: { no: "771209", dateBack: 7, bank: "UBI, Durgapur" },
+    id: "CHQ2",
+  });
   collect(3, "o", "m3", 50, "U", { ref: "UPI/526128844120" });
   collect(1, "o", "t1", 45, "U", { ref: "UPI/526130077314" });
   // Post-dated cheque from Maa Tara (clears in 5 days): shows in the cheque reminders.
-  collect(4, "o", "m1", 55, "B", { cheque: { no: "118830", dateBack: -5, bank: "HDFC Bank, Bolpur" }, id: "CHQ3" });
+  collect(4, "o", "m1", 55, "B", {
+    cheque: { no: "118830", dateBack: -5, bank: "HDFC Bank, Bolpur" },
+    id: "CHQ3",
+  });
 
   // Cheque lifecycle: CHQ1 clears, CHQ2 bounces and the trader pays cash instead.
   t.add(17, dev.own, "cheque clears", async () => {
@@ -418,7 +573,12 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
     if (amount <= 0n) return;
     await saveMoney(
       gid,
-      moneyDraft({ type: "RECEIPT", date: day(3), partyId: P("t2"), pay: { amountPaise: amount, mode: "CASH" } }),
+      moneyDraft({
+        type: "RECEIPT",
+        date: day(3),
+        partyId: P("t2"),
+        pay: { amountPaise: amount, mode: "CASH" },
+      }),
     );
   });
 
@@ -482,7 +642,11 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
           amountRs: rs,
           description: desc,
           mode,
-          ...(mode === "UPI" ? { bankId: b.bank.uco! } : mode === "BANK_TRANSFER" ? { bankId: b.bank.sbi! } : {}),
+          ...(mode === "UPI"
+            ? { bankId: b.bank.uco! }
+            : mode === "BANK_TRANSFER"
+              ? { bankId: b.bank.sbi! }
+              : {}),
           ...(credit ? { onCredit: true, payeePartyId: P("l1") } : {}),
           ...(code === "GODOWN_RENT" ? { payeeText: "শ্রী হরিদাস রায় (গোডাউন মালিক)" } : {}),
         }),
@@ -492,17 +656,45 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
 
   // ── Bank & owner entries (contra) ──────────────────────────────────────────
   t.add(20, dev.own, "cash deposit", async () => {
-    await saveSimple(gid, contraDraft({ date: day(20), kind: "CASH_DEPOSIT", amountRs: 100_000, bankId: b.bank.sbi!, notes: "বিক্রির নগদ ব্যাংকে জমা" }));
+    await saveSimple(
+      gid,
+      contraDraft({
+        date: day(20),
+        kind: "CASH_DEPOSIT",
+        amountRs: 100_000,
+        bankId: b.bank.sbi!,
+        notes: "বিক্রির নগদ ব্যাংকে জমা",
+      }),
+    );
   });
   t.add(11, dev.own, "bank to bank", async () => {
-    await saveSimple(gid, contraDraft({ date: day(11), kind: "BANK_TRANSFER", amountRs: 50_000, bankId: b.bank.sbi!, toBankId: b.bank.uco!, notes: "UPI-র জন্য UCO-তে স্থানান্তর" }));
+    await saveSimple(
+      gid,
+      contraDraft({
+        date: day(11),
+        kind: "BANK_TRANSFER",
+        amountRs: 50_000,
+        bankId: b.bank.sbi!,
+        toBankId: b.bank.uco!,
+        notes: "UPI-র জন্য UCO-তে স্থানান্তর",
+      }),
+    );
   });
   t.add(6, dev.own, "drawings", async () => {
-    await saveSimple(gid, contraDraft({ date: day(6), kind: "DRAWINGS", amountRs: 15_000, notes: "মালিকের সংসার খরচ" }));
+    await saveSimple(
+      gid,
+      contraDraft({ date: day(6), kind: "DRAWINGS", amountRs: 15_000, notes: "মালিকের সংসার খরচ" }),
+    );
   });
 
   // ── Stock adjustments ──────────────────────────────────────────────────────
-  const adjust = (back: number, v: string, grams: string, reason: "DRYING" | "RODENT" | "COUNT", note: string) =>
+  const adjust = (
+    back: number,
+    v: string,
+    grams: string,
+    reason: "DRYING" | "RODENT" | "COUNT",
+    note: string,
+  ) =>
     t.add(back, dev.own, `stock adjust ${v}`, async () => {
       await saveSimple(gid, {
         type: "STOCK_ADJUST",
@@ -554,7 +746,14 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
       ratePaise: R(4_000),
       freightPaise: "0",
       expenses: [
-        { kind: "DIESEL", amountPaise: R(3_100), litresMl: "34000", mode: "CASH", creditPartyId: P("p1"), note: "ধারে ডিজেল" },
+        {
+          kind: "DIESEL",
+          amountPaise: R(3_100),
+          litresMl: "34000",
+          mode: "CASH",
+          creditPartyId: P("p1"),
+          note: "ধারে ডিজেল",
+        },
         { kind: "DRIVER", amountPaise: R(500), mode: "CASH" },
         { kind: "LOADING", amountPaise: R(600), mode: "CASH" },
       ],
@@ -614,7 +813,10 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
     await createManualReminder(gid, { title: "ট্রেড লাইসেন্স নবীকরণ", dueDate: day(-12) });
   });
   t.add(5, dev.own, "reminder: GST (snoozed)", async () => {
-    const r = await createManualReminder(gid, { title: "GST রিটার্ন জমা দিতে হবে", dueDate: day(-1) });
+    const r = await createManualReminder(gid, {
+      title: "GST রিটার্ন জমা দিতে হবে",
+      dueDate: day(-1),
+    });
     await setReminderState(gid, r._id, { snoozeUntil: day(-3) });
   });
   t.add(4, dev.own, "reminder: old (done)", async () => {
@@ -702,7 +904,10 @@ export function rampurStory(t: Timeline, b: Book, sn: Book, dev: Devices, log: (
   });
 
   // ── Day close (evening, owner): most past days, a short and an excess day ──
-  const closeDays = [29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5, 4, 3];
+  const closeDays = [
+    29, 28, 27, 26, 25, 24, 23, 22, 21, 20, 19, 18, 17, 16, 15, 14, 13, 12, 11, 10, 9, 8, 7, 6, 5,
+    4, 3,
+  ];
   for (const back of closeDays) {
     t.close(back, dev.own, "day close", async () => {
       const date = day(back);

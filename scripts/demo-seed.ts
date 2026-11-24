@@ -64,15 +64,32 @@ async function wipeDemo(dbm: Awaited<ReturnType<typeof getDb>>, ownerId: string)
   for (const g of gods) {
     const n = await k.vouchers.countDocuments({ godownId: g._id });
     if (g.code === "MN" && n > 0) {
-      throw new Error("Godown MN has vouchers; refusing to delete it. Remove it manually if intended.");
+      throw new Error(
+        "Godown MN has vouchers; refusing to delete it. Remove it manually if intended.",
+      );
     }
   }
   const ids = gods.map((g) => g._id);
   const byGodown = { godownId: { $in: ids } };
   for (const name of [
-    "vouchers", "ledgerLines", "stockMoves", "parties", "varieties", "bankAccounts", "vehicles",
-    "places", "expenseCategories", "godownSettings", "dayStatus", "transfers", "reminders",
-    "accounts", "locations", "audit", "conflicts", "changelog",
+    "vouchers",
+    "ledgerLines",
+    "stockMoves",
+    "parties",
+    "varieties",
+    "bankAccounts",
+    "vehicles",
+    "places",
+    "expenseCategories",
+    "godownSettings",
+    "dayStatus",
+    "transfers",
+    "reminders",
+    "accounts",
+    "locations",
+    "audit",
+    "conflicts",
+    "changelog",
   ] as const) {
     await dbm.collection(name).deleteMany(byGodown);
   }
@@ -107,7 +124,9 @@ async function main() {
 
   if (memory) {
     const { MongoMemoryReplSet } = await import("mongodb-memory-server");
-    const rs = await MongoMemoryReplSet.create({ replSet: { count: 1, storageEngine: "wiredTiger" } });
+    const rs = await MongoMemoryReplSet.create({
+      replSet: { count: 1, storageEngine: "wiredTiger" },
+    });
     process.env.MONGODB_URI = rs.getUri();
     process.env.MONGODB_DB = "demo_rehearsal";
     stopMemory = async () => void (await rs.stop());
@@ -115,14 +134,20 @@ async function main() {
     log("Rehearsal mode: using a throw-away in-memory MongoDB (nothing touches Atlas).");
   }
   if (!ownerPhone) throw new Error("Invalid --owner-phone");
-  if (!ownerPassword) throw new Error("Pass --owner-password=<the owner's password> (or --memory).");
+  if (!ownerPassword)
+    throw new Error("Pass --owner-password=<the owner's password> (or --memory).");
 
   const dbm = await getDb();
   const k = cols(dbm);
   let owner = await k.users.findOne({ phone: ownerPhone });
   if (!owner) {
     if (!memory) throw new Error(`No owner with phone ${ownerPhone}. Run pnpm seed first.`);
-    owner = await createUser(dbm, { name: "Owner", phone: ownerPhone, password: ownerPassword, isOwner: true });
+    owner = await createUser(dbm, {
+      name: "Owner",
+      phone: ownerPhone,
+      password: ownerPassword,
+      isOwner: true,
+    });
   }
   if (!owner.isOwner) throw new Error("That user is not the owner.");
 
@@ -130,7 +155,8 @@ async function main() {
   if (existing > 0 && a.reset !== "true") {
     throw new Error("Demo godowns (RP / SN) already exist. Re-run with --reset to rebuild them.");
   }
-  if (a.reset === "true" || (await k.godowns.countDocuments({ code: "MN" })) > 0) await wipeDemo(dbm, owner._id);
+  if (a.reset === "true" || (await k.godowns.countDocuments({ code: "MN" })) > 0)
+    await wipeDemo(dbm, owner._id);
 
   // ── Godowns, staff ─────────────────────────────────────────────────────────
   log("Creating godowns and staff…");
@@ -152,7 +178,10 @@ async function main() {
     phone: "9832000002",
     receiptLanguage: "bn",
   });
-  for (const [g, gstin] of [[rpDoc, "19AAFPM4521K1Z7"], [snDoc, "19AAFPM4521K2Z6"]] as const) {
+  for (const [g, gstin] of [
+    [rpDoc, "19AAFPM4521K1Z7"],
+    [snDoc, "19AAFPM4521K2Z6"],
+  ] as const) {
     await updateGodown(dbm, owner, {
       godownId: g._id,
       name: g.name,
@@ -251,14 +280,22 @@ async function main() {
     const tb = await godownTrialBalance(g.gid);
     const stock = await stockSummary(g.gid);
     const negative = stock.filter((s) => s.qtyG < 0n);
-    const good = si.balanced && tb.balanced && si.repostMismatches.length === 0 && negative.length === 0;
+    const good =
+      si.balanced && tb.balanced && si.repostMismatches.length === 0 && negative.length === 0;
     const cash = await cashBalance(g.gid);
     const banks: string[] = [];
-    for (const [key, id] of Object.entries(g.bank)) banks.push(`${key} ₹${rupees(await bankBalance(g.gid, id))}`);
+    for (const [key, id] of Object.entries(g.bank))
+      banks.push(`${key} ₹${rupees(await bankBalance(g.gid, id))}`);
     const stockQtl = stock.reduce((s, r) => s + r.qtyG, 0n) / 100_000n;
     const stockWorth = stock.reduce((s, r) => s + r.valuePaise, 0n);
-    const lowCash = cash < 0n || (await Promise.all(Object.values(g.bank).map((id) => bankBalance(g.gid, id)))).some((x) => x < 0n);
-    log(`  ${g.code} snapshot: cash ₹${rupees(cash)} · ${banks.join(" · ")} · stock ${stockQtl} qtl worth ₹${rupees(stockWorth)}${lowCash ? "  ⚠ negative cash/bank" : ""}`);
+    const lowCash =
+      cash < 0n ||
+      (await Promise.all(Object.values(g.bank).map((id) => bankBalance(g.gid, id)))).some(
+        (x) => x < 0n,
+      );
+    log(
+      `  ${g.code} snapshot: cash ₹${rupees(cash)} · ${banks.join(" · ")} · stock ${stockQtl} qtl worth ₹${rupees(stockWorth)}${lowCash ? "  ⚠ negative cash/bank" : ""}`,
+    );
     ok &&= good;
     log(
       `  ${g.code}: ${si.voucherCount} vouchers · server balanced=${si.balanced} · device balanced=${tb.balanced}` +
@@ -273,14 +310,19 @@ async function main() {
   log("\nDocuments per collection");
   const names = Object.keys(cols(dbm)) as Array<keyof ReturnType<typeof cols>>;
   const rows: string[] = [];
-  for (const n of names) rows.push(`${String(n).padEnd(18)} ${await cols(dbm)[n].countDocuments({} as never)}`);
+  for (const n of names)
+    rows.push(`${String(n).padEnd(18)} ${await cols(dbm)[n].countDocuments({} as never)}`);
   log(rows.map((r) => `  ${r}`).join("\n"));
 
   log("\nLogins");
   log(`  Owner         ${ownerPhone}   (your password)`);
   log(`  Manager (RP)  ${STAFF.manager.phone}   ${STAFF_PASSWORD}   · sees Sonapur read-only`);
-  log(`  Entry (RP)    ${STAFF.entry.phone}   ${STAFF_PASSWORD}   · restricted: own entries, today only`);
-  log(`  Manager (SN)  ${STAFF.snManager.phone}   ${STAFF_PASSWORD}   · has the pending transfers to accept`);
+  log(
+    `  Entry (RP)    ${STAFF.entry.phone}   ${STAFF_PASSWORD}   · restricted: own entries, today only`,
+  );
+  log(
+    `  Manager (SN)  ${STAFF.snManager.phone}   ${STAFF_PASSWORD}   · has the pending transfers to accept`,
+  );
 
   if (stopMemory) await stopMemory();
   await closeMongo();

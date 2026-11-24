@@ -9,7 +9,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | Phase | Work | Exit criteria | Status |
 |---|---|---|---|
 | 0 | Audit, gap analysis | GAP_ANALYSIS.md | ✅ |
-| 1 | Domain core (units, WeightBlock, Payment, dates, posting v2, stock engine, cashbook classifier, voice number parser) | G1–G8 + property tests; Tests 1–6 as domain tests | ⬜ |
+| 1 | Domain core (units, WeightBlock, Payment, dates, posting v2, stock engine, cashbook classifier, voice number parser) | G1–G8 + property tests; Tests 1–6 as domain tests | ✅ |
 | 2 | Data layer & migration (Dexie v4, repo, server, op groups, businessId, `scripts/migrate-v2.ts`) | sync + isolation tests; migration dry-run reconciles | ⬜ |
 | 3 | Auth & Gola management | Tests 7, 8, 9 | ⬜ |
 | 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ⬜ |
@@ -309,3 +309,24 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - Tests: `tests/unit/access.test.ts`. e2e `tests/e2e/entry-role.spec.ts`, with an entry user seeded in RP by `tests/e2e/server.ts` (`ENTRY` in helpers; `loginFresh(page, user)`).
 
 **Deviation:** this is a UI restriction. The entry user's device still syncs the whole godown, because dashboard totals, pickers and the posting replay need it. The server does not filter pulls by creator. Godown isolation stays server-enforced. If the client wants field staff unable to obtain other users' amounts even with technical skill, that needs server-side pull filtering plus a server-computed dashboard: a v2 change.
+
+
+## v2 handoff log
+
+### v2 Phase 1 — Domain core — 2026-11-25
+**Built (all pure, in `src/domain`, not yet wired to the app):**
+- `units.ts`: kg / quintal / mon (`monKg`, default 40, whole kg), exact parse per unit (`parseWeightIn`), display helpers (`formatWeightNumber`, `weightTriple`, `gramsToInput`).
+- `v2/schemas.ts`: the v2 document union `Doc` (PURCHASE, SALE, PAYMENT, EXPENSE, LOAD, MILL_DISPATCH, MILL_RETURN, CONVERSION, TRIP, SECOND_PARTY, STOCK_ADJUST, CONTRA, DAY_CLOSE, OPENING) with per-type dates, `entryDate`, `businessId`, `WeightBlock`; `businessDate(doc)`; `LedgerLineV2`, `StockMoveV2` (product / location / mill / bags).
+- `v2/weightBlock.ts` (bag-wise / manual, optional deductions, `computeBill` with visible round-off), `v2/accounts.ts` (STOCK_PADDY, STOCK_RICE, STOCK_OTHER:x, STOCK_AT_MILL:mill, EXP_PAYABLE, MILLING_*, SP_CLEARING, …), `v2/post.ts` (`postDoc`: every §8 event; weighted average per position key; TRANSIT scoped by group), `v2/replay.ts` (`ordOfDoc`, `replayDocs`, `deriveAll`, serializers), `v2/recompute.ts` (`recomputeDoc`, `verifyDoc`, `validateDocRules`), `v2/payments.ts` (`billsOf`, `billState` paid/partial/unpaid/overdue, `splitOverpayment`, `allocateFifo`), `v2/cashbook.ts` (§7.3 classifier, `cashbookDay`, `balanceAt`), `v2/stock.ts` (`paddyDay`, `millDay`, `productDay`, `dispatchBalance`, `wouldGoNegative`), `voiceNumber.ts` (Bengali/English spoken numbers).
+- New domain error codes (`errors.ts`): MILL_REQUIRED, FUTURE_DATE, OVERPAYMENT, SOURCE_MISMATCH, LINKED_PAYMENTS, ALREADY_LINKED, CATEGORY_IS_PAYMENT, DISPATCH_TYPE_MISMATCH, DUPLICATE_VARIETY.
+- Tests: `tests/unit/v2-golden.test.ts` (G1–G8, units, WeightBlock), `tests/unit/v2-acceptance.test.ts` (§21 Tests 1–6 at domain level), `tests/unit/v2-posting.test.ts` (each event, dues, FIFO, rules, CALC_MISMATCH), `tests/property/v2.property.test.ts` (balanced, void restores, edit-back, Gola isolation), `tests/unit/voice-number.test.ts`. Factory `tests/helpers/v2.ts`.
+
+**Decisions:** D3–D11 in `docs/DECISIONS.md` (D10 is an open question for the client: mill-return value is valuation only).
+
+**Other:** fixed a pre-existing clock-dependent test (`tests/sync/phase5.test.ts` failed before 08:00 IST).
+
+**Notes for Phase 2:**
+- The old v1 domain (`schemas/vouchers.ts`, `posting/*`, `calc/*`) is still what the app uses. Phase 2 switches the data layer (Dexie, repo, sync, server) to `Doc` and removes v1 posting; the old screens that depend on v1 types are replaced section by section (Phases 4–11).
+- `DerivedStore`/`applyVoucherDerived` (`posting/derive.ts`) must be ported to `postDoc` with `StockKeyV2` (key = `stockKeyId`) and `ordOfDoc`.
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 345/345 (31 files).

@@ -41,8 +41,8 @@ const EN_TENS = [
   "Ninety",
 ];
 
-// Bengali numbers 0–99 are irregular; full table.
-const BN_0_99 = [
+// Bengali numbers 0–99 are irregular; full table (also used by the voice number parser).
+export const BN_0_99 = [
   "শূন্য",
   "এক",
   "দুই",

@@ -110,7 +110,11 @@ export function purchaseDraft(a: {
     partyId: a.partyId,
     storeAt: "STORE",
     lines: a.lines,
-    charges: (a.charges ?? []).map((c) => ({ label: c.label, kind: c.kind, amountPaise: R(c.amountRs) })),
+    charges: (a.charges ?? []).map((c) => ({
+      label: c.label,
+      kind: c.kind,
+      amountPaise: R(c.amountRs),
+    })),
     roundToRupee: true,
     roundOffPaise: "0",
     totalPaise: "0",
@@ -178,7 +182,12 @@ export function saleDraft(a: {
       : {}),
     ...(a.vehicleAdvance ? { vehicleAdvance: movement(a.vehicleAdvance) } : {}),
     ...(a.advance
-      ? { advanceReceived: { ...movement(a.advance), ...(a.advance.via ? { via: a.advance.via } : {}) } }
+      ? {
+          advanceReceived: {
+            ...movement(a.advance),
+            ...(a.advance.via ? { via: a.advance.via } : {}),
+          },
+        }
       : {}),
     ...(a.expectedPaymentDate ? { expectedPaymentDate: a.expectedPaymentDate } : {}),
     ...(a.notes ? { notes: a.notes } : {}),

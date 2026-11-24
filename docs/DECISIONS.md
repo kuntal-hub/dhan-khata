@@ -27,5 +27,11 @@ Rice/by-product returns add quantity at zero value. The conversion moves value: 
 ### D8: Expense and vehicle-cost payables
 An expense with a party posts Cr PARTY:person, and its payments settle that party. Without a party it posts Cr `EXP_PAYABLE`, and its payments debit `EXP_PAYABLE`. Vehicle trip costs work the same way. Paid/unpaid status is always derived per source from its payments.
 
+### D10: Mill-return value creates no receivable (OPEN: confirm with the client)
+§12.8C lists "rate, total value, amount received, remaining receivable" on a mill return. The paddy, rice or by-product coming back is our own goods, so its value is treated as **valuation only** (used by the conversion, D6). Money actually received from the mill at return time is an IN payment (source `MILL_RETURN`) that credits the mill's party ledger, as §22.9 says ("the mill's outstanding is tracked on the mill's party ledger"). The "remaining" figure on the return screen is informational and is not posted. If the client means that the mill buys part of the return (e.g. keeps the by-products against payment), that will be recorded as a Sale to the mill.
+
+### D11: Conversion loss is derived
+`lossG = paddy consumed − Σ outputs` is recomputed (and verified by the server). The user confirms the loss shown, so the stored loss can never disagree with the quantities.
+
 ### D9: Payment modes CASH / BANK / UPI only
 v1 modes CHEQUE, DD, BANK_TRANSFER and OTHER are migrated to BANK, with the bank account kept. The `CHEQUE_IN_HAND` stage disappears. This is an intentional v2 semantic change, listed in the migration report.

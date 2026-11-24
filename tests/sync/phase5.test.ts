@@ -17,6 +17,7 @@ import {
   savePurchase,
   upsertMaster,
 } from "@/client/repo";
+import { todayIST } from "@/domain/dates";
 import { accountTotals } from "@/domain/integrity";
 import type { Backup } from "@/server/admin";
 import { restoreBackup } from "@/server/admin";
@@ -113,7 +114,11 @@ describe("web push digest + cron", () => {
     expect(toMa.payload.body).not.toContain("Sonapur"); // godown isolation in push
     expect(toOwner.payload.title).toBe("ধান খাতা — আজকের রিমাইন্ডার");
     // Not again today without force.
-    expect((await sendDigest(mdb, { sender: async () => {} })).skipped).toBe("ALREADY_SENT");
+    // (Evening of the same IST day, so the "not before the digest hour" guard never interferes.)
+    const evening = new Date(`${todayIST()}T20:00:00+05:30`);
+    expect((await sendDigest(mdb, { now: evening, sender: async () => {} })).skipped).toBe(
+      "ALREADY_SENT",
+    );
     // An expired subscription is removed.
     await cols(mdb).pushSubscriptions.insertOne({
       _id: "https://push.example/gone",

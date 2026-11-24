@@ -87,7 +87,9 @@ export class DemoDevice {
       const lines = stuck
         .slice(0, 8)
         .map((o) => `  ${o.entity} ${o.entityId} [${o.status}] ${o.lastError ?? ""}`);
-      throw new Error(`${stuck.length} op(s) not accepted by the server on ${this.name}:\n${lines.join("\n")}`);
+      throw new Error(
+        `${stuck.length} op(s) not accepted by the server on ${this.name}:\n${lines.join("\n")}`,
+      );
     }
     await pullAll();
   }

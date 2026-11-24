@@ -3,7 +3,14 @@
  * so the demo can show two independent books, role-limited staff and the consolidated view.
  */
 import { partyBalance } from "@/client/queries/ledger";
-import { closeDay, saveMoney, savePurchase, saveSale, saveSimple, type VoucherDraft } from "@/client/repo";
+import {
+  closeDay,
+  saveMoney,
+  savePurchase,
+  saveSale,
+  saveSimple,
+  type VoucherDraft,
+} from "@/client/repo";
 import { addDays } from "@/domain/dates";
 import type { Devices } from "./rampur";
 import {
@@ -28,10 +35,21 @@ export function sonapurStory(t: Timeline, b: Book, dev: Devices) {
   const P = (k: string) => b.party[k]!;
   const V = (k: string) => b.variety[k]!;
   const bob = b.bank.bob!;
-  const part = (bal: bigint, pct: number): bigint => (((bal * BigInt(pct)) / 100n) / 100n) * 100n;
-  const upi = (rs?: number): Pay => ({ ...(rs !== undefined ? { amountRs: rs } : {}), mode: "UPI", bankId: bob });
-  const cash = (rs?: number): Pay => ({ ...(rs !== undefined ? { amountRs: rs } : {}), mode: "CASH" });
-  const neft = (rs?: number): Pay => ({ ...(rs !== undefined ? { amountRs: rs } : {}), mode: "BANK_TRANSFER", bankId: bob });
+  const part = (bal: bigint, pct: number): bigint => ((bal * BigInt(pct)) / 100n / 100n) * 100n;
+  const upi = (rs?: number): Pay => ({
+    ...(rs !== undefined ? { amountRs: rs } : {}),
+    mode: "UPI",
+    bankId: bob,
+  });
+  const cash = (rs?: number): Pay => ({
+    ...(rs !== undefined ? { amountRs: rs } : {}),
+    mode: "CASH",
+  });
+  const neft = (rs?: number): Pay => ({
+    ...(rs !== undefined ? { amountRs: rs } : {}),
+    mode: "BANK_TRANSFER",
+    bankId: bob,
+  });
 
   t.add(29, dev.own, "SN opening balances", async () => {
     await saveSimple(gid, {
@@ -101,7 +119,15 @@ export function sonapurStory(t: Timeline, b: Book, dev: Devices) {
           partyId: P(buyer),
           vehicleNumber: veh,
           lines: [tl(V(v), useKg, rs, { bags: Number(useKg / 50n) })],
-          ...(loading ? { loading: { ratePerQtlRs: 10, payTo: "LABOUR_PARTY" as const, labourPartyId: P("l1") } } : {}),
+          ...(loading
+            ? {
+                loading: {
+                  ratePerQtlRs: 10,
+                  payTo: "LABOUR_PARTY" as const,
+                  labourPartyId: P("l1"),
+                },
+              }
+            : {}),
           delivery: { payer: "BUYER" },
           ...(adv ? { advance: adv } : {}),
           expectedPaymentDate: addDays(date, expect),
@@ -114,7 +140,15 @@ export function sonapurStory(t: Timeline, b: Book, dev: Devices) {
     t.add(back, owner ? dev.own : dev.snm, `SN receipt ${key}`, async () => {
       const amount = part(await partyBalance(gid, P(key)), pct);
       if (amount <= 0n) return;
-      await saveMoney(gid, moneyDraft({ type: "RECEIPT", date: day(back), partyId: P(key), pay: { ...p, amountPaise: amount } }));
+      await saveMoney(
+        gid,
+        moneyDraft({
+          type: "RECEIPT",
+          date: day(back),
+          partyId: P(key),
+          pay: { ...p, amountPaise: amount },
+        }),
+      );
     });
   collect(14, "sm1", 100, neft());
   collect(7, "st1", 50, upi());
@@ -124,7 +158,15 @@ export function sonapurStory(t: Timeline, b: Book, dev: Devices) {
     t.add(back, dev.snm, `SN payment ${key}`, async () => {
       const amount = part(-(await partyBalance(gid, P(key))), pct);
       if (amount <= 0n) return;
-      await saveMoney(gid, moneyDraft({ type: "PAYMENT", date: day(back), partyId: P(key), pay: { ...p, amountPaise: amount } }));
+      await saveMoney(
+        gid,
+        moneyDraft({
+          type: "PAYMENT",
+          date: day(back),
+          partyId: P(key),
+          pay: { ...p, amountPaise: amount },
+        }),
+      );
     });
   payOut(9, "s2", 100, cash());
   payOut(3, "s1", 50, cash());
@@ -145,19 +187,37 @@ export function sonapurStory(t: Timeline, b: Book, dev: Devices) {
     t.add(back, dev.snm, `SN expense ${code}`, async () => {
       await saveSimple(
         gid,
-        expenseDraft({ date: day(back), code, amountRs: rs, description: desc, mode, ...(mode === "UPI" ? { bankId: bob } : {}) }),
+        expenseDraft({
+          date: day(back),
+          code,
+          amountRs: rs,
+          description: desc,
+          mode,
+          ...(mode === "UPI" ? { bankId: bob } : {}),
+        }),
       );
     });
   }
 
   t.add(13, dev.snm, "SN cash deposit", async () => {
-    await saveSimple(gid, contraDraft({ date: day(13), kind: "CASH_DEPOSIT", amountRs: 50_000, bankId: bob, notes: "নগদ ব্যাংকে জমা" }));
+    await saveSimple(
+      gid,
+      contraDraft({
+        date: day(13),
+        kind: "CASH_DEPOSIT",
+        amountRs: 50_000,
+        bankId: bob,
+        notes: "নগদ ব্যাংকে জমা",
+      }),
+    );
   });
   t.add(13, dev.snm, "SN stock adjust", async () => {
     await saveSimple(gid, {
       type: "STOCK_ADJUST",
       date: day(13),
-      lines: [{ varietyId: V("SWARNA"), qtyG: "-60000", reason: "DRYING", note: "শুকিয়ে ওজন কমেছে" }],
+      lines: [
+        { varietyId: V("SWARNA"), qtyG: "-60000", reason: "DRYING", note: "শুকিয়ে ওজন কমেছে" },
+      ],
     } as VoucherDraft);
   });
   t.add(12, dev.snm, "SN trip", async () => {

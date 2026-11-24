@@ -366,9 +366,13 @@ describe("push / pull", () => {
     expect(await db().outbox.count()).toBe(0);
     const mdb = await getDb();
     expect((await cols(mdb).godownSettings.findOne({ _id: GA }))?.lockAfterDays).toBe(5);
-    expect(await cols(mdb).conflicts.countDocuments({ godownId: GA, entity: "godownSettings" })).toBe(0);
+    expect(
+      await cols(mdb).conflicts.countDocuments({ godownId: GA, entity: "godownSettings" }),
+    ).toBe(0);
     // And the device copy converged on the server's.
-    expect(((await getMeta(`godownSettings:${GA}`)) as { lockAfterDays: number }).lockAfterDays).toBe(5);
+    expect(
+      ((await getMeta(`godownSettings:${GA}`)) as { lockAfterDays: number }).lockAfterDays,
+    ).toBe(5);
   });
 });
 

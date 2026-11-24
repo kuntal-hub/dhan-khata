@@ -56,7 +56,10 @@ export async function runTimeline(
       try {
         await ev.run();
       } catch (e) {
-        const msg = e instanceof Error ? `${e.message}${(e as { detail?: string }).detail ? ` (${(e as { detail?: string }).detail})` : ""}` : String(e);
+        const msg =
+          e instanceof Error
+            ? `${e.message}${(e as { detail?: string }).detail ? ` (${(e as { detail?: string }).detail})` : ""}`
+            : String(e);
         throw new Error(`[${date}] ${ev.label}: ${msg}`);
       }
       writers.add(ev.who);
