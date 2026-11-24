@@ -2,6 +2,28 @@
 
 Legend: ⬜ not started · 🟡 in progress · ✅ done (exit criteria green + committed)
 
+## v2 plan ("Dhan Gola", `requirement_v2.md`, branch `feat/dhan-gola-v2`)
+
+Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
+
+| Phase | Work | Exit criteria | Status |
+|---|---|---|---|
+| 0 | Audit, gap analysis | GAP_ANALYSIS.md | ✅ |
+| 1 | Domain core (units, WeightBlock, Payment, dates, posting v2, stock engine, cashbook classifier, voice number parser) | G1–G8 + property tests; Tests 1–6 as domain tests | ⬜ |
+| 2 | Data layer & migration (Dexie v4, repo, server, op groups, businessId, `scripts/migrate-v2.ts`) | sync + isolation tests; migration dry-run reconciles | ⬜ |
+| 3 | Auth & Gola management | Tests 7, 8, 9 | ⬜ |
+| 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ⬜ |
+| 5 | Purchase + Variety | Test 1 e2e | ⬜ |
+| 6 | Sales | Test 6 e2e | ⬜ |
+| 7 | Daily Expenses | Test 5 e2e | ⬜ |
+| 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ⬜ |
+| 9 | Mill & Second Party | Tests 2, 3 e2e | ⬜ |
+| 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ⬜ |
+| 11 | Reports, print, export, voice, WhatsApp | reports reconcile with dashboard | ⬜ |
+| 12 | Hardening | all of §21 | ⬜ |
+
+## v1 build (requirement.md v1.1)
+
 | Phase | Title | Spec phases | Status |
 |---|---|---|---|
 | 1 | Foundations & Domain Core | P0 + P1 | ✅ |

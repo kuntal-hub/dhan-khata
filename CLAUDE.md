@@ -2,7 +2,7 @@
 
 Dhan Khata is an offline-first, bilingual (বাংলা / English) PWA for a paddy broker in West Bengal who runs several godowns. **Each godown is an independent business with its own books.** It is built with Next.js 16, Dexie (IndexedDB), MongoDB Atlas (free tier) and Serwist, and hosted on Netlify Free.
 
-**Source of truth: `requirement.md`.** It is about 1,280 lines and 42k tokens, so **never read it whole**. Find a section with Grep (for example pattern `^#{2,3} 9\.2` with `-n`), then Read it with `offset`/`limit`.
+**Source of truth (v2 upgrade, branch `feat/dhan-gola-v2`): `requirement_v2.md`** ("Dhan Gola"). Where the old `requirement.md` (v1.1) or the v1 phase notes below conflict with v2, v2 wins. v2 progress: `docs/PROGRESS.md` → "v2 plan"; gaps: `docs/GAP_ANALYSIS.md`; decisions: `docs/DECISIONS.md`. `requirement.md` (v1.1) is about 1,280 lines, so **never read it whole**. Find a section with Grep, then Read it with `offset`/`limit`.
 
 ---
 
