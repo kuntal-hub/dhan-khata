@@ -15,6 +15,7 @@ import { Choice, DateField, SeasonField } from "@/components/forms/fields";
 import { BankPicker, PartyPicker, VarietyPicker } from "@/components/forms/pickers";
 import { Balance } from "@/components/money/display";
 import { EmptyState, Loading } from "@/components/lists/common";
+import { useVirtualRows } from "@/components/lists/VirtualList";
 import { ReadOnlyNotice, useWriteGodown } from "@/components/system/page";
 import { VoucherRow } from "@/components/vouchers/VoucherList";
 import { Row, viewPathOf } from "@/components/vouchers/VoucherView";
@@ -38,7 +39,8 @@ import { AGING_BUCKETS } from "@/domain/aging";
 import { todayIST } from "@/domain/dates";
 import type { Party } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
-import { translate, type Lang, type TKey } from "@/i18n/translate";
+import type { Lang, TKey } from "@/i18n/translate";
+import { translate } from "@/i18n/translateAll";
 
 const TABS = ["summary", "khata", "purchases", "sales", "payments", "loads", "reminders"] as const;
 type Tab = (typeof TABS)[number];
@@ -353,6 +355,13 @@ function Khata({ party, godownId }: { party: Party; godownId: string }) {
       ),
     [godownId, party._id, from, to, bank],
   );
+  const {
+    attach: attachRows,
+    measureRow,
+    indices: rowIdx,
+    padTop,
+    padBottom,
+  } = useVirtualRows(st?.rows.length ?? 0);
   return (
     <div className="flex flex-col gap-3 pt-2">
       <div className="grid grid-cols-2 gap-2">
@@ -391,28 +400,49 @@ function Khata({ party, godownId }: { party: Party; godownId: string }) {
                   <Balance paise={st.openingPaise} />
                 </td>
               </tr>
-              {st.rows.map((r) => (
-                <tr key={r.voucherId} className="border-t">
-                  <td className="px-2 py-2">{date(r.date, "short")}</td>
-                  <td className="px-2 py-2">
-                    <Link
-                      href={viewPathOf({ _id: r.voucherId, type: r.type })}
-                      className="underline"
-                    >
-                      {dot(t(`voucherType.${r.type}` as TKey), r.number)}
-                    </Link>
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    {r.debitPaise > 0n ? money(r.debitPaise) : ""}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    {r.creditPaise > 0n ? money(r.creditPaise) : ""}
-                  </td>
-                  <td className="px-2 py-2 text-right">
-                    <Balance paise={r.balancePaise} />
-                  </td>
+            </tbody>
+            <tbody className="tabular" ref={attachRows}>
+              {padTop > 0 ? (
+                <tr aria-hidden>
+                  <td colSpan={5} style={{ height: padTop, padding: 0 }} />
                 </tr>
-              ))}
+              ) : null}
+              {rowIdx
+                .map((i) => st.rows[i]!)
+                .map((r, k) => (
+                  <tr
+                    key={r.voucherId}
+                    className="border-t"
+                    data-index={rowIdx[k]}
+                    ref={measureRow}
+                  >
+                    <td className="px-2 py-2">{date(r.date, "short")}</td>
+                    <td className="px-2 py-2">
+                      <Link
+                        href={viewPathOf({ _id: r.voucherId, type: r.type })}
+                        className="underline"
+                      >
+                        {dot(t(`voucherType.${r.type}` as TKey), r.number)}
+                      </Link>
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {r.debitPaise > 0n ? money(r.debitPaise) : ""}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      {r.creditPaise > 0n ? money(r.creditPaise) : ""}
+                    </td>
+                    <td className="px-2 py-2 text-right">
+                      <Balance paise={r.balancePaise} />
+                    </td>
+                  </tr>
+                ))}
+              {padBottom > 0 ? (
+                <tr aria-hidden>
+                  <td colSpan={5} style={{ height: padBottom, padding: 0 }} />
+                </tr>
+              ) : null}
+            </tbody>
+            <tbody className="tabular">
               <tr className="bg-muted/40 border-t font-semibold">
                 <td className="px-2 py-2" colSpan={2}>
                   {t("party.closing")}

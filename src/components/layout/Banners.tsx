@@ -2,11 +2,11 @@
 
 import Link from "next/link";
 import { Clock, HardDrive, LogIn, Sparkles } from "lucide-react";
-import { toast } from "sonner";
+import { lazyToast } from "@/components/system/IdleToaster";
 import { Button } from "@/components/ui/button";
 import { META, setMeta } from "@/client/db/meta";
 import { useMeta } from "@/client/hooks";
-import { CLOCK_SKEW_WARN_MS } from "@/client/sync/engine";
+import { CLOCK_SKEW_WARN_MS } from "@/client/sync/constants";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppSelector } from "@/store";
 import { useUpdateApp } from "@/components/pwa/PwaRuntime";
@@ -42,7 +42,7 @@ export function Banners() {
             size="sm"
             className="h-11"
             onClick={() => {
-              if (!applyUpdate()) toast(t("pwa.updateWait"));
+              if (!applyUpdate()) lazyToast(t("pwa.updateWait"));
             }}
           >
             {t("pwa.update")}

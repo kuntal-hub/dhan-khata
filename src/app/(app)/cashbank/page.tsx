@@ -10,6 +10,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { DateField } from "@/components/forms/fields";
 import { BankPicker } from "@/components/forms/pickers";
 import { EmptyState, Loading } from "@/components/lists/common";
+import { useVirtualRows } from "@/components/lists/VirtualList";
 import { Money } from "@/components/money/display";
 import { PageHeader, PageSuspense, ReadOnlyNotice } from "@/components/system/page";
 import { useNames } from "@/components/vouchers/names";
@@ -39,6 +40,13 @@ function BookView({
     () => accountBook(godownId, account, { from, to }),
     [godownId, account, from, to],
   );
+  const {
+    attach: attachRows,
+    measureRow,
+    indices: rowIdx,
+    padTop,
+    padBottom,
+  } = useVirtualRows(book?.rows.length ?? 0);
   return (
     <div className="flex flex-col gap-2 pt-2" data-testid={testId}>
       <div className="grid grid-cols-2 gap-2">
@@ -77,6 +85,13 @@ function BookView({
                   <Money paise={book.openingPaise} />
                 </td>
               </tr>
+            </tbody>
+            <tbody ref={attachRows}>
+              {padTop > 0 ? (
+                <tr aria-hidden>
+                  <td colSpan={4} style={{ height: padTop, padding: 0 }} />
+                </tr>
+              ) : null}
               {book.rows.length === 0 ? (
                 <tr className="border-t">
                   <td className="text-muted-foreground p-2" colSpan={4}>
@@ -84,11 +99,17 @@ function BookView({
                   </td>
                 </tr>
               ) : (
-                book.rows.map((r) => {
+                rowIdx.map((i) => {
+                  const r = book.rows[i]!;
                   const v = r.voucher;
                   const party = v && "partyId" in v ? names.party(v.partyId as string) : "";
                   return (
-                    <tr key={r.voucherId} className="border-t align-top">
+                    <tr
+                      key={r.voucherId}
+                      className="border-t align-top"
+                      data-index={i}
+                      ref={measureRow}
+                    >
                       <td className="p-2">
                         {v ? (
                           <Link href={viewPathOf(v)} className="text-primary underline">
@@ -116,6 +137,13 @@ function BookView({
                   );
                 })
               )}
+              {padBottom > 0 ? (
+                <tr aria-hidden>
+                  <td colSpan={4} style={{ height: padBottom, padding: 0 }} />
+                </tr>
+              ) : null}
+            </tbody>
+            <tbody>
               <tr className="border-t font-semibold">
                 <td className="p-2">{t("cashbank.closing")}</td>
                 <td className="tabular p-2 text-right">

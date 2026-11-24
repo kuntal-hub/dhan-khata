@@ -42,9 +42,15 @@ export const SCHEMA_V2: StoreSpec = {
   transfers: "_id, godownId, [godownId+status]",
 };
 
+/** v3 (Phase 5): client error reports waiting to be uploaded (spec §16). */
+export const SCHEMA_V3: StoreSpec = {
+  clientErrors: "++id, at",
+};
+
 export const SCHEMA_VERSIONS: readonly SchemaVersion[] = [
   { version: 1, stores: SCHEMA_V1 },
   { version: 2, stores: SCHEMA_V2 },
+  { version: 3, stores: SCHEMA_V3 },
 ];
 
 function indexList(spec: string): string[] {

@@ -1,5 +1,5 @@
 import type { MetadataRoute } from "next";
-import { translate } from "@/i18n/translate";
+import { translate } from "@/i18n/translateAll";
 
 const both = (key: Parameters<typeof translate>[1]) =>
   `${translate("bn", key)} / ${translate("en", key)}`;

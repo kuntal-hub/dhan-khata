@@ -39,8 +39,8 @@ const ITEMS: Item[] = [
   { label: "nav.vehicles", href: "/vehicle", icon: Car },
   { label: "nav.search", href: "/search", icon: Search },
   { label: "nav.godowns", href: "/godowns", icon: Warehouse, ownerOnly: true },
-  { label: "nav.reports", href: null, icon: BarChart3 },
-  { label: "nav.reminders", href: null, icon: Bell },
+  { label: "nav.reports", href: "/reports", icon: BarChart3 },
+  { label: "nav.reminders", href: "/reminders", icon: Bell },
   { label: "nav.settings", href: "/settings", icon: Settings },
   { label: "nav.sync", href: "/sync", icon: RefreshCw },
 ];

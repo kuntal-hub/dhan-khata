@@ -2,12 +2,13 @@
 
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
-import { AlertTriangle, ArrowRightLeft, CalendarCheck } from "lucide-react";
+import { useState } from "react";
+import { AlertTriangle, ArrowRightLeft, Bell, CalendarCheck } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { getMeta, setMeta } from "@/client/db/meta";
-import { useActiveGodown, useGodownRole } from "@/client/hooks";
-import { useGodownSettings } from "@/components/trade/hooks";
+import { useActiveGodown, useGodownRole, useGodownSettings } from "@/client/hooks";
+import { useDueReminderCount } from "@/components/layout/ReminderBadge";
 import { addDays, todayIST } from "@/domain/dates";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -19,7 +20,14 @@ const ackKey = (godownId: string, date: string) => `lateAck:${godownId}:${date}`
  *  - owner: "an entry arrived after the day was closed" (server late-entry flag);
  *  - pending inter-godown receipts waiting for this godown.
  */
+const REMINDER_BANNER_KEY = "dk.reminderBannerDismissed";
+
 export function DayBanners() {
+  const dueCount = useDueReminderCount();
+  const [hideRem, setHideRem] = useState(
+    () =>
+      typeof sessionStorage !== "undefined" && sessionStorage.getItem(REMINDER_BANNER_KEY) === "1",
+  );
   const { t, date } = useI18n();
   const { godownId, consolidated } = useActiveGodown();
   const role = useGodownRole();
@@ -56,6 +64,29 @@ export function DayBanners() {
 
   return (
     <>
+      {dueCount > 0 && !hideRem ? (
+        <div
+          className="bg-primary/10 flex flex-wrap items-center gap-2 rounded-md p-2 text-sm"
+          data-testid="banner-reminders"
+        >
+          <Bell className="size-4 shrink-0" aria-hidden />
+          <span className="flex-1">{t("reminder.banner", { count: dueCount })}</span>
+          <Button asChild size="sm" className="h-11">
+            <Link href="/reminders">{t("reminder.open")}</Link>
+          </Button>
+          <Button
+            size="sm"
+            variant="ghost"
+            className="h-11"
+            onClick={() => {
+              sessionStorage.setItem(REMINDER_BANNER_KEY, "1");
+              setHideRem(true);
+            }}
+          >
+            {t("reminder.dismiss")}
+          </Button>
+        </div>
+      ) : null}
       {showRequired ? (
         <div
           className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100"

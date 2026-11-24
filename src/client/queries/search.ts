@@ -5,7 +5,8 @@
  */
 import { normalizeDigits } from "@/domain/digits";
 import { parseRupees } from "@/domain/money";
-import { normalizeVehicleNumber, type Party, type Vehicle, type Voucher } from "@/domain/schemas";
+import type { Party, Vehicle, Voucher } from "@/domain/schemas";
+import { normalizeVehicleNumber } from "@/domain/vehicleNumber";
 import { db } from "../db/dexie";
 import { amountOf } from "../ui/amount";
 import { partyMatches } from "./parties";

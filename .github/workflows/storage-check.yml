@@ -1,0 +1,29 @@
+# Weekly storage check (spec §17.3): the endpoint answers 507 above 400 MB of the 512 MB free
+# tier, which fails this job → GitHub emails the repository owner.
+name: Weekly storage check
+
+on:
+  schedule:
+    - cron: "30 21 * * 0" # Monday 03:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  storage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - client: client-a
+            suffix: CLIENT_A
+    steps:
+      - name: POST /api/cron/storage
+        env:
+          APP_URL: ${{ secrets[format('APP_URL_{0}', matrix.suffix)] }}
+          CRON_SECRET: ${{ secrets[format('CRON_SECRET_{0}', matrix.suffix)] }}
+        run: |
+          curl --fail-with-body -sS -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/storage"

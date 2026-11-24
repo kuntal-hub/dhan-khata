@@ -1,5 +1,4 @@
 import { z } from "zod";
-import { DEFAULT_SEASON_MAP } from "../dates";
 import {
   DeductionDefaultsSchema,
   Id,
@@ -146,23 +145,7 @@ export const GodownSettingsSchema = z.strictObject({
 });
 export type GodownSettings = z.infer<typeof GodownSettingsSchema>;
 
-export function defaultGodownSettings(godownId: string, now: string): GodownSettings {
-  return {
-    _id: godownId,
-    godownId,
-    defaults: { deductions: { tarePerBagG: "0", dhaltaMode: "PER_QUINTAL", dhaltaValueG: "0" } },
-    rounding: { roundToRupee: true },
-    dayCloseRequired: false,
-    lockAfterDays: 7,
-    seasonMap: {
-      AMAN: [...DEFAULT_SEASON_MAP.AMAN],
-      BORO: [...DEFAULT_SEASON_MAP.BORO],
-      AUS: [...DEFAULT_SEASON_MAP.AUS],
-    },
-    rev: 1,
-    updatedAt: now,
-  };
-}
+export { defaultGodownSettings } from "../godownSettings";
 
 export const DayStatusSchema = z.strictObject({
   /** `${godownId}:${YYYY-MM-DD}` */

@@ -65,6 +65,25 @@ describe("format", () => {
     expect(formatDate("2026-11-23", { lang: "en", digits: "en" })).toBe("Mon, 23 Nov 2026");
     expect(formatDate("2026-11-23", { lang: "bn", digits: "en" })).toBe("23 নভেম্বর 2026, সোমবার");
   });
+  it("short dates, every month and weekday (no date library)", () => {
+    expect(formatDate("2026-09-03", { lang: "bn", digits: "bn" }, "short")).toBe("৩ সেপ্ট ২০২৬");
+    expect(formatDate("2026-09-03", { lang: "en", digits: "en" }, "short")).toBe("3 Sep 2026");
+    expect(formatDate("2026-11-26", { lang: "bn", digits: "bn" })).toBe(
+      "২৬ নভেম্বর ২০২৬, বৃহস্পতিবার",
+    );
+    expect(formatDate("2024-02-29", { lang: "en", digits: "en" })).toBe("Thu, 29 Feb 2024");
+    expect(formatDate("2027-01-31", { lang: "en", digits: "en" })).toBe("Sun, 31 Jan 2027");
+    const months = Array.from({ length: 12 }, (_, i) =>
+      formatDate(
+        `2026-${String(i + 1).padStart(2, "0")}-01`,
+        { lang: "en", digits: "en" },
+        "short",
+      ),
+    );
+    expect(months.join("|")).toBe(
+      "1 Jan 2026|1 Feb 2026|1 Mar 2026|1 Apr 2026|1 May 2026|1 Jun 2026|1 Jul 2026|1 Aug 2026|1 Sep 2026|1 Oct 2026|1 Nov 2026|1 Dec 2026",
+    );
+  });
 });
 
 describe("transliteration search", () => {

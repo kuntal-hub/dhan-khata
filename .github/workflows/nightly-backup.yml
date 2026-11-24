@@ -1,0 +1,50 @@
+# Nightly backup (spec §17.3): 02:00 IST → mongodump --archive --gzip → encrypt with `age`
+# → GitHub Actions artifact kept 30 days. One matrix entry per client; secrets per client:
+#   MONGODB_URI_<SUFFIX>   the client's Atlas URI (read-only backup user recommended)
+#   BACKUP_AGE_RECIPIENT   your `age` public key (age1…); decrypt with the matching private key
+name: Nightly backup
+
+on:
+  schedule:
+    - cron: "30 20 * * *" # 20:30 UTC = 02:00 IST
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - client: client-a
+            suffix: CLIENT_A
+          # - client: client-b
+          #   suffix: CLIENT_B
+    steps:
+      - name: Install MongoDB database tools and age
+        run: |
+          curl -fsSL https://fastdl.mongodb.org/tools/db/mongodb-database-tools-ubuntu2404-x86_64-100.12.2.tgz -o tools.tgz
+          tar -xzf tools.tgz
+          echo "$PWD/$(ls -d mongodb-database-tools-*/)bin" >> "$GITHUB_PATH"
+          sudo apt-get update -y && sudo apt-get install -y age
+      - name: Dump and encrypt
+        env:
+          MONGODB_URI: ${{ secrets[format('MONGODB_URI_{0}', matrix.suffix)] }}
+          RECIPIENT: ${{ secrets.BACKUP_AGE_RECIPIENT }}
+        run: |
+          test -n "$MONGODB_URI" && test -n "$RECIPIENT"
+          STAMP=$(TZ=Asia/Kolkata date +%Y-%m-%d)
+          mongodump --uri="$MONGODB_URI" --db=dhankhata --archive="dump.gz" --gzip
+          age -r "$RECIPIENT" -o "${{ matrix.client }}-$STAMP.archive.gz.age" dump.gz
+          rm dump.gz
+          ls -l *.age
+      - uses: actions/upload-artifact@v4
+        with:
+          name: backup-${{ matrix.client }}-${{ github.run_id }}
+          path: "*.age"
+          retention-days: 30
+          if-no-files-found: error

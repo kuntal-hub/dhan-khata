@@ -9,6 +9,7 @@ import { isReauthError, isRevokedError, onAuthEvent } from "../auth/session";
 import { withSyncLock } from "./locks";
 import { pullAll, type PullProgress } from "./pull";
 import { pushOnce, resetSending } from "./push";
+import { quickIntegrity, uploadClientErrors } from "../diagnostics";
 import { NetworkError, apiCall } from "./transport";
 
 export interface SyncStatus {
@@ -28,7 +29,7 @@ export interface SyncStatus {
 
 export const MIN_BACKOFF_MS = 2_000;
 export const MAX_BACKOFF_MS = 5 * 60_000;
-export const CLOCK_SKEW_WARN_MS = 5 * 60_000;
+export { CLOCK_SKEW_WARN_MS } from "./constants";
 
 /** Next backoff delay: doubles from 2 s up to 5 min, ±20 % jitter. */
 export function nextBackoff(prev: number, random: () => number = Math.random): number {
@@ -147,6 +148,9 @@ export class SyncEngine {
         }
         await pullAll(opts.onProgress);
       });
+      // Best effort, never fails the sync: upload error reports, run the light integrity check.
+      await uploadClientErrors().catch(() => 0);
+      await quickIntegrity().catch(() => null);
       this.backoff = 0;
       this.set({ authRequired: false });
     } catch (e) {

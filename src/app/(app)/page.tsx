@@ -1,5 +1,6 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Suspense, useEffect, useState } from "react";
@@ -14,8 +15,7 @@ import {
   type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { BottomSheet } from "@/components/forms/BottomSheet";
-import { ConsolidatedTable } from "@/components/dashboard/ConsolidatedTable";
+import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
 import { Dashboard } from "@/components/dashboard/Dashboard";
 import { InstallButton } from "@/components/pwa/InstallButton";
 import { Loading } from "@/components/lists/common";
@@ -23,6 +23,12 @@ import { useActiveGodown, useGodownRole } from "@/client/hooks";
 import { todayIST } from "@/domain/dates";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
+
+// Owner-only "All godowns" table: loaded when that mode is chosen (spec §15 Home JS budget).
+const ConsolidatedTable = dynamic(
+  () => import("@/components/dashboard/ConsolidatedTable").then((m) => m.ConsolidatedTable),
+  { ssr: false, loading: () => <Loading /> },
+);
 
 interface QuickAction {
   label: TKey;

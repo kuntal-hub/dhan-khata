@@ -55,9 +55,12 @@ Keep this list up to date.
 - `pnpm check:no-float`: grep guard over `src/domain`. A line may opt out only with `// float-ok: <reason>`, and only for non-money integer indices.
 - `pnpm test`: Vitest (unit + property). Component tests opt in with `// @vitest-environment jsdom`.
 - `pnpm format` / `pnpm format:check`: Prettier
-- `pnpm test:e2e`: Playwright cold-offline test (run `pnpm build` first; boots an in-memory MongoDB + `next start` on :3100 via `tests/e2e/server.ts`)
+- `pnpm test:e2e`: Playwright suite: cold-offline + §13 acceptance, full daily flow bn/en, trade flow, dashboard, two-godown, visual snapshots at 360 px (run `pnpm build` first; boots an in-memory MongoDB + `next start` on :3100 via `tests/e2e/server.ts`). Visual baselines live in `tests/e2e/visual.spec.ts-snapshots/` (per platform; a missing one is written, not failed). After an intended UI change, delete them and re-run.
 - `pnpm seed --owner-phone=… --owner-name=… [--owner-password=…] [--godown-name=… --godown-code=…]`: first-run seed (reads `.env`/`.env.local`)
 - `pnpm icons`: regenerate PWA icons in `public/icons`
+- `pnpm check:bundle`: Home route JS size (gzipped) after `pnpm build`; `node scripts/bundle-size.mjs --why` marks the libraries per chunk
+- `pnpm lighthouse`: Lighthouse mobile audit of Home, logged in (after `pnpm build`; boots the e2e server). Fails below Performance 85 or when Chrome reports the app not installable
+- `pnpm restore --file=backup.json [--db=…]`: restore an in-app JSON backup into an EMPTY database (`docs/RESTORE.md`)
 
 ## Key building blocks (from Phase 1)
 - Money and weight: `src/domain/{money,weight,decimal,rounding,digits}.ts`, plus `divRoundHalfUp` and `allocateProportional`.
@@ -76,6 +79,12 @@ Keep this list up to date.
 - Reads: `queries/{dashboard,cashbank,expenses,vehicles,search}.ts`, `stockSummary` / `stockRegister`; all-godown views only in `queries/consolidated`.
 - UI: `src/components/daily/*` (forms, DateNav, DayBanners), `src/components/dashboard/*`, `src/components/godown/GodownWizard.tsx`; generic voucher view `/voucher/view`.
 - e2e helpers: `switchGodown`, `createGodownViaWizard`, `createParty`, `switchToEnglish`, `istDate`.
+## Key building blocks (Phase 5)
+- Reminders: repo `setReminderState` / `createManualReminder` (bill reminders auto-close when Settled); light reads in `queries/reminders.ts`. Web push: `src/server/push.ts` (digest), `/api/push/*`, SW `push` handler, `src/client/pwa/push.ts`.
+- Reports: builders in `src/client/reports/defs.ts` (+ all-godown ones in `queries/consolidated/reports.ts`), registry `reports/registry.ts`, one model rendered on screen / print (`/print/report`) / Excel (`modelToSheets`). recharts only in `components/reports/ReportChart.tsx` (lazy).
+- Admin/ops: `src/server/admin.ts` (integrity, storage, users, devices, app settings, prefs, backup/restore, compaction), routes in `server/routes/admin.ts`, client calls in `src/client/admin.ts`, cron `/api/cron/daily` + `/api/cron/storage` (header `x-cron-secret`). Integrity logic shared in `src/domain/integrity.ts`.
+- Diagnostics: Dexie v3 `clientErrors`, `(app)/error.tsx` boundary, upload + quick integrity after each sync (`src/client/diagnostics.ts`).
+- Keep the Home route light: never import `@/client/repo`, `@/client/sync/*` (except `constants`), `@/client/admin` or a value from `@/domain/schemas` in modules reached by the (app) layout or Home; use `queries/*`, `domain/vehicleNumber`, `domain/godownSettings`, `components/vouchers/{paths,VoucherRow}`, `LazyBottomSheet`. Also keep out of that path: `sonner` (use `lazyToast` from `components/system/IdleToaster`), Radix dialog/dropdown/tabs (header menus load on tap via `layout/lazyMenu`), `@tanstack/react-virtual` (`lists/VirtualList`, not `lists/common`), `date-fns`, and `@/i18n/en` / `@/i18n/translateAll` (English loads lazily; `translate()` falls back to Bengali until it is in). Check with `pnpm check:bundle`.
 
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**

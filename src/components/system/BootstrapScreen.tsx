@@ -5,7 +5,6 @@ import { CloudDownload, WifiOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { META, getMeta, setMeta } from "@/client/db/meta";
 import { restoreActiveGodown } from "@/client/godown/activeGodown";
-import { getSyncEngine } from "@/client/sync/instance";
 import { useI18n } from "@/i18n/I18nProvider";
 import { actions, useAppDispatch } from "@/store";
 
@@ -19,6 +18,7 @@ export function BootstrapScreen() {
 
   const run = useCallback(async () => {
     setFailed(false);
+    const { getSyncEngine } = await import("@/client/sync/instance");
     const engine = getSyncEngine();
     await engine.syncNow({
       onProgress: ({ done, total }) =>

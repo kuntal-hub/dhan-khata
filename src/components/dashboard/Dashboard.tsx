@@ -6,11 +6,11 @@ import { useState, type ReactNode } from "react";
 import { CalendarCheck, CheckCircle2, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
-import { BottomSheet } from "@/components/forms/BottomSheet";
+import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
 import { DateNav } from "@/components/daily/DateNav";
 import { EmptyState, Loading } from "@/components/lists/common";
 import { Money, Qty } from "@/components/money/display";
-import { VoucherRow } from "@/components/vouchers/VoucherList";
+import { VoucherRow } from "@/components/vouchers/VoucherRow";
 import { useNames } from "@/components/vouchers/names";
 import { db } from "@/client/db/dexie";
 import { useGodownRole } from "@/client/hooks";
@@ -255,7 +255,7 @@ export function Dashboard({
       <section className="flex flex-col gap-1" data-testid="dash-reminders">
         <div className="flex items-center justify-between">
           <h2 className="text-base font-semibold">{t("dash.reminders")}</h2>
-          <Link href="/due" className="text-primary min-h-11 py-3 text-sm underline">
+          <Link href="/reminders" className="text-primary min-h-11 py-3 text-sm underline">
             {t("dash.seeAll")}
           </Link>
         </div>

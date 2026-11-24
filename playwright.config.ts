@@ -15,6 +15,8 @@ export default defineConfig({
   workers: 1,
   retries: 0,
   reporter: [["list"]],
+  // Visual snapshots: a missing baseline (new platform / first run) is written, never a failure.
+  updateSnapshots: "missing",
   use: {
     ...devices["Pixel 7"],
     baseURL: `http://localhost:${PORT}`,

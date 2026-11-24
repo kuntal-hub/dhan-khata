@@ -14,6 +14,7 @@ export function SyncBadge() {
   let icon = <RefreshCw className="size-4" aria-hidden />;
   let text = t("sync.online");
   let tone = "text-primary";
+  const allGood = problems === 0 && !s.running && s.online && s.pendingOps === 0;
   if (problems > 0) {
     icon = <TriangleAlert className="size-4" aria-hidden />;
     text = t("sync.errorCount", { count: problems });
@@ -41,7 +42,9 @@ export function SyncBadge() {
       data-testid="sync-badge"
     >
       {icon}
-      <span className="max-w-[18vw] truncate">{text}</span>
+      {/* All fine → icon only on phones (room for the godown name); any state that needs
+          attention keeps its text. The aria-label always carries it. */}
+      <span className={`max-w-[18vw] truncate ${allGood ? "hidden sm:inline" : ""}`}>{text}</span>
     </Link>
   );
 }

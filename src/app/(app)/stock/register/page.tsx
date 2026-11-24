@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { EmptyState, Loading } from "@/components/lists/common";
+import { useVirtualRows } from "@/components/lists/VirtualList";
 import { Money, Qty } from "@/components/money/display";
 import { PageHeader, PageSuspense, ReadOnlyNotice, useParam } from "@/components/system/page";
 import { useNames } from "@/components/vouchers/names";
@@ -22,6 +23,13 @@ function Inner() {
     async () => (godownId && varietyId ? stockRegister(godownId, varietyId) : null),
     [godownId, varietyId],
   );
+  const {
+    attach: attachRows,
+    measureRow,
+    indices: rowIdx,
+    padTop,
+    padBottom,
+  } = useVirtualRows(rows?.length ?? 0);
   if (consolidated) return <ReadOnlyNotice reason="consolidated" />;
   if (!rows || !names) return <Loading />;
   return (
@@ -40,31 +48,49 @@ function Inner() {
                 <th className="p-2 text-right font-medium">{t("stockPage.value")}</th>
               </tr>
             </thead>
-            <tbody>
-              {rows.map((r, i) => (
-                <tr key={`${r.voucherId}-${i}`} className="border-t">
-                  <td className="p-2">
-                    {r.voucher ? (
-                      <Link href={viewPathOf(r.voucher)} className="text-primary underline">
-                        {dot(date(r.date, "short"), t(`voucherType.${r.voucher.type}` as TKey))}
-                      </Link>
-                    ) : (
-                      date(r.date, "short")
-                    )}
-                  </td>
-                  <td
-                    className={`tabular p-2 text-right whitespace-nowrap ${r.qtyG < 0n ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
-                  >
-                    <Qty grams={r.qtyG} />
-                  </td>
-                  <td className="tabular p-2 text-right whitespace-nowrap">
-                    <Qty grams={r.balanceQtyG} />
-                  </td>
-                  <td className="tabular p-2 text-right whitespace-nowrap">
-                    <Money paise={r.balanceValuePaise} />
-                  </td>
+            <tbody ref={attachRows}>
+              {padTop > 0 ? (
+                <tr aria-hidden>
+                  <td colSpan={4} style={{ height: padTop, padding: 0 }} />
                 </tr>
-              ))}
+              ) : null}
+              {rowIdx.map((i) => {
+                const r = rows[i]!;
+                return (
+                  <tr
+                    key={`${r.voucherId}-${i}`}
+                    className="border-t"
+                    data-index={i}
+                    ref={measureRow}
+                  >
+                    <td className="p-2">
+                      {r.voucher ? (
+                        <Link href={viewPathOf(r.voucher)} className="text-primary underline">
+                          {dot(date(r.date, "short"), t(`voucherType.${r.voucher.type}` as TKey))}
+                        </Link>
+                      ) : (
+                        date(r.date, "short")
+                      )}
+                    </td>
+                    <td
+                      className={`tabular p-2 text-right whitespace-nowrap ${r.qtyG < 0n ? "text-red-700 dark:text-red-400" : "text-emerald-700 dark:text-emerald-400"}`}
+                    >
+                      <Qty grams={r.qtyG} />
+                    </td>
+                    <td className="tabular p-2 text-right whitespace-nowrap">
+                      <Qty grams={r.balanceQtyG} />
+                    </td>
+                    <td className="tabular p-2 text-right whitespace-nowrap">
+                      <Money paise={r.balanceValuePaise} />
+                    </td>
+                  </tr>
+                );
+              })}
+              {padBottom > 0 ? (
+                <tr aria-hidden>
+                  <td colSpan={4} style={{ height: padBottom, padding: 0 }} />
+                </tr>
+              ) : null}
             </tbody>
           </table>
         </div>

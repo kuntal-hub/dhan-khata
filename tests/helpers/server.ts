@@ -10,6 +10,7 @@ import { pullAll } from "@/client/sync/pull";
 import { pushOnce, resetSending } from "@/client/sync/push";
 import { setTransport, setAccessToken } from "@/client/sync/transport";
 import { cols, getDb } from "@/server/db";
+import * as adminRoutes from "@/server/routes/admin";
 import * as authRoutes from "@/server/routes/auth";
 import * as godownRoutes from "@/server/routes/godowns";
 import * as partyRoutes from "@/server/routes/parties";
@@ -35,6 +36,27 @@ const ROUTES: Record<string, Handler> = {
   "POST /api/godowns/archive": godownRoutes.archive,
   "POST /api/godowns/update": godownRoutes.update,
   "POST /api/parties/merge": partyRoutes.merge,
+  "GET /api/push/key": adminRoutes.pushKey,
+  "POST /api/push/subscribe": adminRoutes.pushSubscribe,
+  "POST /api/push/unsubscribe": adminRoutes.pushUnsubscribe,
+  "POST /api/cron/daily": adminRoutes.cronDaily,
+  "POST /api/cron/storage": adminRoutes.cronStorage,
+  "GET /api/admin/integrity": adminRoutes.integrity,
+  "GET /api/admin/storage": adminRoutes.storage,
+  "GET /api/admin/users": adminRoutes.users,
+  "POST /api/admin/users": adminRoutes.users,
+  "POST /api/admin/users/access": adminRoutes.userAccess,
+  "POST /api/admin/users/password": adminRoutes.userPassword,
+  "POST /api/admin/devices/revoke": adminRoutes.deviceRevoke,
+  "GET /api/admin/settings": adminRoutes.appSettings,
+  "POST /api/admin/settings": adminRoutes.appSettings,
+  "GET /api/admin/errors": adminRoutes.errorsList,
+  "GET /api/admin/backup": adminRoutes.backup,
+  "POST /api/admin/restore": adminRoutes.restore,
+  "POST /api/admin/compact": adminRoutes.compact,
+  "POST /api/me/prefs": adminRoutes.myPrefs,
+  "POST /api/me/password": adminRoutes.myPassword,
+  "POST /api/diagnostics/errors": adminRoutes.clientErrors,
 };
 
 export class TestDevice {

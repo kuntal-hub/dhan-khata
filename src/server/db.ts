@@ -108,6 +108,47 @@ export interface AuditDoc {
   detail?: string;
 }
 
+export interface PushSubscriptionDoc {
+  /** = the subscription endpoint (unique per browser install). */
+  _id: string;
+  userId: string;
+  deviceId: string;
+  keys: { p256dh: string; auth: string };
+  createdAt: string;
+}
+
+/** Deployment-wide settings (owner): one document _id: "app". */
+export interface AppSettingsDoc {
+  _id: "app";
+  /** Hour (IST, 0–23) of the daily reminder digest. */
+  digestHour: number;
+  defaultLanguage: "bn" | "en";
+  /** IST date the last digest went out (the cron is idempotent per day). */
+  lastDigestDate?: string;
+  updatedAt: string;
+}
+
+export interface ClientErrorDoc {
+  _id: string;
+  at: Date;
+  userId: string;
+  deviceId: string;
+  route: string;
+  message: string;
+  stack?: string;
+  appVersion?: string;
+}
+
+export interface IntegritySummaryDoc {
+  /** = godownId */
+  _id: string;
+  at: string;
+  balanced: boolean;
+  totalDebitPaise: bigint;
+  totalCreditPaise: bigint;
+  voucherCount: number;
+}
+
 export interface ConflictDoc {
   _id: string;
   at: Date;
@@ -137,6 +178,10 @@ export interface Collections {
   godownSettings: Collection<WithMeta<GodownSettings>>;
   dayStatus: Collection<DayStatus>;
   transfers: Collection<Transfer>;
+  pushSubscriptions: Collection<PushSubscriptionDoc>;
+  appSettings: Collection<AppSettingsDoc>;
+  clientErrors: Collection<ClientErrorDoc>;
+  integritySummary: Collection<IntegritySummaryDoc>;
   reminders: Collection<WithMeta<Reminder>>;
   ledgerLines: Collection<DbLedgerLine>;
   stockMoves: Collection<DbStockMove>;
@@ -225,6 +270,10 @@ export function cols(db: Db): Collections {
     godownSettings: c("godownSettings"),
     dayStatus: c("dayStatus"),
     transfers: c("transfers"),
+    pushSubscriptions: c("pushSubscriptions"),
+    appSettings: c("appSettings"),
+    clientErrors: c("clientErrors"),
+    integritySummary: c("integritySummary"),
     reminders: c("reminders"),
     ledgerLines: c("ledgerLines"),
     stockMoves: c("stockMoves"),
@@ -283,6 +332,11 @@ export async function ensureIndexes(db: Db): Promise<void> {
     k.expenseCategories.createIndexes([{ key: { godownId: 1, code: 1 }, unique: true }]),
     k.dayStatus.createIndexes([{ key: { godownId: 1, date: 1 } }]),
     k.transfers.createIndexes([{ key: { godownId: 1, status: 1 } }]),
+    k.pushSubscriptions.createIndexes([{ key: { userId: 1 } }]),
+    k.clientErrors.createIndexes([
+      { key: { at: -1 } },
+      { key: { at: 1 }, expireAfterSeconds: 90 * 24 * 3600 },
+    ]),
     k.reminders.createIndexes([
       { key: { godownId: 1, dueDate: 1 } },
       { key: { godownId: 1, status: 1 } },

@@ -1,6 +1,14 @@
 "use client";
 
-import { createContext, useCallback, useContext, useEffect, useMemo, type ReactNode } from "react";
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useState,
+  type ReactNode,
+} from "react";
 import type { DigitStyle } from "@/domain/digits";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
 import {
@@ -12,8 +20,14 @@ import {
   formatWeight,
   type WeightDisplay,
 } from "./format";
-import { translate, type Lang, type TKey, type TVars } from "./translate";
-import { installZodErrorMap } from "./zodErrorMap";
+import {
+  isDictionaryLoaded,
+  loadDictionary,
+  translate,
+  type Lang,
+  type TKey,
+  type TVars,
+} from "./translate";
 
 /** Device-level preference key. Phase 2 moves the source of truth to the synced user record. */
 const STORAGE_KEY = "dk.locale.v1";
@@ -35,11 +49,42 @@ export interface I18nValue {
 
 const I18nContext = createContext<I18nValue | null>(null);
 
-installZodErrorMap();
-
 export function I18nProvider({ children }: { children: ReactNode }) {
   const dispatch = useAppDispatch();
-  const { lang, digits, weight, hydrated } = useAppSelector((s) => s.locale);
+  const { lang: wanted, digits, weight, hydrated } = useAppSelector((s) => s.locale);
+  const [enReady, setEnReady] = useState(() => isDictionaryLoaded("en"));
+  // Keep showing Bengali until the English chunk is in (a few ms from the SW cache), so a
+  // language switch never unmounts the screen or loses an unsaved form.
+  const lang: Lang = wanted === "en" && !enReady ? "bn" : wanted;
+
+  // English loads right away when chosen, otherwise when the device is idle (receipts, Excel
+  // and WhatsApp texts can use either language at any time).
+  useEffect(() => {
+    if (enReady) return;
+    let alive = true;
+    const load = () =>
+      void loadDictionary("en").then(
+        () => alive && setEnReady(true),
+        () => undefined,
+      );
+    if (wanted === "en") load();
+    else if (typeof window.requestIdleCallback === "function") {
+      const id = window.requestIdleCallback(load, { timeout: 3000 });
+      return () => {
+        alive = false;
+        window.cancelIdleCallback(id);
+      };
+    } else {
+      const id = window.setTimeout(load, 1000);
+      return () => {
+        alive = false;
+        window.clearTimeout(id);
+      };
+    }
+    return () => {
+      alive = false;
+    };
+  }, [wanted, enReady]);
 
   // Load the persisted preference once (instant, offline — no network involved).
   useEffect(() => {
@@ -58,9 +103,9 @@ export function I18nProvider({ children }: { children: ReactNode }) {
     document.documentElement.lang = lang;
     document.documentElement.dir = "ltr";
     if (hydrated) {
-      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang, digits, weight }));
+      window.localStorage.setItem(STORAGE_KEY, JSON.stringify({ lang: wanted, digits, weight }));
     }
-  }, [lang, digits, weight, hydrated]);
+  }, [lang, wanted, digits, weight, hydrated]);
 
   const setLang = useCallback((l: Lang) => dispatch(actions.locale.languageChanged(l)), [dispatch]);
   const setDigits = useCallback(

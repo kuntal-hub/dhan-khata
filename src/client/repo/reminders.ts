@@ -5,8 +5,12 @@
  * Ids are deterministic per voucher + kind, so editing a voucher updates its reminder.
  */
 import { ReminderSchema, type Reminder } from "@/domain/schemas";
-import { db } from "../db/dexie";
-import { enqueueOp, validationError, type WriteCtx } from "./context";
+import { v7 as uuidv7 } from "uuid";
+import { db, writeTables } from "../db/dexie";
+import { partyBills } from "../queries/parties";
+export { effectiveDue, pendingReminders } from "../queries/reminders";
+import { RepoError, enqueueOp, validationError, writeContext, type WriteCtx } from "./context";
+import { emitLocalWrite } from "./notify";
 
 export interface ReminderInput {
   _id: string;
@@ -73,7 +77,7 @@ async function write(ctx: WriteCtx, existing: Reminder | undefined, raw: Reminde
   const doc = parsed.data;
   await db().reminders.put(doc);
   const fields = existing
-    ? (["status", "dueDate", "amountPaise", "partyId", "title"] as const).filter(
+    ? (["status", "dueDate", "amountPaise", "partyId", "title", "snoozeUntil"] as const).filter(
         (f) => existing[f] !== doc[f],
       )
     : undefined;
@@ -90,4 +94,79 @@ async function write(ctx: WriteCtx, existing: Reminder | undefined, raw: Reminde
 /** Open reminders of a godown (newest due first). */
 export function openReminders(godownId: string): Promise<Reminder[]> {
   return db().reminders.where("[godownId+status]").equals([godownId, "open"]).sortBy("dueDate");
+}
+
+/**
+ * Close the bill reminders (PAY_DUE / COLLECT_DUE) of a party whose bills are now Settled
+ * (spec §9.13), inside the caller's transaction.
+ */
+export async function closeSettledBillRemindersInTx(ctx: WriteCtx, partyId: string): Promise<void> {
+  const bills = await partyBills(ctx.godown._id, partyId);
+  for (const b of [...bills.purchases, ...bills.sales]) {
+    if (b.status !== "SETTLED") continue;
+    for (const kind of ["PAY_DUE", "COLLECT_DUE"] as const) {
+      const r = await db().reminders.get(reminderId(b.voucherId, kind));
+      if (!r || r.status === "done") continue;
+      await write(ctx, r, { ...r, status: "done" });
+    }
+  }
+}
+
+async function inTx<T>(godownId: string, fn: (ctx: WriteCtx) => Promise<T>): Promise<T> {
+  const d = db();
+  const out = await d.transaction("rw", writeTables(d), async () =>
+    fn(await writeContext(godownId)),
+  );
+  emitLocalWrite();
+  return out;
+}
+
+/** Mark done, or snooze until a date (spec §9.13). Any role that can see the godown except viewer. */
+export async function setReminderState(
+  godownId: string,
+  id: string,
+  next: { done: true } | { snoozeUntil: string } | { reopen: true },
+): Promise<void> {
+  await inTx(godownId, async (ctx) => {
+    if (ctx.role === "viewer") throw new RepoError("FORBIDDEN");
+    const r = await db().reminders.get(id);
+    if (!r || r.godownId !== godownId) throw new RepoError("NOT_FOUND", id);
+    if ("done" in next) {
+      await write(ctx, r, { ...r, status: "done" });
+    } else if ("reopen" in next) {
+      const { snoozeUntil: _drop, ...rest } = r;
+      await write(ctx, r, { ...rest, status: "open" });
+    } else {
+      await write(ctx, r, { ...r, status: "snoozed", snoozeUntil: next.snoozeUntil });
+    }
+  });
+}
+
+export interface ManualReminderInput {
+  title: string;
+  dueDate: string;
+  partyId?: string;
+  amountPaise?: string;
+  kind?: "CUSTOM" | "PAY_DUE" | "COLLECT_DUE";
+}
+
+/** A manual reminder (spec §9.13 "Manual reminders too"). */
+export async function createManualReminder(
+  godownId: string,
+  input: ManualReminderInput,
+): Promise<Reminder> {
+  return inTx(godownId, async (ctx) => {
+    if (ctx.role === "viewer") throw new RepoError("FORBIDDEN");
+    if (!input.title.trim()) throw new RepoError("VALIDATION_FAILED", "title");
+    const id = uuidv7();
+    await upsertReminderInTx(ctx, {
+      _id: id,
+      kind: input.kind ?? "CUSTOM",
+      ...(input.partyId ? { partyId: input.partyId } : {}),
+      dueDate: input.dueDate,
+      ...(input.amountPaise ? { amountPaise: input.amountPaise } : {}),
+      title: input.title.trim(),
+    });
+    return (await db().reminders.get(id))!;
+  });
 }

@@ -4,10 +4,15 @@
  */
 import { formatScaled } from "@/domain/decimal";
 
+/** A cell that carries its own kind (mixed tables): paise → rupees, grams → quintals. */
+export type TypedCell = { money: string } | { weight: string };
+
 export interface SheetSpec {
   name: string;
   headers: string[];
-  rows: Array<Array<string | number | null>>;
+  rows: Array<Array<string | number | null | TypedCell>>;
+  /** Optional totals row (bold). */
+  totals?: Array<string | number | null | TypedCell>;
   /** Column indexes that hold money (paise strings → rupee numbers, 2 dp). */
   moneyCols?: number[];
   /** Column indexes that hold weights (grams → quintals, 3 dp of kg precision). */
@@ -30,17 +35,28 @@ export async function downloadWorkbook(filename: string, sheets: SheetSpec[]): P
   for (const s of sheets) {
     const ws = wb.addWorksheet(s.name.slice(0, 31));
     ws.addRow(s.headers).font = { bold: true };
-    for (const r of s.rows) {
-      ws.addRow(
-        r.map((cell, i) =>
-          s.moneyCols?.includes(i)
+    const add = (r: Array<string | number | null | TypedCell>, bold = false) => {
+      const row = ws.addRow(
+        r.map((cell, i) => {
+          if (cell !== null && typeof cell === "object") {
+            return "money" in cell ? exactCell(cell.money, 2) : exactCell(cell.weight, 5);
+          }
+          return s.moneyCols?.includes(i)
             ? exactCell(cell, 2)
             : s.weightCols?.includes(i)
               ? exactCell(cell, 5)
-              : cell,
-        ),
+              : cell;
+        }),
       );
-    }
+      r.forEach((cell, i) => {
+        if (cell !== null && typeof cell === "object") {
+          row.getCell(i + 1).numFmt = "money" in cell ? "#,##,##0.00" : "0.00000";
+        }
+      });
+      if (bold) row.font = { bold: true };
+    };
+    for (const r of s.rows) add(r);
+    if (s.totals) add(s.totals, true);
     s.moneyCols?.forEach((i) => (ws.getColumn(i + 1).numFmt = "#,##,##0.00"));
     s.weightCols?.forEach((i) => (ws.getColumn(i + 1).numFmt = "0.00000"));
     ws.columns.forEach((c) => (c.width = 16));

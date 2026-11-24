@@ -68,9 +68,9 @@ export async function handle(
   return res;
 }
 
-export async function readJson(request: Request): Promise<unknown> {
+export async function readJson(request: Request, maxChars = 2_000_000): Promise<unknown> {
   const text = await request.text();
-  if (text.length > 2_000_000) throw new ApiError(413, "BAD_REQUEST", "too large");
+  if (text.length > maxChars) throw new ApiError(413, "BAD_REQUEST", "too large");
   return JSON.parse(text) as unknown;
 }
 

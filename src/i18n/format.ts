@@ -2,10 +2,8 @@
  * Locale-aware display formatting for money, weight, rate and dates (spec §11.4).
  * Digit style (বাংলা ০১২ / English 012) is independent of the UI language.
  */
-import { format as formatDateFns } from "date-fns";
-import { bn as bnLocale, enIN } from "date-fns/locale";
 import { parseYmd, type Ymd } from "@/domain/dates";
-import { applyDigits, normalizeDigits, type DigitStyle } from "@/domain/digits";
+import { applyDigits, type DigitStyle } from "@/domain/digits";
 import { formatPaise } from "@/domain/money";
 import { formatKgNumber, formatQuintalNumber, quintalsAndKg } from "@/domain/weight";
 import { formatScaledGrouped } from "@/domain/decimal";
@@ -64,18 +62,23 @@ export function formatCount(n: number | bigint, prefs: Pick<FormatPrefs, "digits
   return applyDigits(formatScaledGrouped(BigInt(n), 0), prefs.digits);
 }
 
-const DATE_PATTERNS: Record<Lang, { long: string; short: string }> = {
-  bn: { long: "d MMMM yyyy, EEEE", short: "d MMM yyyy" },
-  en: { long: "EEE, d MMM yyyy", short: "d MMM yyyy" },
-};
+const MONTHS = ["jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"];
+const WEEKDAYS = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"];
 
-/** "২৩ নভেম্বর ২০২৬, সোমবার" / "Mon, 23 Nov 2026" */
+/**
+ * "২৩ নভেম্বর ২০২৬, সোমবার" / "Mon, 23 Nov 2026". Names and order come from the dictionary
+ * (`calendar.*`), so no date library or locale data is shipped with the Home route.
+ */
 export function formatDate(ymd: Ymd, prefs: FormatPrefs, style: "long" | "short" = "long"): string {
   const { y, m, d } = parseYmd(ymd);
-  const date = new Date(y, m - 1, d);
-  const s = formatDateFns(date, DATE_PATTERNS[prefs.lang][style], {
-    locale: prefs.lang === "bn" ? bnLocale : enIN,
+  // UTC avoids any device-timezone / DST shift; a calendar date has no time of day.
+  const weekday = WEEKDAYS[new Date(Date.UTC(y, m - 1, d)).getUTCDay()];
+  const month = MONTHS[m - 1];
+  return translate(prefs.lang, `calendar.${style}`, {
+    d: applyDigits(String(d), prefs.digits),
+    y: applyDigits(String(y), prefs.digits),
+    monthLong: translate(prefs.lang, `calendar.monthLong.${month}`),
+    monthShort: translate(prefs.lang, `calendar.monthShort.${month}`),
+    weekday: translate(prefs.lang, `calendar.weekday.${weekday}`),
   });
-  // date-fns' bn locale emits Bengali digits; normalize, then apply the user's digit style.
-  return applyDigits(normalizeDigits(s), prefs.digits);
 }

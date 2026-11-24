@@ -1,0 +1,31 @@
+# Daily jobs (spec §17.3): keeps the Atlas free cluster active, sends the reminder push digest
+# and refreshes the integrity summary. The endpoint sends the digest ONCE per day at or after
+# the owner's digest hour (default 08:00 IST), so it runs every hour 06:00–22:00 IST.
+# Secrets per client: APP_URL_<SUFFIX> (https://….netlify.app), CRON_SECRET_<SUFFIX>.
+name: Daily cron
+
+on:
+  schedule:
+    - cron: "30 0-16 * * *" # :00 IST, 06:00–22:00
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  cron:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - client: client-a
+            suffix: CLIENT_A
+    steps:
+      - name: POST /api/cron/daily
+        env:
+          APP_URL: ${{ secrets[format('APP_URL_{0}', matrix.suffix)] }}
+          CRON_SECRET: ${{ secrets[format('CRON_SECRET_{0}', matrix.suffix)] }}
+        run: |
+          curl --fail-with-body -sS -X POST -H "x-cron-secret: $CRON_SECRET" "$APP_URL/api/cron/daily"

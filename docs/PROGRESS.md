@@ -8,7 +8,7 @@ Legend: ⬜ not started · 🟡 in progress · ✅ done (exit criteria green + c
 | 2 | Offline Data, Auth, Sync & PWA Shell | P2 + P3 + P4 | ✅ |
 | 3 | Masters, Parties & Trade Flow | P5 + P6 | ✅ |
 | 4 | Daily Money, Dashboard, Vehicles, Stock & Godowns | P7 + P8 | ✅ |
-| 5 | Reminders, Reports, Export, Ops & Hardening | P9 + P10 + P11 (automatable) | ⬜ |
+| 5 | Reminders, Reports, Export, Ops & Hardening | P9 + P10 + P11 (automatable) | ✅ |
 
 After Phase 5, the remaining work is manual UAT with the client (see `docs/UAT-CHECKLIST.md`, which Phase 5 creates).
 
@@ -227,3 +227,45 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - `pnpm test` ✅ 212/212 (19 files), incl. the dashboard perf test (50k vouchers: ~22 ms, budget 300 ms)
 - `pnpm build` ✅ (every route static; SW precaches 143 URLs)
 - `pnpm test:e2e` ✅ 6/6: G5 dashboard + day close (bn, en), cold-offline (51 routes), trade flow (bn, en), two-godown G10 + All-godowns totals
+
+### Phase 5 — Reminders, Reports, Export, Ops & Hardening — 2026-11-24
+**Built:**
+- Reminders: centre `/reminders` (Today / Overdue / Upcoming, done, snooze, manual + cheque reminders), auto-close when the bill is Settled (repo `setReminderState` / `createManualReminder`), header badge + banner. Web push: VAPID, `/api/push/subscribe|unsubscribe`, SW `push` handler, bilingual digest from `/api/cron/daily` (`src/server/push.ts`, `src/client/pwa/push.ts`).
+- Reports `/reports`, `/reports/view`, `/print/report`: one model per report (`src/client/reports/defs.ts`, registry `reports/registry.ts`, all-godown ones in `queries/consolidated/reports.ts`) rendered on screen, print and Excel (`modelToSheets`); share as image; recharts only in `components/reports/ReportChart.tsx` (lazy). Reconciliation tests against ledger totals.
+- Settings: preferences, app settings (owner), users with per-godown roles + `consolidated`, devices (revoke), storage gauge, force resync, diagnostics (Dexie v3 `clientErrors`, `(app)/error.tsx` boundary), about + "export unsynced data". Integrity check on device after every sync and on demand + `/api/admin/integrity` comparison (`src/domain/integrity.ts`, `/settings/integrity`).
+- Onboarding wizard (`OnboardingGate`, `Onboarding.tsx`), bulk opening balances `/opening` (difference → মূলধন after confirm).
+- Ops: backup JSON / Excel workbook `/settings/backup`, `pnpm restore` into an empty DB (`docs/RESTORE.md`), `/api/cron/daily` + `/api/cron/storage`, GitHub workflows (nightly backup, daily cron, storage check), FY close/compaction, `deploy/netlify.toml`, `docs/OPERATIONS.md`, `docs/CHANGELOG.md`, `docs/UAT-CHECKLIST.md`.
+- Hardening (this session): Home JS 322 → 241 KB gzipped (`pnpm check:bundle`):
+  - date-fns removed: `formatDate` uses `calendar.*` dictionary keys.
+  - English dictionary loads lazily: `loadDictionary` / `registerDictionary` in `src/i18n/translate.ts`. `I18nProvider` keeps Bengali until English is in; `@/i18n/translateAll` registers both for server, print, WhatsApp and tests.
+  - Header menus load on first tap (`layout/lazyMenu.ts`, `UserMenu`, `GodownMenu`). The iOS install dialog and `ConsolidatedTable` are lazy.
+  - The toast host mounts when idle (`components/system/IdleToaster.tsx`, `lazyToast`).
+  - `VirtualList` moved out of `lists/common`.
+- Long tables are window-virtualized with `useVirtualRows` (`lists/VirtualList.tsx`): reports, cash/bank book, party khata, stock register. Print and Ctrl+P render every row.
+- `pnpm lighthouse` (`scripts/lighthouse.mts`): logged-in mobile audit of Home + Chrome installability.
+- Header at 360 px: the switcher shows just the godown name (full "গোডাউন: X" from `sm` up and in its aria-label); the sync badge is icon-only on phones when everything is synced.
+- Tests: `tests/unit/virtual-rows.test.tsx`, more date tests in `tests/unit/i18n.test.ts`; e2e `daily-flow.spec.ts` (bn + en), `visual.spec.ts` (Home, reports, settings, purchase form × bn/en at 360 px; baselines in `tests/e2e/visual.spec.ts-snapshots/`), offline spec extended with the full §13 acceptance.
+
+**Deviations from spec/plan:**
+1. Lighthouse ≥ 12 has no PWA category, so installability is read from Chrome (`Page.getInstallabilityErrors`) in `pnpm lighthouse`, which is not part of `test:e2e`.
+2. `translate(lang)` falls back to Bengali (never a raw key) if English hasn't loaded yet. On the client, English loads immediately when chosen and otherwise when the device is idle.
+3. The toast host mounts on idle (≤ 1.5 s after start). Every toast follows a user action, so none are lost in practice.
+4. Tables up to 150 rows are not virtualized (simple DOM, exact print); above that, window virtualization with spacer rows.
+5. Visual baselines are per platform (`*-win32.png`). A missing baseline is written, not failed (`updateSnapshots: "missing"`), so CI on Linux writes its own on the first run.
+
+**Known issues / TODO carried forward:**
+- The `entry` role "own entries + today's dashboard only" view ([CONFIRM] #8) is still enforced on writes only, not in the UI.
+- The header godown menu animation note from Phase 4 still applies (now inside the lazy `GodownMenu`).
+- Manual checks for UAT: performance on a real mid-range / cheap Android phone, a native-speaker translation review (see `docs/UAT-CHECKLIST.md`).
+- Home JS is 241 KB of a 250 KB budget: keep the rules in CLAUDE.md ("Keep the Home route light") and run `pnpm check:bundle` after UI work.
+
+**Notes for next steps (UAT / fixes):**
+- Deploy per `docs/OPERATIONS.md`, then run the UAT week per `docs/UAT-CHECKLIST.md`. Fix issues in sessions like "fix UAT issue: …".
+- After an intended UI change, delete `tests/e2e/visual.spec.ts-snapshots/*.png` and re-run `pnpm test:e2e`, then look at the new PNGs before committing them.
+
+**Exit criteria results:**
+- `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅
+- `pnpm test` ✅ 241/241 (25 files), incl. report reconciliation, integrity, restore round-trip, isolation crafted requests, virtual rows
+- `pnpm build` ✅ (every route static; SW precaches 204 URLs) · `pnpm check:bundle` ✅ Home JS 241.3 KB gzipped (budget 250 KB)
+- `pnpm test:e2e` ✅ 9/9: daily flow bn + en, G5 dashboard bn + en, cold-offline + §13 acceptance, trade flow bn + en, two-godown G10, visual snapshots (re-run against baselines ✅)
+- `pnpm lighthouse` ✅ Home (mobile): Performance 90 · Accessibility 100 · Best practices 96 · installable

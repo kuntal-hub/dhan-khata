@@ -1,0 +1,24 @@
+# Netlify (spec §18) — the ONLY host-specific file. Copy to the repository root as
+# `netlify.toml` (or set "Base directory / config file" in the Netlify UI to deploy/netlify.toml).
+# The Next.js runtime adapter is installed automatically by Netlify for Next.js sites.
+[build]
+  command = "pnpm build"
+  publish = ".next"
+
+[build.environment]
+  NODE_VERSION = "24"
+  PNPM_FLAGS = "--frozen-lockfile"
+  NEXT_TELEMETRY_DISABLED = "1"
+  TZ = "Asia/Kolkata"
+
+# The service worker must never be cached by the CDN (new versions must be seen).
+[[headers]]
+  for = "/sw.js"
+  [headers.values]
+    Cache-Control = "no-cache, no-store, must-revalidate"
+    Service-Worker-Allowed = "/"
+
+[[headers]]
+  for = "/manifest.webmanifest"
+  [headers.values]
+    Cache-Control = "no-cache"

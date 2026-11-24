@@ -75,4 +75,40 @@ self.addEventListener("sync", (event) => {
   );
 });
 
+// Web Push reminder digest (spec §9.13): show it; tapping opens the reminder centre.
+self.addEventListener("push", (event) => {
+  let data: { title?: string; body?: string; url?: string } = {};
+  try {
+    data = event.data?.json() ?? {};
+  } catch {
+    data = { body: event.data?.text() };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title ?? "ধান খাতা", {
+      body: data.body ?? "",
+      icon: "/icons/icon-192.png",
+      badge: "/icons/icon-192.png",
+      lang: "bn",
+      tag: "dk-digest",
+      data: { url: data.url ?? "/reminders" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data as { url?: string } | undefined)?.url ?? "/reminders";
+  event.waitUntil(
+    self.clients.matchAll({ type: "window", includeUncontrolled: true }).then((clients) => {
+      for (const c of clients) {
+        if ("focus" in c) {
+          void (c as WindowClient).navigate(url);
+          return (c as WindowClient).focus();
+        }
+      }
+      return self.clients.openWindow(url);
+    }),
+  );
+});
+
 serwist.addEventListeners();

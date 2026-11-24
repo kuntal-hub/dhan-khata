@@ -62,7 +62,13 @@ export default function SyncPage() {
               : t("sync.never")}
           </p>
           <div className="flex flex-wrap gap-2">
-            <Button className="h-11" onClick={syncNow} disabled={sync.running}>
+            <Button
+              className="h-11"
+              onClick={syncNow}
+              disabled={sync.running}
+              data-testid="sync-now"
+              data-pending={ops?.length ?? 0}
+            >
               {sync.running ? (
                 <Loader2 className="size-4 animate-spin" aria-hidden />
               ) : (

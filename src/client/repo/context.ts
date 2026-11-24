@@ -9,6 +9,10 @@ import type { GodownLookup, Ref } from "@/domain/scope";
 import { now } from "../clock";
 import { db, type AuditLocalRow, type OutboxRow } from "../db/dexie";
 import { getGodownSettings, getSession, type SessionMeta } from "../db/meta";
+import { installZodErrorMap } from "@/i18n/zodErrorMap";
+
+// Validation issues carry i18n keys, never English sentences (spec §11.4).
+installZodErrorMap();
 
 /** A write-path failure: one primary code plus (for validation) the Zod issues. */
 export class RepoError extends DomainError {

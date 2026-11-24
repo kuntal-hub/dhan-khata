@@ -1,8 +1,7 @@
 "use client";
 
 import { useLiveQuery } from "dexie-react-hooks";
-import { useWindowVirtualizer } from "@tanstack/react-virtual";
-import { useState, type ReactNode } from "react";
+import type { ReactNode } from "react";
 import { AlertTriangle, CheckCircle2, Clock, Inbox, Loader2 } from "lucide-react";
 import { db } from "@/client/db/dexie";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -62,51 +61,6 @@ export function Loading() {
   return (
     <div className="flex justify-center py-10" role="status" aria-label={t("common.loading")}>
       <Loader2 className="text-primary size-6 animate-spin" aria-hidden />
-    </div>
-  );
-}
-
-/** Window-scrolled virtual list (10k rows at 60 fps, spec §15). */
-export function VirtualList<T>({
-  items,
-  estimate = 72,
-  render,
-  getKey,
-  testId,
-}: {
-  items: readonly T[];
-  estimate?: number;
-  render: (item: T, index: number) => ReactNode;
-  getKey: (item: T, index: number) => string;
-  testId?: string;
-}) {
-  const [el, setEl] = useState<HTMLDivElement | null>(null);
-  const v = useWindowVirtualizer({
-    count: items.length,
-    estimateSize: () => estimate,
-    overscan: 8,
-    scrollMargin: el?.offsetTop ?? 0,
-  });
-  return (
-    <div ref={setEl} data-testid={testId}>
-      <div style={{ height: v.getTotalSize(), position: "relative", width: "100%" }}>
-        {v.getVirtualItems().map((row) => (
-          <div
-            key={getKey(items[row.index]!, row.index)}
-            data-index={row.index}
-            ref={v.measureElement}
-            style={{
-              position: "absolute",
-              top: 0,
-              left: 0,
-              width: "100%",
-              transform: `translateY(${row.start - v.options.scrollMargin}px)`,
-            }}
-          >
-            {render(items[row.index]!, row.index)}
-          </div>
-        ))}
-      </div>
     </div>
   );
 }

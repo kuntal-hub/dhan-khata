@@ -152,6 +152,15 @@ html[lang="en"] {
   html[lang="en"] body {
     line-height: 1.5;
   }
+  /* Visible keyboard focus everywhere, also on plain buttons/links (spec §11.5). */
+  a:focus-visible,
+  button:focus-visible,
+  [role="radio"]:focus-visible,
+  select:focus-visible,
+  input[type="checkbox"]:focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
 }
 
 @layer utilities {

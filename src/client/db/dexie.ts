@@ -56,6 +56,14 @@ export interface AuditLocalRow {
   reason?: string;
 }
 
+export interface ClientErrorRow {
+  id?: number;
+  at: string;
+  route: string;
+  message: string;
+  stack?: string;
+}
+
 export class DhanKhataDB extends Dexie {
   godowns!: Table<Godown, string>;
   parties!: Table<Party, string>;
@@ -74,6 +82,7 @@ export class DhanKhataDB extends Dexie {
   outbox!: Table<OutboxRow, number>;
   meta!: Table<MetaRow, string>;
   auditLocal!: Table<AuditLocalRow, number>;
+  clientErrors!: Table<ClientErrorRow, number>;
 
   constructor(name: string = DEFAULT_DB_NAME) {
     super(name);

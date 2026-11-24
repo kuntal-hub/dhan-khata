@@ -2,14 +2,8 @@
  * Display labels for masters: seeded items render through i18n (codes), user items as typed.
  * Party subtitle: `nameAlt` when the UI language differs from the script of `name` (§11.4).
  */
-import {
-  formatVehicleNumber,
-  type BankAccount,
-  type ExpenseCategory,
-  type Party,
-  type Variety,
-  type Vehicle,
-} from "@/domain/schemas";
+import { formatVehicleNumber } from "@/domain/vehicleNumber";
+import type { BankAccount, ExpenseCategory, Party, Variety, Vehicle } from "@/domain/schemas";
 import type { Lang, TKey } from "@/i18n/translate";
 
 type T = (key: TKey) => string;

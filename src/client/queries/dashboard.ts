@@ -7,6 +7,7 @@
 import { ACC, accountType } from "@/domain/posting/accounts";
 import type { DayStatus, Reminder, Voucher } from "@/domain/schemas";
 import { db } from "../db/dexie";
+import { effectiveDue, pendingReminders } from "./reminders";
 
 export interface DueSummary {
   count: number;
@@ -64,7 +65,7 @@ function dueSummary(list: readonly Reminder[], date: string): DueSummary {
   let overdue = 0;
   for (const r of list) {
     amount += BigInt(r.amountPaise ?? "0");
-    if (r.dueDate < date) overdue++;
+    if (effectiveDue(r) < date) overdue++;
   }
   return { count: list.length, amountPaise: amount, overdueCount: overdue };
 }
@@ -91,7 +92,7 @@ export async function dashboardData(godownId: string, date: string): Promise<Das
       .between([godownId, ""], [godownId, date], true, true)
       .toArray(),
     d.vouchers.where("[godownId+date]").equals([godownId, date]).toArray(),
-    d.reminders.where("[godownId+status]").equals([godownId, "open"]).toArray(),
+    pendingReminders(godownId),
     d.bankAccounts.where("godownId").equals(godownId).toArray(),
     d.dayStatus.get(`${godownId}:${date}`),
   ]);
@@ -170,7 +171,7 @@ export async function dashboardData(godownId: string, date: string): Promise<Das
   let expense = 0n;
   for (const p of expenseByCategory.values()) expense += p;
 
-  const due = reminders.filter((r) => r.dueDate <= date);
+  const due = reminders.filter((r) => effectiveDue(r) <= date);
   const stockByVariety = [...stock.values()].filter((s) => s.qtyG !== 0n || s.valuePaise !== 0n);
   let stockQty = 0n;
   let stockValue = 0n;
@@ -217,8 +218,5 @@ export async function dashboardData(godownId: string, date: string): Promise<Das
 
 /** Top `n` open reminders due soonest (dashboard list), overdue first. */
 export async function topReminders(godownId: string, n = 5): Promise<Reminder[]> {
-  const list = await db().reminders.where("[godownId+status]").equals([godownId, "open"]).toArray();
-  return list
-    .sort((a, b) => (a.dueDate < b.dueDate ? -1 : a.dueDate > b.dueDate ? 1 : 0))
-    .slice(0, n);
+  return (await pendingReminders(godownId)).slice(0, n);
 }

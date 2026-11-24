@@ -38,53 +38,9 @@ import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { Qty } from "@/components/money/display";
 import { useNames, type Names } from "./names";
+import { editPathOf, isTransfer, viewPathOf } from "./paths";
 
-export function isTransfer(v: Voucher): boolean {
-  return "interGodown" in v && !!v.interGodown;
-}
-
-export function editPathOf(v: Voucher): string | null {
-  if (isTransfer(v)) return `/transfer?id=${v._id}`;
-  switch (v.type) {
-    case "EXPENSE":
-      return `/expense/edit?id=${v._id}`;
-    case "TRIP":
-      return `/trip/edit?id=${v._id}`;
-    case "CONTRA":
-      return `/cashbank/entry?id=${v._id}`;
-    case "STOCK_ADJUST":
-      return `/stock/adjust?id=${v._id}`;
-    case "PURCHASE":
-      return `/purchase/edit?id=${v._id}`;
-    case "SALE":
-      return `/sale/edit?id=${v._id}`;
-    case "LOAD":
-      return `/load/edit?id=${v._id}`;
-    case "PAYMENT":
-    case "RECEIPT":
-      return `/payment/edit?id=${v._id}`;
-    case "MILL_SETTLEMENT":
-      return `/sale/settle?id=${v.saleId}`;
-    default:
-      return null;
-  }
-}
-
-export function viewPathOf(v: Pick<Voucher, "_id" | "type">): string {
-  switch (v.type) {
-    case "PURCHASE":
-      return `/purchase/view?id=${v._id}`;
-    case "SALE":
-      return `/sale/view?id=${v._id}`;
-    case "LOAD":
-      return `/load/view?id=${v._id}`;
-    case "PAYMENT":
-    case "RECEIPT":
-      return `/payment/view?id=${v._id}`;
-    default:
-      return `/voucher/view?id=${v._id}`;
-  }
-}
+export { editPathOf, isTransfer, viewPathOf };
 
 const PRINTABLE = new Set(["PURCHASE", "SALE", "PAYMENT", "RECEIPT"]);
 

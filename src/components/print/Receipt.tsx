@@ -5,7 +5,8 @@ import { amountInWords } from "@/domain/amountInWords";
 import { saleSummary } from "@/domain/calc/sale";
 import { formatVehicleNumber, type Godown, type Voucher } from "@/domain/schemas";
 import { formatDate, formatMoney, formatRate, formatWeight } from "@/i18n/format";
-import { translate, type Lang, type TKey } from "@/i18n/translate";
+import type { Lang, TKey } from "@/i18n/translate";
+import { translate } from "@/i18n/translateAll";
 import type { Names } from "@/components/vouchers/names";
 
 /** Formatting bound to one receipt language (digits follow the language on paper). */

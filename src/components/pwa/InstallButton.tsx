@@ -1,16 +1,9 @@
 "use client";
 
+import dynamic from "next/dynamic";
 import { useEffect, useState, useSyncExternalStore } from "react";
-import { Download, Share } from "lucide-react";
+import { Download } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogFooter,
-  DialogHeader,
-  DialogTitle,
-} from "@/components/ui/dialog";
 import {
   canPromptInstall,
   isIos,
@@ -20,6 +13,12 @@ import {
 } from "@/client/pwa/browser";
 import { META, getMeta, setMeta } from "@/client/db/meta";
 import { useT } from "@/i18n/I18nProvider";
+
+// Radix dialog only for iOS, loaded when it is actually shown (spec §15 Home JS budget).
+const IosInstallDialog = dynamic(
+  () => import("./IosInstallDialog").then((m) => m.IosInstallDialog),
+  { ssr: false },
+);
 
 /**
  * "অ্যাপ ইনস্টল করুন" (spec §13): Android/desktop use the captured `beforeinstallprompt`;
@@ -50,29 +49,7 @@ export function InstallButton() {
           {t("pwa.install")}
         </Button>
       ) : null}
-      <Dialog open={iosOpen} onOpenChange={(o) => !o && closeIos()}>
-        <DialogContent closeLabel={t("common.close")}>
-          <DialogHeader>
-            <DialogTitle>{t("pwa.iosTitle")}</DialogTitle>
-            <DialogDescription asChild>
-              <ol className="flex list-decimal flex-col gap-2 pl-5 text-left">
-                <li>
-                  <span className="inline-flex items-center gap-1">
-                    {t("pwa.iosStep1")}
-                    <Share className="size-4" aria-hidden />
-                  </span>
-                </li>
-                <li>{t("pwa.iosStep2")}</li>
-              </ol>
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button className="h-11" onClick={closeIos}>
-              {t("pwa.dismiss")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {iosOpen ? <IosInstallDialog onClose={closeIos} /> : null}
     </>
   );
 }

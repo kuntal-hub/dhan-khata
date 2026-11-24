@@ -2,21 +2,11 @@
 
 import { useLiveQuery } from "dexie-react-hooks";
 import { db } from "@/client/db/dexie";
-import { getGodownSettings } from "@/client/db/meta";
 import { linesOfParty, partyBills } from "@/client/queries/parties";
 import { getLastUsed } from "@/client/repo";
-import { defaultGodownSettings, type GodownSettings, type Voucher } from "@/domain/schemas";
+import type { Voucher } from "@/domain/schemas";
 
-export function useGodownSettings(godownId: string | null): GodownSettings | undefined {
-  return useLiveQuery(
-    async () =>
-      godownId
-        ? ((await getGodownSettings(godownId)) ??
-          defaultGodownSettings(godownId, new Date().toISOString()))
-        : undefined,
-    [godownId],
-  );
-}
+export { useGodownSettings } from "@/client/hooks";
 
 export interface PriorBalance {
   /** Party balance without the voucher group being edited (> 0 = they owe us). */

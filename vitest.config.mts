@@ -14,7 +14,7 @@ export default defineConfig({
     exclude: ["tests/e2e/**", "node_modules/**"],
     testTimeout: 60_000,
     hookTimeout: 120_000,
-    setupFiles: ["tests/setup/indexeddb.ts"],
+    setupFiles: ["tests/setup/indexeddb.ts", "tests/setup/i18n.ts"],
     // One in-memory MongoDB replica set for the whole run (sync/server suites).
     globalSetup: ["tests/setup/mongo.global.ts"],
   },

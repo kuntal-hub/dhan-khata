@@ -36,7 +36,16 @@ export {
   type AcceptInput,
 } from "./transfer";
 export { dayStatusId } from "./vouchers";
-export { reminderId, openReminders, type ReminderInput } from "./reminders";
+export {
+  reminderId,
+  openReminders,
+  pendingReminders,
+  effectiveDue,
+  setReminderState,
+  createManualReminder,
+  type ReminderInput,
+  type ManualReminderInput,
+} from "./reminders";
 export { rebuildDailyAgg } from "./dailyAgg";
 export { RepoError } from "./context";
 export { onLocalWrite } from "./notify";

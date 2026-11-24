@@ -5,10 +5,11 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback } from "react";
 import { canConsolidate, roleIn, type EffectiveRole } from "@/domain/rbac";
-import type { Godown } from "@/domain/schemas";
+import { defaultGodownSettings } from "@/domain/godownSettings";
+import type { Godown, GodownSettings } from "@/domain/schemas";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
 import { db } from "./db/dexie";
-import { META, getMeta, getSession } from "./db/meta";
+import { META, getGodownSettings, getMeta, getSession } from "./db/meta";
 import { accessibleLocalGodowns, persistActiveGodown } from "./godown/activeGodown";
 
 export function useAccessibleGodowns(): Godown[] | undefined {
@@ -75,4 +76,16 @@ export function useGodownRole(): EffectiveRole | null {
   const godownId = useAppSelector((s) => s.activeGodown.godownId);
   if (!session || !godownId) return null;
   return roleIn(session.user, godownId);
+}
+
+/** A godown's settings (defaults when none were saved yet). */
+export function useGodownSettings(godownId: string | null): GodownSettings | undefined {
+  return useLiveQuery(
+    async () =>
+      godownId
+        ? ((await getGodownSettings(godownId)) ??
+          defaultGodownSettings(godownId, new Date().toISOString()))
+        : undefined,
+    [godownId],
+  );
 }

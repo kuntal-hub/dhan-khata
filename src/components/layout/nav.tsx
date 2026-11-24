@@ -39,6 +39,8 @@ export const TABS: NavItem[] = [
       "/godowns",
       "/search",
       "/voucher",
+      "/reminders",
+      "/reports",
     ],
   },
 ];

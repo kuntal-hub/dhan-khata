@@ -33,7 +33,7 @@ import {
 } from "./context";
 import { dexieDerivedStore } from "./derivedStore";
 import { emitLocalWrite } from "./notify";
-import { upsertReminderInTx, type ReminderInput } from "./reminders";
+import { closeSettledBillRemindersInTx, upsertReminderInTx, type ReminderInput } from "./reminders";
 
 type BookkeepingKeys =
   | "_id"
@@ -648,6 +648,10 @@ export async function saveVoucherWithLinked(
     }
     await refreshSettlementsInTx(ctx, primary);
     for (const r of plan.reminders?.(primary) ?? []) await upsertReminderInTx(ctx, r);
+    // A payment/receipt (or bill edit) may settle bills: their due reminders close (spec §9.13).
+    if ("partyId" in primary && typeof primary.partyId === "string") {
+      await closeSettledBillRemindersInTx(ctx, primary.partyId);
+    }
     await plan.after?.(primary, ctx);
     return { primary, linked };
   });

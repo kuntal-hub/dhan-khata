@@ -3,7 +3,7 @@
 import { useState, useSyncExternalStore, type ReactNode } from "react";
 import { Provider as ReduxProvider } from "react-redux";
 import { ThemeProvider } from "next-themes";
-import { Toaster } from "@/components/ui/sonner";
+import { IdleToaster } from "@/components/system/IdleToaster";
 import { PwaRuntime } from "@/components/pwa/PwaRuntime";
 import { Splash } from "@/components/system/Splash";
 import { I18nProvider } from "@/i18n/I18nProvider";
@@ -37,7 +37,7 @@ function AppProviders({ children }: { children: ReactNode }) {
         <I18nProvider>
           <PwaRuntime>
             {children}
-            <Toaster position="top-center" />
+            <IdleToaster />
           </PwaRuntime>
         </I18nProvider>
       </ThemeProvider>

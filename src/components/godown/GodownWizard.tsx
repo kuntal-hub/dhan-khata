@@ -59,7 +59,14 @@ type OpeningItem = VoucherDraft extends infer V
  * cash → opening stock → opening party balances → one OPENING voucher. A non-zero difference is
  * recorded as capital (মূলধন) after confirmation, so OPENING_BAL nets to zero.
  */
-export function GodownWizard({ resumeId }: { resumeId?: string }) {
+export function GodownWizard({
+  resumeId,
+  onFinished,
+}: {
+  resumeId?: string;
+  /** Called instead of going Home (first-run onboarding continues with users). */
+  onFinished?: (godownId: string) => void;
+}) {
   const { t, money, count } = useI18n();
   const router = useRouter();
   const { select } = useActiveGodown();
@@ -171,7 +178,8 @@ export function GodownWizard({ resumeId }: { resumeId?: string }) {
       }
       select(godownId);
       toast.success(t("godowns.created"));
-      router.replace("/");
+      if (onFinished) onFinished(godownId);
+      else router.replace("/");
     });
 
   const nav = (next: () => void, disabled?: boolean, label?: string) => (

@@ -10,7 +10,8 @@ import { db } from "@/client/db/dexie";
 import { paren, spaced } from "@/client/ui/text";
 import { partyStatement, type Statement } from "@/client/queries/parties";
 import { formatDate, formatMoney } from "@/i18n/format";
-import { translate, type Lang, type TKey } from "@/i18n/translate";
+import type { Lang, TKey } from "@/i18n/translate";
+import { translate } from "@/i18n/translateAll";
 import type { Godown, Party } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
 
