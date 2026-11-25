@@ -30,6 +30,14 @@ export {
   type PaymentPart,
 } from "./payments";
 export { mergeVarieties } from "./varieties";
+export {
+  findDuplicateReturn,
+  saveMillReturn,
+  settleConsignment,
+  voidSettlement,
+  DUPLICATE_WINDOW_MS,
+  type SettleInput,
+} from "./mill";
 export { saveBankAccount, type BankInput } from "./banks";
 export {
   setDeliveryStatus,

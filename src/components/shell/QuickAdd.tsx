@@ -59,7 +59,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     label: "quick.dispatch",
     href: "/mill/dispatch/new",
     icon: Factory,
-    ready: false,
+    ready: true,
   },
   { key: "trip", label: "quick.trip", href: "/vehicles/trip/new", icon: Truck, ready: false },
 ];

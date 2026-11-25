@@ -105,5 +105,17 @@ The Overview, Cashbook, Stock and Daily Overview tabs are `next/dynamic` chunks 
 ### D35: Correcting a cashbook line
 Lines from a purchase, sale, expense or payment open their detail page (edit / reverse there, audited). Cash ↔ bank, capital and drawings have no detail page: "সংশোধন" voids the entry with a reason and the user enters the right one. Every following day recalculates either way.
 
+### D37: Money received with a mill return
+"মিল থেকে এখন টাকা পেলেন" on the return form (and "+ টাকা পেলাম" on its detail page) is an IN payment with source `MILL_RETURN` = that return, party = the return's mill. A return creates no bill (D10), so the link rule is special: the source must be an active return, the payment IN and from its mill (`validateLinks`, shared with the server). The money credits the mill's party ledger. Voiding the return needs its payments voided too (same as any bill).
+
+### D38: Consignment settlement moves the advances onto the sale
+Settling creates one CONFIRMED sale to the mill (D5). Advances received against the dispatch (IN payments) are re-pointed to the sale, oldest first, while they fit in the sale total; a larger advance stays on the dispatch. Re-pointing is an audited payment edit: same amount, date, mode and party, so no ledger line or cashbook figure changes, only which bill shows it as received. "নিষ্পত্তি বাতিল করুন" moves them back to the dispatch and voids the sale (one op group); the money is never voided. A settlement sale can't be edited (reverse and settle again).
+
+### D39: A consignment's expected value is not a receivable
+A CONSIGNMENT dispatch posts no party line (only stock moves); its "expected value" bill exists only to hold the mill's advances. Due & Advance (Phase 10) and due alerts must not count it as money owed by the mill. The mill's real position is its party ledger (advances received = we owe them until the settlement sale).
+
+### D40: Possible duplicate mill return
+Before saving, the form looks for an active return of the same dispatch with the same date, product and quantity created in the last 10 minutes and asks "একই ফেরত আগে সেভ হয়েছে?". The record id is fixed when the form opens, so a double tap can't create two returns. Returned paddy beyond what is left at the mill for that dispatch, a conversion consuming more than is left, and a settlement above the mill stock each need an explicit "তবুও সেভ করুন".
+
 ### D36: Day close and reopen
 Closing writes a DAY_CLOSE with the expected cash at that moment, the counted cash and the difference (note required when ≠ 0; denomination counts kept). The difference posts to CASH_DIFF, so the next day's opening equals the counted cash. Only the owner reopens (the close is voided with a reason). An entry dated on a closed day shows "পরে এন্ট্রি হয়েছে — আবার মেলান"; "আবার মেলান" reopens the day so it can be counted again.

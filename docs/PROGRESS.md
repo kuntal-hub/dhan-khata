@@ -17,7 +17,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 6 | Sales | Test 6 e2e | ✅ |
 | 7 | Daily Expenses | Test 5 e2e | ✅ |
 | 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ✅ |
-| 9 | Mill & Second Party | Tests 2, 3 e2e | ⬜ |
+| 9 | Mill & Second Party | Tests 2, 3 e2e | ✅ |
 | 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ⬜ |
 | 11 | Reports, print, export, voice, WhatsApp | reports reconcile with dashboard | ⬜ |
 | 12 | Hardening | all of §21 | ⬜ |
@@ -446,3 +446,21 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - Due-alert links for mill / trip / second-party bills open once those screens exist (Phases 9–10).
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 281 passed, 1 skipped (25 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 237.9 KB · `pnpm test:e2e` ✅ 11/11 (Tests 1, 4, 5, 6 in bn + en, shell, reduced motion, cold offline).
+
+### v2 Phase 9 — Mill & Second Party — 2026-11-25
+**Built:**
+- Domain: `validateLinks` accepts an IN payment against a mill return from that return's mill (D37). No other domain change: dispatch / return / conversion posting and `dispatchBalance` were already in place (Phase 1).
+- Repo `repo/mill.ts`: `saveMillReturn` (return + money received from the mill, one op group), `findDuplicateReturn` (same dispatch, date, product, quantity within 10 minutes), `settleConsignment` (CONFIRMED sale to the mill from mill stock, linked to the dispatch; advances re-pointed onto the sale, D38), `voidSettlement` (advances back to the dispatch, sale voided). `payAdvance` / `AdvanceSheet` take `sourceType` SECOND_PARTY for on-account second-party money; `AdvanceSheet` also takes a custom `onSave`.
+- Queries `queries/mill.ts`: `dispatchRows` (type / open / search / status filters, dispatch-wise balance, MILLING payable state), `dispatchDetail`, `returnRows`, `convertibleReturns`, `conversionRows`, `conversionBps`, `secondPartySummaries`, `secondPartyEntries`, `secondPartyOnAccount`.
+- Screens (section 8, all tabs except reports): সেকেন্ড পার্টি খাতা (parties with balance, totals) + `/mill/party` (balance, entries, on-account money given / received, ledger, WhatsApp) + `/mill/entry/{new,edit,view}`; মিলে পাঠানো list + `/mill/dispatch/{new,edit,view}` (type toggle with explanation, negative-stock warning, MILLING payable with payments, CONSIGNMENT advances, sent / returned / milled / sold / at mill, add return / conversion / settle, reverse blocked while linked records exist); মিল থেকে ফেরত list + `/mill/return/{new,edit,view}` (paddy / rice / other, more-than-at-mill and duplicate confirmations, optional valuation, money received); ভাঙানোর হিসাব list + `/mill/conversion/{new,edit,view}` (pick outputs from the dispatch's returns, `consumed − outputs = loss` with confirmation, yield %); কনসাইনমেন্ট নিষ্পত্তি tab (open consignments with "নিষ্পত্তি করুন", settled sales) + `/mill/settle`. Shared `components/mill/common.tsx` (Cell, HistoryPanel, ReverseButton). The sale detail shows a settlement badge, blocks editing a settlement sale and reverses it with `voidSettlement`. `docPath` opens the mill and second-party screens. Quick action "মিলে পাঠানো" is on. `VarietyPicker` takes a `label`.
+- i18n: `mill` namespace (bn + en).
+- Tests: `tests/repo/mill.test.ts` (Tests 2 and 3 through the repo incl. rice only to rice stock; conversion takes the paddy out of the mill and blocks voiding its returns; conversion needs MILLING; money with a return, wrong direction refused, void with payments; duplicate window; MILLING charges payable and paid; consignment advance → settlement → reversal; advance larger than the sale stays; second-party entries, partial payments, on-account money and balance; stored == replay). `tests/unit/assert-migrated.test.ts`. e2e `tests/e2e/mill.spec.ts` bn + en at 360 px: opening 100 → purchase 56 → sale 10 → dispatch 20 → Gola 126 / mill 20; paddy return 5 → 131 / 15; rice return 3 only to rice; dispatch detail balance; second-party entry with a later payment. Offline spec covers every new route. Screenshots in `test-results/v2-mill/` were reviewed (rice-variety label fixed after review).
+
+**Decisions:** D37–D40.
+
+**Known issues / notes for next phases:**
+- Phase 10: Due & Advance must not count a CONSIGNMENT dispatch's expected value as a receivable (D39); mill payables = MILLING charges + the mill party ledger. Load khata "create dispatch from this load": `DispatchForm` already takes `preset` and `linkedLoadId`.
+- Phase 11: mill reports (dispatch, return, mill stock, conversion, second-party ledger) and the second-party statement print.
+- A sale entered from the Sales form with source "মিল থেকে" is still possible without a consignment link (for MILLING paddy sold at the mill); consignments are settled from the Mill section.
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 292 passed, 1 skipped (27 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 240.1 KB · `pnpm test:e2e` ✅ 13/13 (Tests 1–6 in bn + en, shell, reduced motion, cold offline).

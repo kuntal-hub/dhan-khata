@@ -132,12 +132,16 @@ export async function payBill(
   return saveDocs(godownId, items, items.length > 1 ? { groupId: uuidv7() } : {});
 }
 
-/** Party-level advance (no bill): given (OUT) or received (IN). */
+/**
+ * Party-level money with no bill: an advance given (OUT) or received (IN), or second-party money
+ * given / received on account (§12.8A, `sourceType` SECOND_PARTY).
+ */
 export async function payAdvance(
   godownId: string,
   partyId: string,
   direction: "IN" | "OUT",
   part: PaymentPart,
+  sourceType: "PARTY_ADVANCE" | "SECOND_PARTY" = "PARTY_ADVANCE",
 ): Promise<Doc> {
   const [p] = await saveDocs(godownId, [
     {
@@ -146,7 +150,7 @@ export async function payAdvance(
         type: "PAYMENT",
         direction,
         partyId,
-        source: { type: "PARTY_ADVANCE", id: null },
+        source: { type: sourceType, id: null },
         isInitial: false,
       } as DocDraft,
     },

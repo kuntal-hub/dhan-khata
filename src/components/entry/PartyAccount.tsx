@@ -13,7 +13,7 @@ import { Button } from "@/components/ui/button";
 import { docPath } from "@/components/entry/docPath";
 import { errorKey } from "@/client/errors";
 import type { LedgerRow } from "@/client/queries/purchases";
-import { payAdvance } from "@/client/repo";
+import { payAdvance, type PaymentPart } from "@/client/repo";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { emptyPay, PaymentFields, toPart, type PayState } from "./Payments";
@@ -83,12 +83,18 @@ export function AdvanceSheet({
   direction,
   title,
   onClose,
+  sourceType = "PARTY_ADVANCE",
+  onSave,
 }: {
   godownId: string;
   partyId: string;
   direction: "IN" | "OUT";
   title: string;
   onClose: () => void;
+  /** SECOND_PARTY: money given / received on a second party's account (§12.8A). */
+  sourceType?: "PARTY_ADVANCE" | "SECOND_PARTY";
+  /** Save the money some other way (e.g. linked to a mill return). */
+  onSave?: (part: PaymentPart) => Promise<void>;
 }) {
   const { t } = useI18n();
   const [s, setS] = useState<PayState>(emptyPay());
@@ -97,7 +103,8 @@ export function AdvanceSheet({
     const r = toPart(s, false);
     if (r.error || !r.part) return setError(t(r.error ?? "errors.validation.required"));
     try {
-      await payAdvance(godownId, partyId, direction, r.part);
+      if (onSave) await onSave(r.part);
+      else await payAdvance(godownId, partyId, direction, r.part, sourceType);
       lazyToast(t("pay.saved"), "success");
       onClose();
     } catch (e) {

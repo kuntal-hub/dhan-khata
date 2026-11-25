@@ -23,7 +23,8 @@ function Edit() {
     doc.type !== "SALE" ||
     doc.godownId !== godown._id ||
     doc.status !== "active" ||
-    doc.interGola
+    doc.interGola ||
+    doc.consignmentDispatchId
   ) {
     return <ReadOnlyNotice reason="notFound" />;
   }

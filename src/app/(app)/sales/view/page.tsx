@@ -10,7 +10,16 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { ArrowRightLeft, CheckCircle2, History, Pencil, Printer, Truck, Undo2 } from "lucide-react";
+import {
+  ArrowRightLeft,
+  CheckCircle2,
+  Factory,
+  History,
+  Pencil,
+  Printer,
+  Truck,
+  Undo2,
+} from "lucide-react";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { varietyName } from "@/components/entry/Variety";
 import { Panel, QtyTriple, StatusPill } from "@/components/kit/Kit";
@@ -31,6 +40,7 @@ import {
   setDeliveryStatus,
   voidDoc,
   voidInterGolaTransfer,
+  voidSettlement,
   type DeliveryStatus,
 } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
@@ -107,6 +117,16 @@ function Detail() {
           <ArrowRightLeft className="size-4" aria-hidden />
           {t("sl.transferBadge", { gola: counter?.name ?? "" })}
         </p>
+      ) : null}
+      {doc.consignmentDispatchId ? (
+        <Link
+          href={`/mill/dispatch/view?id=${doc.consignmentDispatchId}`}
+          className="bg-gold-100 text-accent-foreground flex items-center gap-2 rounded-xl px-3 py-2 text-sm"
+          data-testid="sale-settlement-badge"
+        >
+          <Factory className="size-4" aria-hidden />
+          {t("mill.settlementBadge")}
+        </Link>
       ) : null}
       <Panel>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
@@ -319,9 +339,9 @@ function Detail() {
 
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          {doc.interGola ? (
+          {doc.interGola || doc.consignmentDispatchId ? (
             <p className="text-muted-foreground col-span-2 self-center text-sm">
-              {t("sl.transferNoEdit")}
+              {doc.interGola ? t("sl.transferNoEdit") : t("mill.settleReverseBody")}
             </p>
           ) : (
             <Button asChild variant="outline" className="h-12">
@@ -347,7 +367,11 @@ function Detail() {
             data-testid="sale-reverse"
           >
             <Undo2 className="size-5" aria-hidden />
-            {doc.interGola ? t("sl.transferReverse") : t("sl.reverse")}
+            {doc.interGola
+              ? t("sl.transferReverse")
+              : doc.consignmentDispatchId
+                ? t("mill.settleReverse")
+                : t("sl.reverse")}
           </Button>
         </div>
       ) : null}
@@ -400,17 +424,33 @@ function Detail() {
       <ConfirmDialog
         open={reversing}
         onOpenChange={setReversing}
-        title={doc.interGola ? t("sl.transferReverse") : t("sl.reverse")}
+        title={
+          doc.interGola
+            ? t("sl.transferReverse")
+            : doc.consignmentDispatchId
+              ? t("mill.settleReverse")
+              : t("sl.reverse")
+        }
         body={
           doc.interGola
             ? t("sl.transferReverseBody", { qty, amount: money(BigInt(doc.totalPaise)) })
-            : `${t("sl.reverseConfirm", { qty, amount: money(BigInt(doc.totalPaise)) })}${active.length ? ` ${t("sl.reverseWithPayments", { count: count(active.length) })}` : ""}`
+            : doc.consignmentDispatchId
+              ? t("mill.settleReverseBody")
+              : `${t("sl.reverseConfirm", { qty, amount: money(BigInt(doc.totalPaise)) })}${active.length ? ` ${t("sl.reverseWithPayments", { count: count(active.length) })}` : ""}`
         }
-        confirmLabel={doc.interGola ? t("sl.transferReverse") : t("sl.reverse")}
+        confirmLabel={
+          doc.interGola
+            ? t("sl.transferReverse")
+            : doc.consignmentDispatchId
+              ? t("mill.settleReverse")
+              : t("sl.reverse")
+        }
         onConfirm={async () => {
           if (!reason.trim()) return lazyToast(t("pay.reasonRequired"), "error");
           try {
             if (doc.interGola) await voidInterGolaTransfer(godown._id, doc._id, reason.trim());
+            else if (doc.consignmentDispatchId)
+              await voidSettlement(godown._id, doc._id, reason.trim());
             else await voidDoc(godown._id, doc._id, reason.trim(), { withPayments: true });
             lazyToast(t("sl.reversed"), "success");
             setReversing(false);

@@ -41,6 +41,7 @@ export function VarietyPicker({
   testId,
   error,
   product = "PADDY",
+  label,
 }: {
   godownId: string;
   value: string | undefined;
@@ -48,6 +49,7 @@ export function VarietyPicker({
   testId: string;
   error?: string | null;
   product?: "PADDY" | "RICE";
+  label?: string;
 }) {
   const { t } = useI18n();
   const items = useLiveQuery(async (): Promise<PickerItem[]> => {
@@ -77,7 +79,7 @@ export function VarietyPicker({
   return (
     <div className="flex flex-col gap-1">
       <EntityPicker
-        label={t("pur.variety")}
+        label={label ?? t("pur.variety")}
         value={value}
         items={items}
         onSelect={onChange}

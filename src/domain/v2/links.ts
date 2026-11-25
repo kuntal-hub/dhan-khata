@@ -84,6 +84,14 @@ function validatePaymentSource(p: DocOf<"PAYMENT">, get: DocGetter): void {
   if (type === "PARTY_ADVANCE") fail("source.id");
   const src = get(sourceDocId(id));
   if (!src || src.status !== "active") return fail(`source:${id}`, "INVALID_REFERENCE");
+  if (type === "MILL_RETURN") {
+    // Money received from the mill when goods come back (DECISIONS D10): no bill, it only
+    // credits the mill's party ledger, so it must be IN and from that return's mill.
+    if (src.type !== "MILL_RETURN" || src._id !== id) return fail(`source:${type}:${id}`);
+    if (p.partyId !== src.millPartyId) fail("partyId");
+    if (p.direction !== "IN") fail("direction");
+    return;
+  }
   const bill = billsOf(src).find((b) => b.sourceType === type && b.sourceId === id);
   if (!bill) return fail(`source:${type}:${id}`);
   if ((bill.partyId ?? undefined) !== (p.partyId ?? undefined)) fail("partyId");

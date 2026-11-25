@@ -95,6 +95,10 @@ Keep this list up to date.
 - Sales: `repo/sales.ts` (delivery steps, confirm order, inter-Gola transfer = one op group across two Golas), `queries/sales.ts` (incl. `stockAvailable`). Expenses: `queries/expenses.ts` (day view, unpaid, farmer-payment bills). Dashboard: `queries/dashboard.ts` (one Gola) + `queries/consolidated/dashboard.ts` (sum), `repo/daily.ts` (day close / reopen, contra, opening cash / stock, stock count).
 - Shared UI: `components/entry/{PartyAccount,docPath,docLabel}`; dashboard tabs are `next/dynamic` chunks (keep heavy code off Home).
 
+## Key building blocks (v2 Phase 9)
+- Mill: `repo/mill.ts` (`saveMillReturn`, `findDuplicateReturn`, `settleConsignment` / `voidSettlement`); dispatches and second-party entries use `saveBillWithInitialPayment`, conversions `saveDoc`. Reads in `queries/mill.ts` (dispatch-wise balance via `dispatchBalance`). UI in `components/mill/*` (forms, `MillTabs`, `common.tsx` with `ReverseButton` / `HistoryPanel`), routes under `/mill/*`.
+- On-account second-party money: `payAdvance(..., "SECOND_PARTY")` / `AdvanceSheet sourceType`. A CONSIGNMENT dispatch's expected value is never a receivable (DECISIONS D39).
+
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**
 - The project folder is **inside OneDrive** (the user chose to keep it there). `pnpm-workspace.yaml` sets `nodeLinker: hoisted` to avoid symlink problems. If `pnpm install` or a build fails with EPERM / EBUSY / file-locked errors, ask the user to **pause OneDrive sync** and retry.

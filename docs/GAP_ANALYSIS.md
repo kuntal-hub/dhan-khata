@@ -129,11 +129,11 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 12.5 | Load khata = register, link/create sale or dispatch, slip | conflicts | `LoadForm.tsx`, `calc/load.ts` | Rebuild | 10 |
 | 12.6 | Due & Advance unified view, tabs, ledger, FIFO allocation, aging, reminders, WhatsApp | partial | `/due`, `/reminders`, `queries/parties.ts` | Rebuild over payments | 10 |
 | 12.7 | Vehicle trips with multiple collections, driver/diesel/other costs with payments, net profit, daily/monthly | partial | `TripForm.tsx`, `/vehicle` | Rebuild | 10 |
-| 12.8A | Second Party ledger | missing | — | New | 9 |
-| 12.8B | Mill Dispatch (MILLING / CONSIGNMENT) | missing | — | New | 9 |
-| 12.8C | Mill Return (paddy/rice/other, bag weights, duplicate check) | missing | — | New | 9 |
-| 12.8D | Milling Conversion | missing | — | New | 9 |
-| 12.8E | Consignment settlement → Sale | conflicts | `MILL_SETTLEMENT` | New | 9 |
+| 12.8A | Second Party ledger | done | `components/mill/*`, `/mill/party`, `/mill/entry/*`, `queries/mill.ts` (statement print: Phase 11) | New | 9 |
+| 12.8B | Mill Dispatch (MILLING / CONSIGNMENT) | done | `DispatchForm`, `/mill/dispatch/*` (dispatch-wise balance) | New | 9 |
+| 12.8C | Mill Return (paddy/rice/other, bag weights, duplicate check) | done | `ReturnForm`, `repo/mill.ts` (D37, D40) | New | 9 |
+| 12.8D | Milling Conversion | done | `ConversionForm`, `/mill/conversion/*` | New | 9 |
+| 12.8E | Consignment settlement → Sale | done | `SettleForm`, `settleConsignment` / `voidSettlement` (D38) | New | 9 |
 
 ### §13–§20
 | § | Requirement | Status | Files | Planned change | Phase |
@@ -156,8 +156,8 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | Test | Status | Planned |
 |---|---|---|
 | 1 Purchase payments | done (`v2-acceptance`, `tests/repo/payments.test.ts`, e2e `purchase.spec.ts` bn + en; cashbook screen check in Phase 8) | Domain (Phase 1) + e2e bn/en (Phase 5) |
-| 2 Stock 126 / mill 20 | partial (`v2-acceptance`, `tests/repo/dashboard.test.ts`; UI e2e with the dispatch screen in Phase 9) | Domain (Phase 1) + e2e (Phases 8–9) |
-| 3 Mill return 131 / 15 | missing | Domain (Phase 1) + e2e (Phase 9) |
+| 2 Stock 126 / mill 20 | done (`v2-acceptance`, `tests/repo/{dashboard,mill}.test.ts`, e2e `mill.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phases 8–9) |
+| 3 Mill return 131 / 15 | done (`v2-acceptance`, `tests/repo/mill.test.ts`, e2e `mill.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 9) |
 | 4 Cashbook 30,000 / shortage 500 / excess 200 | done (`v2-acceptance`, `tests/repo/dashboard.test.ts`, e2e `dashboard.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 8) |
 | 5 Backdated expense | done (`v2-acceptance`, `tests/repo/expenses.test.ts`, e2e `expenses.spec.ts` bn + en; cashbook screen check in Phase 8) | Domain (Phase 1) + e2e (Phase 7) |
 | 6 Partial sales collection | done (`v2-acceptance`, `tests/repo/sales.test.ts`, e2e `sales.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 6) |
