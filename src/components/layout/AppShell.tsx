@@ -16,6 +16,12 @@ import { useLazyMenu } from "./lazyMenu";
 import { SyncBadge } from "./SyncBadge";
 import { UserMenuButton } from "./UserMenuButton";
 
+// Search + bell (with the reminder query) load after start-up: keeps the Home JS small.
+const HeaderTools = dynamic(() => import("./HeaderTools").then((mod) => mod.HeaderTools), {
+  ssr: false,
+  loading: () => null,
+});
+
 // Radix menu + logout code load on the first tap (keeps the start-up JS small).
 const UserMenu = dynamic(() => import("./UserMenu").then((mod) => mod.UserMenu), {
   ssr: false,
@@ -40,9 +46,13 @@ export function AppShell({ children }: { children: ReactNode }) {
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="bg-background/90 sticky top-0 z-30 flex h-16 items-center gap-2 border-b px-3 backdrop-blur lg:px-6 print:hidden">
-            <LogoMark className="size-9 shrink-0 lg:hidden" title={t("common.appName")} />
+            <LogoMark
+              className="hidden size-9 shrink-0 sm:block lg:hidden"
+              title={t("common.appName")}
+            />
             <GodownSwitcher />
-            <div className="ml-auto flex shrink-0 items-center gap-1">
+            <div className="ml-auto flex shrink-0 items-center gap-0.5">
+              <HeaderTools />
               <SyncBadge />
               {menu.armed ? (
                 <UserMenu open={menu.open} onOpenChange={menu.setOpen} />

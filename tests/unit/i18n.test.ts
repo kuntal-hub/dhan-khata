@@ -22,6 +22,19 @@ describe("dictionaries", () => {
     }
   });
 
+  it("every string uses the same {placeholders} in Bengali and English", () => {
+    const vars = (s: string) =>
+      [...s.matchAll(/\{(\w+)\}/g)]
+        .map((m) => m[1])
+        .sort()
+        .join(",");
+    // Calendar formats differ on purpose (day / month order, weekday).
+    const mismatched = leafKeys(bn).filter(
+      (k) => !k.startsWith("calendar.") && vars(translate("bn", k)) !== vars(translate("en", k)),
+    );
+    expect(mismatched).toEqual([]);
+  });
+
   it("every domain error code and seeded code has a translation", () => {
     for (const lang of ["bn", "en"] as const) {
       expect(translate(lang, "errors.domain.CROSS_GODOWN_REFERENCE")).not.toContain("errors.");
@@ -37,7 +50,7 @@ describe("dictionaries", () => {
     expect(translate("bn", "sync.pendingCount", { count: 5, countDisplay: "৫" })).toBe(
       "৫টি অপেক্ষায়",
     );
-    expect(translate("bn", "godown.switcher", { name: "রামপুর" })).toBe("গোলা: রামপুর");
+    expect(translate("bn", "gola.switcher", { name: "রামপুর" })).toBe("গোলা: রামপুর");
   });
 
   it("unknown keys return the key (never throw)", () => {

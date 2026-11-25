@@ -88,6 +88,8 @@ const ROUTES = [
   "/dues?tab=reports",
   "/vehicles?tab=reports",
   "/mill?tab=reports",
+  "/settings",
+  "/search",
   "/mill",
   "/mill?tab=dispatch",
   "/mill?tab=return",

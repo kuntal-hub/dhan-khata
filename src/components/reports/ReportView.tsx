@@ -48,7 +48,9 @@ export function useReportScope() {
   const active = (godowns ?? []).filter((g) => g.status === "active");
   const ids = consolidated ? active.map((g) => g._id) : godownId ? [godownId] : [];
   const name = (id: string) => (godowns ?? []).find((g) => g._id === id)?.name ?? "";
-  return { ids, name, consolidated: !!consolidated, godownId };
+  /** Every active Gola: business-wide reports (Gola-wise, combined) always cover all of them. */
+  const allIds = active.map((g) => g._id);
+  return { ids, allIds, name, consolidated: !!consolidated, godownId };
 }
 
 export function useReportModel(def: ReportDef | undefined, p: ReportParams) {
@@ -58,7 +60,7 @@ export function useReportModel(def: ReportDef | undefined, p: ReportParams) {
     () =>
       def && scope.ids.length
         ? runReport(def, {
-            godownIds: scope.ids,
+            godownIds: def.business ? scope.allIds : scope.ids,
             golaName: scope.name,
             from: p.from,
             to: p.to,
@@ -66,7 +68,7 @@ export function useReportModel(def: ReportDef | undefined, p: ReportParams) {
             t,
           })
         : undefined,
-    [def?.id, scope.ids.join(","), p.from, p.to, p.opt, t],
+    [def?.id, scope.ids.join(","), scope.allIds.join(","), p.from, p.to, p.opt, t],
   );
 }
 
@@ -94,6 +96,13 @@ function periodText(
   return p.from === p.to
     ? date(p.from, "short")
     : `${date(p.from, "short")} – ${date(p.to, "short")}`;
+}
+
+/** Exact value of a numeric cell (paise or grams) for tests and copy. */
+function rawOf(v: CellValue): string | undefined {
+  if (v && typeof v === "object" && "m" in v) return v.m.toString();
+  if (v && typeof v === "object" && "q" in v) return v.q.toString();
+  return undefined;
 }
 
 export function ReportDoc({
@@ -202,6 +211,7 @@ export function ReportDoc({
                               ? "text-left"
                               : "tabular text-right whitespace-nowrap",
                           )}
+                          data-raw={rawOf(v)}
                         >
                           {cell(v)}
                         </td>
@@ -220,9 +230,7 @@ export function ReportDoc({
                             j === 0 && "sticky left-0",
                             j === 0 ? "text-left" : "tabular text-right whitespace-nowrap",
                           )}
-                          data-raw={
-                            v && typeof v === "object" && "m" in v ? v.m.toString() : undefined
-                          }
+                          data-raw={rawOf(v)}
                         >
                           {cell(v)}
                         </td>

@@ -37,7 +37,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 0.2 | Credit purchase/sale doesn't move cash | done | `posting/post.ts` | Keep in v2 posting | 1 |
 | 0.2 | Paddy/rice/other never combined | done (engine) | — | `product` dimension | 1 |
 | 0.2 | Exactly 8 navigation sections | done | `components/layout/nav.tsx`, `(app)/more` | New shell | 4 |
-| 0.2 | No dummy buttons / hard-coded data | partial | Home stubs, "coming soon" badges in `more/page.tsx` | Remove during section rebuilds | 4–12 |
+| 0.2 | No dummy buttons / hard-coded data | done (no `NotBuiltYet`, all 8 quick actions live; Phase 12) | Home stubs, "coming soon" badges in `more/page.tsx` | Remove during section rebuilds | 4–12 |
 | 0.2 | Bengali default + full English | done | `src/i18n/*` | New keys for every new screen | all |
 | 0.2 | Offline-first | done | Dexie, outbox, Serwist | Keep; cold-offline test for 8 sections | 12 |
 | 1.1 | App name "Dhan Gola / ধান গোলা" | done | `manifest.ts`, `layout.tsx`, i18n `app.name`, `.env*`, receipts | Rename everywhere | 4 |
@@ -59,7 +59,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 2.2 | Gola create/edit/archive (+ colour, low stock, delete only when empty) | done | `GodownWizard`, `/godowns`, `godownService.ts` | Move into avatar menu; colour; low-stock thresholds; delete blocked | 3 |
 | 2.2 | Staff logins out of scope | done (staff UI removed; roles internal, D14) | roles UI, `/settings/users`, entry-role gates | Hide staff UI; keep roles internally | 3 |
 | 2.3 | Gola switcher in header + Dashboard, colour chip, cross-fade ≤250 ms | done | `GodownSwitcher*` | Colour chip, motion cross-fade | 4 |
-| 2.3 | Form title shows Gola; switching with dirty form asks | partial | `FormShell` shows godown | Confirm on switch with dirty form | 4 |
+| 2.3 | Form title shows Gola; switching with dirty form asks | done (`GodownMenu` confirm, `FormShell` title) | `FormShell` shows godown | Confirm on switch with dirty form | 4 |
 | 2.3 | Combined (all Golas) read-only view | done | `queries/consolidated` | Rebuild as side-by-side + total in Dashboard & reports | 8 |
 | 2.3 | Parties per Gola + "copy from other Gola" | done | `PartyForm` | Keep | — |
 | 2.3 | Inter-Gola transfer = linked sale + purchase | done | `repo/sales.ts` `saveInterGolaTransfer` (one op group across both Golas) | Keep paddy transfer as Sales action; money transfer via payments | 6 |
@@ -73,24 +73,24 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 5 | Void (soft) with reason, excluded from totals | done | repo `voidVoucher` | Keep | — |
 | 5 | Linked records edited/voided together or blocked with message | done (repo/server; dialog Phase 4+) | `saveVoucherWithLinked` | Payments linked by `source`; block/cascade dialog | 2, 5 |
 | 6.1 | Storage units; parse rejects >2 dp money / >3 dp kg | done | `decimal.ts`, `client/ui/parse.ts` | Keep | — |
-| 6.2 | kg / quintal / mon (monKg configurable) + 3-unit display line | missing | `i18n/parse.ts` (qtl + kg) | `domain/units.ts`, `UnitToggle`, `QtyTriple` | 1, 4 |
+| 6.2 | kg / quintal / mon (monKg configurable) + 3-unit display line | done (`domain/units.ts`, `QtyTriple`, weight unit toggle) | `i18n/parse.ts` (qtl + kg) | `domain/units.ts`, `UnitToggle`, `QtyTriple` | 1, 4 |
 | 6.3 | WeightBlock (bag-wise / manual), avg bag | done (domain) | `TradeLine` (gross + deductions) | `domain/weightBlock.ts` | 1 |
 | 6.3 | Deductions optional, off by default | done (setting \usiness.settings.deductionsEnabled\; block shown only when on) | trade lines always deduct | `deductions?` in WeightBlock + setting | 1, 5 |
-| 6.3 | Closing paddy/mill formulas, vehicle net profit | missing/partial | `calc/vehicle.ts` | Stock engine v2, `calc/trip` v2 | 1 |
+| 6.3 | Closing paddy/mill formulas, vehicle net profit | done (`v2/stock.ts`, `queries/vehicles.ts`) | `calc/vehicle.ts` | Stock engine v2, `calc/trip` v2 | 1 |
 | 6.4 | Golden G1–G8 | done | `tests/unit/golden.test.ts` (G1, G4–G7 equivalents) | Add G2 (mon), G3 (bags), G8 (cashbook) | 1 |
 | 6.4 | Property tests (balanced, void restores, edit-back, Gola isolation) | done (v2) | `tests/property/*` | Re-target to v2 documents | 1 |
 | 7.1 | Separate date fields + entryDate | done | single `date` | Per-type dates, `businessDate()`, `entryDate` | 1 |
-| 7.1 | Future business dates blocked (except dueDate) | partial | `validateVoucherRules` | Keep for v2 | 1 |
+| 7.1 | Future business dates blocked (except dueDate) | done (`validateDocRules`, `DateField`) | `validateVoucherRules` | Keep for v2 | 1 |
 | 7.1 | Backdated entry on closed day → "re-check" | done | `dayStatus.lateEntry` → Cashbook banner + reopen | Recheck flag computed from day-close vs later entries | 8 |
 | 7.2 | Unified Payment model | done | PAYMENT/RECEIPT vouchers | New PAYMENT document | 1 |
-| 7.2 | Overpayment → split bill + PARTY_ADVANCE with shared groupId | missing | — | `splitPayment()` domain helper | 1 |
+| 7.2 | Overpayment → split bill + PARTY_ADVANCE with shared groupId | done (`splitOverpayment`, `payBill`, D22) | — | `splitPayment()` domain helper | 1 |
 | 7.2 | Payment receipt (bilingual, logo, words) | done (payment, purchase, invoice, load slip, trip; share as image D47) | `components/print/ReceiptSheet.tsx`, `(print)/*` | Re-target to Payment | 11 |
 | 7.3 | Cashbook classifier (received / paid / expenses; farmer payment = paid) | done (domain) | `queries/cashbank.ts` (account book) | `domain/cashbook.ts` | 1 |
-| 8 | Chart of accounts per Gola incl. STOCK_PADDY/RICE/OTHER/AT_MILL, EXP_PAYABLE, MILLING_* | partial | `posting/accounts.ts` | New account keys | 1 |
+| 8 | Chart of accounts per Gola incl. STOCK_PADDY/RICE/OTHER/AT_MILL, EXP_PAYABLE, MILLING_* | done (`v2/accounts.ts`) | `posting/accounts.ts` | New account keys | 1 |
 | 8 | Event → posting table | done | `post.ts` | Rewrite for v2 events | 1 |
 | 9.1 | StockMove product/location/mill/bags | done | `StockMove` (variety, STORE/TRANSIT) | New move shape | 1 |
 | 9.2 | Movement rules per transaction | done | `post.ts` | v2 rules | 1 |
-| 9.3 | No silent negative stock ("Save anyway") | partial | integrity check | `wouldGoNegative()` + UI confirm | 1, 5–9 |
+| 9.3 | No silent negative stock ("Save anyway") | done (sale, dispatch, return, conversion, settlement confirms; integrity check lists positions that went below zero, D51) | integrity check | `wouldGoNegative()` + UI confirm | 1, 5–9 |
 | 9.3 | Date-wise stock ledger | done | `components/dashboard/StockTab.tsx` (any date, per variety, 14-day history) | Per product/location | 8 |
 | 9.3 | Physical verification + reasoned adjustment | done | `approveStockCount` + Stock tab | Count → approve | 8 |
 | 9.3 | Low-stock alerts per Gola | done | `lowStockAlerts` + Overview (threshold on Gola edit) | thresholds on Gola + dashboard alert | 8 |
@@ -109,8 +109,8 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
 | 11 | 8 sections, desktop sidebar, mobile bottom bar (4) + "All sections" sheet | done | `nav.tsx`, `AppShell.tsx` | New shell | 4 |
-| 11 | Header: switcher, sync badge, search, bell; avatar menu (profile, business, Golas, banks, settings, language, logout) | partial | `UserMenu`, `GodownMenu`, `SyncBadge`, `ReminderBadge` | Restructure avatar menu | 4 |
-| 11 | Floating quick-add (8 actions) | partial | Home FAB sheet | New FAB with v2 actions | 4 |
+| 11 | Header: switcher, sync badge, search, bell; avatar menu (profile, business, Golas, banks, settings, language, logout) | done (`HeaderTools`, `/search`, `/settings`, D48) | `UserMenu`, `GodownMenu`, `SyncBadge`, `ReminderBadge` | Restructure avatar menu | 4 |
+| 11 | Floating quick-add (8 actions) | done (all 8 ready) | Home FAB sheet | New FAB with v2 actions | 4 |
 | 12.1A | Overview cards (14), charts, recent, due & low-stock alerts, quick actions, date filters, combined | done (Gola-wise / combined report shortcuts come with the reports tab, Phase 11) | `components/dashboard/Overview.tsx`, `queries/dashboard.ts`, `consolidated/dashboard.ts` | Rebuild with range filters + charts | 8 |
 | 12.1B | Daily Cashbook (opening/received/paid/expenses/expected/actual/diff, formula, itemised, correct, day close, reopen, bank toggle, contra, drawings/capital) | done | `components/dashboard/Cashbook.tsx`, `repo/daily.ts` | Cashbook tab over the v2 classifier | 8 |
 | 12.1C | Daily Stock (paddy/rice/other, mill block, verification, history) | done | `components/dashboard/StockTab.tsx` | Stock tab | 8 |
@@ -143,13 +143,13 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 14.2 | WhatsApp click-to-chat templates everywhere specified | done (party ledgers, Due rows + reminders, purchase / sale / expense / trip / dispatch detail, receipts; share image D47) | `components/kit/WhatsApp.tsx` | `WhatsAppButton` + templates | 10–11 |
 | 15.1 | Logo SVG, icons, palette tokens, fonts | done | `globals.css`, `public/icons` | New tokens/logo | 4 |
 | 15.2–15.3 | Premium components, animations, reduced motion | done (kit + CSS motion, D19; charts Phase 8) | — | `motion` LazyMotion | 4 |
-| 15.4 | Non-technical UX: 48 px buttons, confirmations stating effect, calc on tap, undo | partial | `Computed` | `ConfirmDialog`, undo toast | 4+ |
+| 15.4 | Non-technical UX: 48 px buttons, confirmations stating effect, calc on tap, undo | done (confirmations state the effect; formulas on tap; bag delete undo) | `Computed` | `ConfirmDialog`, undo toast | 4+ |
 | 15.5 | Responsive 360/768/1280 | done (shell) | mobile-first only | Sidebar + grids | 4 |
-| 15.6 | Reusable components list | partial | `forms/*`, `money/*` | Build missing ones | 4–11 |
-| 16 | Bengali default, toggle on login + avatar, natural WB terms, digits, key parity CI | partial | i18n | Terminology pass (গোলা, মণ, বস্তা…) | 4, 12 |
+| 15.6 | Reusable components list | done (AmountInput, WeightBlockInput, PartyPicker, VarietyPicker, PaymentList, AddPaymentSheet, DateField, MetricCard, TxnCard, report table, ReportDoc, ConfirmDialog, EmptyState, VoiceButton, WhatsAppButton) | `forms/*`, `money/*` | Build missing ones | 4–11 |
+| 16 | Bengali default, toggle on login + avatar, natural WB terms, digits, key parity CI | done (key + placeholder parity, no unused keys; native-speaker review of wording is a UAT item, D50) | i18n | Terminology pass (গোলা, মণ, বস্তা…) | 4, 12 |
 | 17 | Offline-first sync, conflicts never merged for money, **op groups** | done | `client/sync/*`, `applyOp.ts` (one op per tx) | Op groups applied in one Mongo transaction | 2 |
 | 18 | Manifest name, shortcuts (নতুন কেনা, নতুন বিক্রি, খরচ, ক্যাশবই), icons | done | `manifest.ts` | Update | 4 |
-| 19 | Security (argon2id, rate limits, recovery rate limit, audit incl. password reset/export) | partial | `server/auth.ts` | Recovery rate limit + audit actions | 3 |
+| 19 | Security (argon2id, rate limits, recovery rate limit, audit incl. password reset/export) | done (Phase 3; `DATA_NOT_MIGRATED` guard) | `server/auth.ts` | Recovery rate limit + audit actions | 3 |
 | 20 | Ops: env `ALLOW_REGISTRATION`, `NEXT_PUBLIC_APP_NAME=Dhan Gola` | done | `.env.example` | Add | 3–4 |
 
 ### §21 Acceptance tests
@@ -161,8 +161,8 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 4 Cashbook 30,000 / shortage 500 / excess 200 | done (`v2-acceptance`, `tests/repo/dashboard.test.ts`, e2e `dashboard.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 8) |
 | 5 Backdated expense | done (`v2-acceptance`, `tests/repo/expenses.test.ts`, e2e `expenses.spec.ts` bn + en; cashbook screen check in Phase 8) | Domain (Phase 1) + e2e (Phase 7) |
 | 6 Partial sales collection | done (`v2-acceptance`, `tests/repo/sales.test.ts`, e2e `sales.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 6) |
-| 7 Two Golas + combined | done (Vitest; e2e Phase 12) | e2e (Phase 3/8) |
-| 8 Persistence | done (Vitest; e2e Phase 12) | e2e (Phase 3/12) |
+| 7 Two Golas + combined | done (Vitest; e2e `acceptance.spec.ts`) | e2e (Phase 3/8) |
+| 8 Persistence | done (Vitest; e2e `acceptance.spec.ts`: refresh, offline, logout/login, second profile) | e2e (Phase 3/12) |
 | 9 Security | done (`isolation.test.ts`, `account.test.ts`) | + businessId, second business (Phase 2/3) |
-| 10 Edit & reversal | partial (property tests) | Phase 12 |
-| 11 UX | missing | Phase 12 |
+| 10 Edit & reversal | done (`tests/repo/edit-reversal.test.ts`, property tests) | Phase 12 |
+| 11 UX | done (e2e `acceptance.spec.ts` + `shell.spec.ts`: every tab at 360/768/1280 bn+en, search, bell, settings, empty state, reduced motion; print in `reports.spec.ts`) | Phase 12 |

@@ -5,7 +5,8 @@
  *  3. per-account totals compared between the device and the server.
  */
 import { replayDocs } from "./v2/replay";
-import type { Doc, LedgerLineV2 as LedgerLine } from "./v2/schemas";
+import { stockKeyId } from "./v2/post";
+import type { Doc, LedgerLineV2 as LedgerLine, StockMoveV2 } from "./v2/schemas";
 
 export interface LineLike {
   account: string;
@@ -96,4 +97,68 @@ export function repostMismatches(
   // Stored lines of vouchers that no longer exist are mismatches too.
   for (const id of byVoucher.keys()) if (!seen.has(id)) out.push(id);
   return out;
+}
+
+export interface NegativePosition {
+  /** `stockKeyId` of the position (product | location | variety | other | mill | group). */
+  key: string;
+  product: StockMoveV2["product"];
+  location: StockMoveV2["location"];
+  varietyId?: string;
+  millPartyId?: string;
+  otherProductName?: string;
+  /** The lowest running quantity (g, < 0) and the first date it was reached. */
+  minG: bigint;
+  onDate: string;
+  /** Quantity now (all dates). */
+  nowG: bigint;
+}
+
+/**
+ * Stock positions that went below zero on some date (§9.3: never silent; offline entries on two
+ * devices can do this). Running sum per position in date order (same-day moves summed first).
+ */
+export function negativePositions(moves: readonly StockMoveV2[]): NegativePosition[] {
+  const byKey = new Map<string, StockMoveV2[]>();
+  for (const m of moves) {
+    const k = stockKeyId({
+      product: m.product,
+      location: m.location,
+      ...(m.varietyId ? { varietyId: m.varietyId } : {}),
+      ...(m.otherProductName ? { otherProductName: m.otherProductName } : {}),
+      ...(m.millPartyId ? { millPartyId: m.millPartyId } : {}),
+      ...(m.groupId ? { groupId: m.groupId } : {}),
+    });
+    byKey.set(k, [...(byKey.get(k) ?? []), m]);
+  }
+  const out: NegativePosition[] = [];
+  for (const [key, list] of byKey) {
+    const perDay = new Map<string, bigint>();
+    for (const m of list) perDay.set(m.date, (perDay.get(m.date) ?? 0n) + BigInt(m.qtyG));
+    let run = 0n;
+    let min = 0n;
+    let onDate = "";
+    for (const day of [...perDay.keys()].sort()) {
+      run += perDay.get(day)!;
+      if (run < min) {
+        min = run;
+        onDate = day;
+      }
+    }
+    if (min < 0n) {
+      const m = list[0]!;
+      out.push({
+        key,
+        product: m.product,
+        location: m.location,
+        ...(m.varietyId ? { varietyId: m.varietyId } : {}),
+        ...(m.millPartyId ? { millPartyId: m.millPartyId } : {}),
+        ...(m.otherProductName ? { otherProductName: m.otherProductName } : {}),
+        minG: min,
+        onDate,
+        nowG: run,
+      });
+    }
+  }
+  return out.sort((a, b) => (a.onDate < b.onDate ? -1 : 1));
 }

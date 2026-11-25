@@ -138,5 +138,17 @@ The browser's speech recognition only (no AI, no paid API), `bn-IN` / `en-IN` by
 ### D47: Share as image
 Reports and receipts have "ছবি শেয়ার": the sheet is rendered to PNG on the device (`html-to-image`, lazy) and shared through the Web Share API, or downloaded when sharing files isn't supported. WhatsApp buttons only open WhatsApp with a prepared text; nothing is sent automatically.
 
+### D48: Header search and bell
+The header has search (opens `/search`: parties by name in either script or mobile, entries by number / party / vehicle / amount, on the device) and a bell whose badge counts reminders that are overdue or due today and not done (automatic + manual); it opens Due & Advance → রিমাইন্ডার. Both load after start-up (Home JS budget). On phones the logo mark is hidden in the header so the switcher and four buttons fit at 360 px.
+
+### D49: Business-wide reports always cover every Gola
+Gola-wise and combined reports use all active Golas, whichever Gola is selected; section reports follow the active Gola (or all Golas in the all-Golas view, with a Gola column).
+
+### D50: i18n completeness
+Unused dictionary keys (mostly from the removed v1 screens) were deleted and the "every key is used" test is back on (template keys like `` `ld.linkedTo${…}` `` count). A new test requires the same `{placeholders}` in Bengali and English (calendar formats excepted); it caught the English push digest printing `{Gola}`. The v1 `due` namespace still exists, so the v2 one is `dues`. Natural-language review of the Bengali wording by a native speaker stays a UAT item.
+
+### D51: Integrity check covers stock that went below zero
+Settings → হিসাব যাচাই runs, per Gola in scope: trial balance, re-posting every document, stock positions whose running quantity went below zero on some date (with the lowest quantity, the date and the quantity now, §9.3), unsent work older than 7 days, and (owner, online) the comparison with the server. The push digest counts automatic reminders too (open bills with a due date and the owner's done / snooze state).
+
 ### D36: Day close and reopen
 Closing writes a DAY_CLOSE with the expected cash at that moment, the counted cash and the difference (note required when ≠ 0; denomination counts kept). The difference posts to CASH_DIFF, so the next day's opening equals the counted cash. Only the owner reopens (the close is voided with a reason). An entry dated on a closed day shows "পরে এন্ট্রি হয়েছে — আবার মেলান"; "আবার মেলান" reopens the day so it can be counted again.

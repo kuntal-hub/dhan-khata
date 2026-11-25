@@ -40,6 +40,7 @@ export function SyncBadge() {
       className={`flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium ${tone}`}
       aria-label={`${t("sync.title")}: ${text}`}
       data-testid="sync-badge"
+      data-synced={allGood ? "yes" : "no"}
     >
       {icon}
       {/* All fine → icon only on phones (room for the godown name); any state that needs

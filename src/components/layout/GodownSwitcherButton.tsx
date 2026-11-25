@@ -22,7 +22,7 @@ export function GodownSwitcherButton(props: ComponentProps<"button">) {
   return (
     <button
       type="button"
-      className="press bg-card hover:bg-muted shadow-card flex h-11 max-w-[62vw] min-w-0 items-center gap-2 rounded-full border px-3 text-[15px] sm:max-w-sm"
+      className="press bg-card hover:bg-muted shadow-card flex h-11 max-w-[46vw] min-w-0 items-center gap-2 rounded-full border px-3 text-[15px] sm:max-w-sm"
       aria-haspopup="menu"
       aria-label={label}
       data-testid="godown-switcher"

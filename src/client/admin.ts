@@ -6,9 +6,11 @@
 import {
   accountTotals,
   diffAccountTotals,
+  negativePositions,
   repostMismatches,
   trialOf,
   type AccountDiff,
+  type NegativePosition,
 } from "@/domain/integrity";
 import type { Device, GodownRole, User } from "@/domain/schemas";
 import { authedCall } from "./auth/session";
@@ -97,6 +99,8 @@ export interface IntegrityReport {
   godownId: string;
   trial: { debitPaise: bigint; creditPaise: bigint; balanced: boolean };
   repostMismatches: string[];
+  /** Stock positions that went below zero (§9.3). */
+  negativeStock: NegativePosition[];
   staleOps: number;
   /** null = not compared (offline, or not the owner). */
   server: { diffs: AccountDiff[]; serverRepostMismatches: string[] } | null;
@@ -133,6 +137,12 @@ export async function runIntegrity(
     godownId,
     trial: trialOf(lines),
     repostMismatches: repostMismatches(vouchers, lines),
+    negativeStock: negativePositions(
+      await d.stockMoves
+        .where("[godownId+date]")
+        .between([godownId, ""], [godownId, "￿"], true, true)
+        .toArray(),
+    ),
     staleOps,
     server,
   };

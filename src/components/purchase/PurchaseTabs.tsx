@@ -236,7 +236,7 @@ export function VarietyManager() {
   return (
     <div className="flex flex-col gap-3" data-testid="variety-manager">
       <div className="flex gap-2">
-        <div className="bg-card shadow-card flex flex-1 items-center gap-2 rounded-2xl border px-3">
+        <div className="bg-card shadow-card flex min-w-0 flex-1 items-center gap-2 rounded-2xl border px-3">
           <Search className="text-muted-foreground size-5" aria-hidden />
           <input
             className="h-12 min-w-0 flex-1 bg-transparent text-base outline-none"
@@ -247,7 +247,11 @@ export function VarietyManager() {
           />
         </div>
         {readOnly ? null : (
-          <Button className="h-12" onClick={() => setAdding(true)} data-testid="variety-add">
+          <Button
+            className="h-12 shrink-0"
+            onClick={() => setAdding(true)}
+            data-testid="variety-add"
+          >
             {t("vari.add")}
           </Button>
         )}
@@ -290,7 +294,7 @@ export function VarietyManager() {
             {shown.map((r) => (
               <li
                 key={r.variety._id}
-                className="flex items-center gap-3 py-3"
+                className="flex flex-wrap items-center gap-x-3 gap-y-1 py-3"
                 data-testid="variety-row"
               >
                 <span className="bg-gold-100 text-gold-600 flex size-10 items-center justify-center rounded-xl">
@@ -312,7 +316,7 @@ export function VarietyManager() {
                   </span>
                 </span>
                 {readOnly ? null : (
-                  <span className="flex shrink-0 gap-1">
+                  <span className="ml-auto flex max-w-full flex-wrap justify-end gap-1">
                     <Button
                       variant="ghost"
                       className="h-11 text-sm"

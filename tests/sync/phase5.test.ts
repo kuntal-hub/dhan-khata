@@ -11,7 +11,7 @@ import { db } from "@/client/db/dexie";
 import { getSession } from "@/client/db/meta";
 import { reportClientError, uploadClientErrors } from "@/client/diagnostics";
 import { createManualReminder, saveDoc, upsertMaster } from "@/client/repo";
-import { todayIST } from "@/domain/dates";
+import { addDays, todayIST } from "@/domain/dates";
 import { accountTotals } from "@/domain/integrity";
 import type { Backup } from "@/server/admin";
 import { restoreBackup } from "@/server/admin";
@@ -74,7 +74,11 @@ beforeAll(async () => {
     GA,
     paymentDraft("OUT", 500000n, { type: "PURCHASE", id: pa._id }, { partyId: fa._id }),
   );
-  await saveDoc(GB, purchaseDraft(fb._id, await swarna(GB), 4n * QTL, 210_000n));
+  // A bill due yesterday: an automatic (derived) reminder, counted as overdue in the digest.
+  await saveDoc(GB, {
+    ...purchaseDraft(fb._id, await swarna(GB), 4n * QTL, 210_000n),
+    dueDate: addDays(todayIST(), -1),
+  });
   await saveDoc(GB, expenseDraft(30_000n));
   await createManualReminder(GA, { title: "Call mill A", dueDate: today() });
   await createManualReminder(GB, { title: "Call mill B", dueDate: today() });
@@ -115,7 +119,8 @@ describe("web push digest + cron", () => {
     expect(toOwner.payload.body).toContain("Sonapur");
     expect(toMa.payload.body).toContain("Rampur");
     expect(toMa.payload.body).not.toContain("Sonapur"); // godown isolation in push
-    expect(toOwner.payload.title).toBe("ধান খাতা — আজকের রিমাইন্ডার");
+    expect(toOwner.payload.title).toBe("ধান গোলা — আজকের রিমাইন্ডার");
+    expect(toOwner.payload.body).toContain("Sonapur: আজ 1টি, তারিখ পেরিয়েছে 1টি");
     // Not again today without force.
     // (Evening of the same IST day, so the "not before the digest hour" guard never interferes.)
     const evening = new Date(`${todayIST()}T20:00:00+05:30`);

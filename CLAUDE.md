@@ -99,6 +99,10 @@ Keep this list up to date.
 - Mill: `repo/mill.ts` (`saveMillReturn`, `findDuplicateReturn`, `settleConsignment` / `voidSettlement`); dispatches and second-party entries use `saveBillWithInitialPayment`, conversions `saveDoc`. Reads in `queries/mill.ts` (dispatch-wise balance via `dispatchBalance`). UI in `components/mill/*` (forms, `MillTabs`, `common.tsx` with `ReverseButton` / `HistoryPanel`), routes under `/mill/*`.
 - On-account second-party money: `payAdvance(..., "SECOND_PARTY")` / `AdvanceSheet sourceType`. A CONSIGNMENT dispatch's expected value is never a receivable (DECISIONS D39).
 
+## Key building blocks (v2 Phase 12)
+- Header: `layout/HeaderTools` (search → `/search`, bell → due reminders), loaded lazily. Settings `/settings` (theme, links, Excel export, JSON backup, integrity check incl. `negativePositions`).
+- Tests that guard the whole app: `tests/e2e/acceptance.spec.ts` (Tests 7, 8, 11: every tab of every section at 360 / 768 / 1280 px with no horizontal scroll), `tests/repo/edit-reversal.test.ts` (Test 10), `tests/unit/i18n*.test.ts` (key + placeholder parity, no unused keys). A new tab must fit 360 px (`min-w-0` on flexible flex children).
+
 ## Key building blocks (v2 Phase 11)
 - Reports: add a `ReportDef` to `src/client/reports/defs.ts` (`REPORTS`); it appears in its section's রিপোর্ট tab (`LazyReports`), prints at `/print/report?r=<id>&from&to&opt`, and exports to Excel / CSV / image from the same `ReportModel` (exact cells). `printHrefOf()` builds print links (party statements use `party-ledger`).
 - Voice: `components/voice/VoiceButton` (+ `VoiceText`); number fields take `voice`.

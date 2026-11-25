@@ -20,7 +20,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 9 | Mill & Second Party | Tests 2, 3 e2e | ✅ |
 | 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ✅ |
 | 11 | Reports, print, export, voice, WhatsApp | reports reconcile with dashboard | ✅ |
-| 12 | Hardening | all of §21 | ⬜ |
+| 12 | Hardening | all of §21 | ✅ |
 
 ## v1 build (requirement.md v1.1)
 
@@ -495,3 +495,22 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - Reports run over the device's data on demand; very long ranges (> 400 days) are capped for the per-day reports.
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 307 passed, 1 skipped (30 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 243.1 KB · `pnpm test:e2e` ✅ 17/17 · reports reconcile with the dashboard ✅.
+### v2 Phase 12 — Hardening — 2026-11-25
+**Built / fixed:**
+- Header search (`/search`: parties in either script or by mobile, entries by number / party / vehicle / amount) and the notifications bell (overdue + today reminders → Due & Advance → রিমাইন্ডার), both loaded after start-up (D48). The logo mark is hidden on phones so the header fits 360 px.
+- Settings (`/settings`, avatar menu): theme, where units / deductions / thresholds / language / sessions are set, Excel export of all registers (from the device), JSON backup per Gola or all (owner, online), the integrity check per Gola (trial balance, re-posting, stock that went below zero, stale unsent work, server comparison; D51). `domain/integrity.negativePositions`.
+- Business-wide reports (Gola-wise, combined) always cover every active Gola (D49).
+- Push digest counts automatic reminders (open bills with a due date + the owner's done / snooze state), links to the v2 reminders tab, says "ধান গোলা"; the English digest no longer prints a literal `{Gola}`.
+- i18n: 323 unused (mostly v1) keys deleted, the "every key is used" test is back on (template keys counted), a new placeholder-parity test (D50).
+- UI bugs found by the new acceptance e2e and fixed: the variety manager was wider than 360 px (search row without `min-w-0`; merge / put-away buttons on unused varieties) — the row now wraps.
+- The migration guard `DATA_NOT_MIGRATED` (login and every authenticated call refuse a database not yet run through `migrate:v2`) was completed and tested before Phase 9.
+- Tests: `tests/repo/edit-reversal.test.ts` (Test 10: purchase, payment, sale, expense, dispatch edited in quantity / amount / date → stock, cashbook on old and new dates, dues, register; edit-back restores; void restores every account total and stock position; no duplicates), `tests/unit/integrity-negative.test.ts`, `tests/unit/i18n.test.ts` (placeholders), `tests/sync/phase5.test.ts` (digest with an automatic reminder), e2e `tests/e2e/acceptance.spec.ts` (Test 7 two Golas + Gola-wise total = sum; Test 8 refresh, offline cold reload, logout / login, second browser profile; Test 11 search, bell, settings integrity "all good", empty state, every tab of every section at 360 / 768 / 1280 px in bn and en). Offline spec covers `/settings`, `/search`.
+
+**§21 acceptance status:** Tests 1–6 (domain + repo + e2e bn/en), 7 and 8 (Vitest + e2e), 9 (Vitest: isolation, crafted requests, recomputation), 10 (repo + property tests), 11 (e2e) all pass; plus golden G1–G8, property tests, sync idempotency / conflicts, cold-offline for all 8 sections and every sub-route, voice parser and voice button, i18n parity.
+
+**Known issues / for the client (UAT):**
+- D10 is still OPEN for the client: whether a mill return's value can be a receivable (today: valuation only).
+- Native-speaker review of the Bengali wording; `docs/UAT-CHECKLIST.md` is for the client's walk-through.
+- Voice input needs the network on Chrome (shown as disabled offline, D46).
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 313 passed (32 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 242.3 KB · `pnpm test:e2e` ✅ 21/21 · `pnpm lighthouse` not run in this session.

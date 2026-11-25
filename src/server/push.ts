@@ -7,6 +7,8 @@ import type { Db } from "mongodb";
 import * as webpush from "web-push";
 import { z } from "zod";
 import { todayIST } from "@/domain/dates";
+import type { Doc, Payment } from "@/domain/schemas";
+import { billState, dueBillsOf } from "@/domain/v2/payments";
 import { translate } from "@/i18n/translateAll";
 import { cols, type AppSettingsDoc, type UserDoc } from "./db";
 import { ApiError } from "./http";
@@ -69,15 +71,35 @@ export async function digestFor(db: Db, user: UserDoc, today: string): Promise<D
   for (const g of await godownIdsFor(db, user)) {
     const godown = await k.godowns.findOne({ _id: g });
     if (!godown || godown.status !== "active") continue;
-    const rems = await k.reminders
-      .find({ godownId: g, status: { $in: ["open", "snoozed"] } })
-      .toArray();
+    const rems = await k.reminders.find({ godownId: g }).toArray();
+    const state = new Map(rems.map((r) => [r._id, r] as const));
     let dueToday = 0;
     let overdue = 0;
-    for (const r of rems) {
-      const due = r.status === "snoozed" && r.snoozeUntil ? r.snoozeUntil : r.dueDate;
+    const count = (due: string) => {
       if (due === today) dueToday++;
       else if (due < today) overdue++;
+    };
+    // Manual reminders (stored).
+    for (const r of rems) {
+      if (r._id.startsWith("auto:") || r.status === "done") continue;
+      count(r.status === "snoozed" && r.snoozeUntil ? r.snoozeUntil : r.dueDate);
+    }
+    // Automatic reminders: open bills with a due date (DECISIONS D13), with the owner's
+    // done / snooze / changed date stored as `auto:<sourceId>`.
+    const docs = (await k.vouchers.find({ godownId: g, status: "active" }).toArray()) as Doc[];
+    const pays = new Map<string, Payment[]>();
+    for (const p of docs) {
+      if (p.type === "PAYMENT" && p.source.id)
+        pays.set(p.source.id, [...(pays.get(p.source.id) ?? []), p]);
+    }
+    for (const doc of docs) {
+      for (const b of dueBillsOf(doc)) {
+        if (!b.dueDate) continue;
+        if (billState(b, pays.get(b.sourceId) ?? [], today).duePaise <= 0n) continue;
+        const s = state.get(`auto:${b.sourceId}`);
+        if (s?.status === "done") continue;
+        count(s?.status === "snoozed" && s.snoozeUntil ? s.snoozeUntil : (s?.dueDate ?? b.dueDate));
+      }
     }
     if (dueToday + overdue > 0) {
       out.push({ godownId: g, godownName: godown.name, today: dueToday, overdue });
@@ -154,7 +176,7 @@ export async function sendDigest(
           }),
         )
         .join("\n"),
-      url: "/reminders",
+      url: "/dues?tab=reminders",
     });
     for (const s of subs) {
       try {

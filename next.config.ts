@@ -28,6 +28,10 @@ const nextConfig: NextConfig = {
   env: { NEXT_PUBLIC_APP_VERSION: pkg.version },
   cacheComponents: true,
   partialPrefetching: true,
+  // Every page renders on the device (providers.tsx gates the app to the client), so the
+  // server-side instant-navigation check sees nothing and errors on every route in dev.
+  // Validate only segments that opt in with `export const instant`.
+  experimental: { instantInsights: { validationLevel: "manual-warning" } },
   poweredByHeader: false,
   turbopack: {
     rules: {
@@ -46,7 +50,7 @@ const nextConfig: NextConfig = {
           { key: "X-Frame-Options", value: "DENY" },
           { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
           { key: "X-Content-Type-Options", value: "nosniff" },
-          { key: "Permissions-Policy", value: "camera=(), microphone=(), geolocation=()" },
+          { key: "Permissions-Policy", value: "camera=(), microphone=(self), geolocation=()" },
         ],
       },
       {

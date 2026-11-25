@@ -14,7 +14,7 @@ function files(dir: string): string[] {
   return readdirSync(dir).flatMap((f) => {
     const p = path.join(dir, f);
     if (statSync(p).isDirectory()) return files(p);
-    return /\.(ts|tsx)$/.test(f) && !/[\\/]i18n[\\/](bn|en)\.ts$/.test(p) ? [p] : [];
+    return /\.(ts|tsx)$/.test(f) && !/[\\/]i18n[\\/](v2[\\/])?(bn|en)\.ts$/.test(p) ? [p] : [];
   });
 }
 
@@ -22,8 +22,8 @@ const source = files(path.resolve("src"))
   .map((f) => readFileSync(f, "utf8"))
   .join("\n");
 
-/** Prefixes built with template literals: `foo.bar.${…}` → "foo.bar.". */
-const dynamicPrefixes = [...source.matchAll(/`([a-zA-Z][\w.]*\.)\$\{/g)].map((m) => m[1]!);
+/** Prefixes built with template literals: `foo.bar.${…}` → "foo.bar.", `ld.linkedTo${…}` → "ld.linkedTo". */
+const dynamicPrefixes = [...source.matchAll(/`([a-zA-Z]\w*\.[\w.]*)\$\{/g)].map((m) => m[1]!);
 /** Keys built by concatenation in one place: `onboard.step${…}` style or zod issue keys. */
 const ALWAYS_USED_PREFIXES = [
   "errors.", // codes from the server, Zod and DomainError map to errors.* keys
@@ -33,9 +33,7 @@ const ALWAYS_USED_PREFIXES = [
 ];
 
 describe("i18n keys", () => {
-  // Paused while the v2 screens are rebuilt (the v1 screens that used most keys were removed);
-  // re-enabled in v2 Phase 12 (i18n completeness), see docs/PROGRESS.md.
-  it.skip("every bn key is used somewhere (directly or through a dynamic prefix)", () => {
+  it("every bn key is used somewhere (directly or through a dynamic prefix)", () => {
     const unused = leafKeys(bn).filter(
       (k) =>
         !source.includes(`"${k}"`) &&
