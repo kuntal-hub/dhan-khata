@@ -73,7 +73,7 @@ export default function ForgotPage() {
   return (
     <>
       <AuthHeader />
-      <Card className="rounded-2xl">
+      <Card className="shadow-lift rounded-3xl">
         <CardHeader>
           <CardTitle className="text-xl">{t("acct.forgotTitle")}</CardTitle>
           <p className="text-muted-foreground text-sm">{t("acct.forgotHint")}</p>

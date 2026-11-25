@@ -8,6 +8,7 @@ import {
   emptyOverview,
   golaMoves,
   golaOverview,
+  golaTrend,
   lowStockAlerts,
   recentEntries,
   type DailyRow,
@@ -16,6 +17,7 @@ import {
   type LowStockAlert,
   type OverviewData,
   type RecentItem,
+  type TrendPoint,
 } from "../dashboard";
 
 const sumFlow = (a: FlowSummary, b: FlowSummary): FlowSummary => ({
@@ -84,6 +86,34 @@ export async function overviewFor(
     perGola,
     total: perGola.length === 1 ? perGola[0]!.data : sumOverviews(perGola.map((p) => p.data)),
   };
+}
+
+/** Trend of one Gola, or the per-day sum of several (read-only). */
+export async function trendFor(
+  godownIds: readonly string[],
+  to: string,
+  days = 30,
+): Promise<TrendPoint[]> {
+  const all = await Promise.all(godownIds.map((g) => golaTrend(g, to, days)));
+  if (all.length === 1) return all[0]!;
+  const out = new Map<string, TrendPoint>();
+  for (const list of all) {
+    for (const p of list) {
+      const e = out.get(p.date) ?? {
+        date: p.date,
+        cashPaise: 0n,
+        bankPaise: 0n,
+        purchasePaise: 0n,
+        salesPaise: 0n,
+      };
+      e.cashPaise += p.cashPaise;
+      e.bankPaise += p.bankPaise;
+      e.purchasePaise += p.purchasePaise;
+      e.salesPaise += p.salesPaise;
+      out.set(p.date, e);
+    }
+  }
+  return [...out.values()].sort((a, b) => (a.date < b.date ? -1 : 1));
 }
 
 export async function recentFor(godownIds: readonly string[], n = 10): Promise<RecentItem[]> {

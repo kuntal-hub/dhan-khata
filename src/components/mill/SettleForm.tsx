@@ -173,10 +173,7 @@ export function SettleForm({ godown, dispatchId }: { godown: Godown; dispatchId?
                   role="radio"
                   aria-checked={s.dispatchId === r.doc._id}
                   onClick={() => pick(r.doc._id)}
-                  className={cn(
-                    "press min-h-12 rounded-xl border px-3 text-left text-sm",
-                    s.dispatchId === r.doc._id ? "border-primary bg-forest-100/60" : "bg-card",
-                  )}
+                  className={cn("choice min-h-12 px-3 text-left text-sm")}
                 >
                   {t("mill.dispatchPick", {
                     mill: r.mill?.name ?? "",

@@ -493,10 +493,7 @@ export function ReportsTab({
               setOpt(r.option?.values?.[0]?.value ?? "");
             }}
             data-testid={`report-pick-${r.id}`}
-            className={cn(
-              "press min-h-10 shrink-0 rounded-full border px-4 text-sm",
-              r.id === def.id ? "bg-primary text-primary-foreground border-primary" : "bg-card",
-            )}
+            className={"chip"}
           >
             {t(r.title)}
           </button>
@@ -520,10 +517,7 @@ export function ReportsTab({
                       setTo(r.to);
                     }
                   }}
-                  className={cn(
-                    "press min-h-10 shrink-0 rounded-full border px-4 text-sm",
-                    preset === pr ? "bg-gold-100 border-gold font-semibold" : "bg-card",
-                  )}
+                  className={"chip chip-gold"}
                 >
                   {t(`dsh.range.${pr}` as TKey)}
                 </button>
@@ -533,7 +527,7 @@ export function ReportsTab({
           {def.period === "date" || preset === "custom" ? (
             <div className="flex flex-wrap gap-2">
               {def.period === "range" ? (
-                <label className="bg-card flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm">
+                <label className="bg-card shadow-card focus-within:border-primary flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-medium">
                   {t("dsh.from")}
                   <input
                     type="date"
@@ -545,7 +539,7 @@ export function ReportsTab({
                   />
                 </label>
               ) : null}
-              <label className="bg-card flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm">
+              <label className="bg-card shadow-card focus-within:border-primary flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-medium">
                 {def.period === "date" ? t("rep.onDate") : t("dsh.to")}
                 <input
                   type="date"

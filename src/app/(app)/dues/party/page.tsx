@@ -159,7 +159,7 @@ function PartyLedger() {
         }
       >
         <div className="no-print mb-3 flex flex-wrap gap-2">
-          <label className="bg-card flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
+          <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
             {t("pur.filterFrom")}
             <input
               type="date"
@@ -168,7 +168,7 @@ function PartyLedger() {
               onChange={(e) => setFrom(e.target.value)}
             />
           </label>
-          <label className="bg-card flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
+          <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
             {t("pur.filterTo")}
             <input
               type="date"

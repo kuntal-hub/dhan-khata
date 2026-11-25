@@ -514,3 +514,16 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - Voice input needs the network on Chrome (shown as disabled offline, D46).
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 313 passed (32 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 242.3 KB · `pnpm test:e2e` ✅ 21/21 · `pnpm lighthouse` not run in this session.
+
+### UI refresh (premium redesign) — 2026-11-26
+**Built:** looks only; every behaviour, route and test id is unchanged (D52).
+- Design system in `src/app/globals.css`: richer emerald + saffron palette (light + dark), a brand wash behind pages, one accent gradient per section (`.accent-*`), tones (`.tone-*`), `.hero` banners with a paddy-sheaf watermark, `.glass`, layered shadows; CSS-only motion (`anim-rise/zoom/pop/grow-x`, reduced motion → instant).
+- Controls each have their own look: raised gradient `Button`s (new `gold` variant, 44 px default), underline `.tab`s in a sticky `.tabbar`, check-mark `.chip`s (all filter chips), corner-check `.choice` cards (form radios), `.seg` switches. Section "New …" tabs are now white buttons in the hero (same `stab-*` test ids).
+- Shell: dark-green gradient sidebar with accent icon tiles, glass header, Gola initial avatar, glass bottom bar with an accent pill for the active section, gold quick-add FAB, coloured all-sections / quick-action tiles. Forms: section-coloured header, glass save bar with check icon. Auth: gradient band + white logo, segmented language switch. Splash / bootstrap / banners / toasts / dialogs / sheets restyled.
+- Kit: `MetricCard` / `TxnCard` gradient tiles by tone, `StatusPill` with dot, `EmptyArt`, `Panel` with icon + tone.
+- Charts: `components/charts/Donut` (SVG), `LazyTrendChart` / `LazyBarsChart` (recharts, lazy). Dashboard: "money in hand" hero, 30-day trend (cash / bank or purchase / sales; `golaTrend` / `trendFor`), dues donut, stock-by-variety donut, gradient bar chart. Expenses: by-category donut (day and all). Dues summary: donut + per-category icons / tones. Vehicles P&L: income / costs / net bars. `--chart-1…8` order validated for colour blindness (light + dark).
+- Tests: `tests/repo/dashboard-trend.test.ts`. Visual baselines regenerated.
+
+**Note:** entrance animations must fill `backwards` only — a transform that keeps filling turns the page wrapper into the containing block of the full-screen forms (found in the screenshots, fixed).
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 316 passed (33 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 244.3 KB · `pnpm test:e2e` ✅ 21/21 · `pnpm lighthouse` not run.

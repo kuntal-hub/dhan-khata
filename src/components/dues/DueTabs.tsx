@@ -9,7 +9,19 @@
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { ArrowDownLeft, ArrowUpRight, Bell, Phone, Scale } from "lucide-react";
+import {
+  ArrowDownLeft,
+  ArrowUpRight,
+  Bell,
+  CalendarClock,
+  Factory,
+  HandCoins,
+  Phone,
+  PieChart,
+  Scale,
+  Users,
+} from "lucide-react";
+import { Donut } from "@/components/charts/Donut";
 import { DateField, FieldBox, PartyPicker } from "@/components/entry/Fields";
 import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
 import { EmptyState, MetricCard, Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
@@ -178,6 +190,21 @@ function PayButtons() {
   );
 }
 
+const CAT_ICON = {
+  receivable: ArrowDownLeft,
+  payable: ArrowUpRight,
+  mill: Factory,
+  advance: HandCoins,
+  other: Scale,
+} as const;
+const CAT_TONE = {
+  receivable: "in",
+  payable: "out",
+  mill: "warn",
+  advance: "blue",
+  other: "violet",
+} as const;
+
 export function DueSummaryTab() {
   const { t, money, count } = useI18n();
   const { godownId } = useActiveGodown();
@@ -198,7 +225,8 @@ export function DueSummaryTab() {
         {DUE_CATEGORIES.map((c) => (
           <MetricCard
             key={c}
-            icon={Scale}
+            icon={CAT_ICON[c]}
+            tone={CAT_TONE[c]}
             label={t(`dues.cat.${c}` as TKey)}
             value={{ kind: "money", paise: s.totals[c] }}
             sub={t("dues.parties", { count: count(s.counts[c]) })}
@@ -207,7 +235,23 @@ export function DueSummaryTab() {
           />
         ))}
       </div>
-      <Panel title={t("dues.aging")}>
+      {DUE_CATEGORIES.some((c) => s.totals[c] > 0n) ? (
+        <Panel title={t("viz.duesMix")} icon={PieChart} tone="violet">
+          <Donut
+            testId="due-donut"
+            centerLabel={t("viz.total")}
+            total={money(DUE_CATEGORIES.reduce((a, c) => a + s.totals[c], 0n))}
+            items={DUE_CATEGORIES.map((c, i) => ({
+              key: c,
+              label: t(`dues.cat.${c}` as TKey),
+              value: s.totals[c],
+              display: money(s.totals[c]),
+              color: `var(--chart-${i + 1})`,
+            }))}
+          />
+        </Panel>
+      ) : null}
+      <Panel title={t("dues.aging")} icon={CalendarClock} tone="warn">
         <div className="-mx-1 overflow-x-auto">
           <table className="w-full text-sm" data-testid="due-aging">
             <thead className="text-muted-foreground text-xs">
@@ -235,7 +279,7 @@ export function DueSummaryTab() {
           </table>
         </div>
       </Panel>
-      <Panel title={t("dues.top")}>
+      <Panel title={t("dues.top")} icon={Users} tone="blue">
         {s.top.length === 0 ? (
           <p className="text-muted-foreground text-sm">{t("dues.empty")}</p>
         ) : (

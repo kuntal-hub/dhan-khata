@@ -47,7 +47,9 @@ export function BootstrapScreen() {
     <main className="mx-auto flex w-full max-w-md flex-1 flex-col items-center justify-center gap-4 p-6 text-center">
       {failed ? (
         <>
-          <WifiOff className="text-muted-foreground size-10" aria-hidden />
+          <span className="tone-warn tile-accent anim-pop flex size-16 items-center justify-center rounded-3xl">
+            <WifiOff className="size-8" aria-hidden />
+          </span>
           <p className="text-sm">{t("bootstrap.offline")}</p>
           <Button className="h-11" onClick={() => void run()}>
             {t("bootstrap.retry")}
@@ -55,18 +57,23 @@ export function BootstrapScreen() {
         </>
       ) : (
         <>
-          <CloudDownload className="text-primary size-10" aria-hidden />
-          <p className="tabular text-base">
+          <span className="tone-green tile-accent anim-pop flex size-16 items-center justify-center rounded-3xl">
+            <CloudDownload className="size-8" aria-hidden />
+          </span>
+          <p className="tabular text-base font-semibold">
             {t("bootstrap.progress", { percent: `${count(pct)}%` })}
           </p>
           <div
-            className="bg-muted h-3 w-full overflow-hidden rounded-full"
+            className="bg-muted h-3 w-full overflow-hidden rounded-full shadow-[inset_0_1px_2px_rgb(0_0_0/0.08)]"
             role="progressbar"
             aria-valuemin={0}
             aria-valuemax={100}
             aria-valuenow={pct}
           >
-            <div className="bg-primary h-full transition-all" style={{ width: `${pct}%` }} />
+            <div
+              className="h-full rounded-full bg-linear-to-r from-[var(--primary-hi)] to-[var(--gold)] transition-all duration-500"
+              style={{ width: `${pct}%` }}
+            />
           </div>
         </>
       )}

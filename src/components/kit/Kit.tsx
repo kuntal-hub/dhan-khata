@@ -16,6 +16,34 @@ import type { TKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
 
 type Icon = ComponentType<{ className?: string; strokeWidth?: number }>;
+export type Tone = "green" | "gold" | "in" | "out" | "warn" | "blue" | "violet";
+
+/** Empty-state art: the icon on layered accent rings with a few floating grains. */
+export function EmptyArt({ icon: IconC, small = false }: { icon: Icon; small?: boolean }) {
+  return (
+    <span
+      className={cn(
+        "tone-gold relative flex items-center justify-center",
+        small ? "size-20" : "size-28",
+      )}
+      aria-hidden
+    >
+      <span className="bg-accent-grad absolute inset-0 rounded-full opacity-10" />
+      <span className="bg-accent-grad absolute inset-[14%] rounded-full opacity-15" />
+      <span
+        className={cn(
+          "tile-accent anim-pop relative flex items-center justify-center rounded-[1.25rem]",
+          small ? "size-11" : "size-14",
+        )}
+      >
+        <IconC className={small ? "size-5" : "size-7"} strokeWidth={1.8} />
+      </span>
+      <span className="bg-gold anim-pop absolute top-[12%] left-[16%] size-2 rounded-full [animation-delay:120ms]" />
+      <span className="anim-pop absolute top-[22%] right-[10%] size-1.5 rounded-full bg-emerald-500 [animation-delay:200ms]" />
+      <span className="anim-pop absolute bottom-[14%] left-[24%] size-1.5 rounded-full bg-sky-500 [animation-delay:260ms]" />
+    </span>
+  );
+}
 
 export type MetricValue =
   { kind: "money"; paise: bigint } | { kind: "qty"; grams: bigint } | { kind: "count"; n: bigint };
@@ -36,7 +64,7 @@ export function MetricCard({
   label: string;
   value: MetricValue;
   sub?: ReactNode;
-  tone?: "green" | "gold" | "in" | "out" | "warn";
+  tone?: Tone;
   href?: string;
   onClick?: () => void;
   testId?: string;
@@ -52,29 +80,27 @@ export function MetricCard({
       : value.kind === "qty"
         ? formatWeightNumber(shown, "QTL", { digits, monKg: business?.monKg })
         : count(shown);
-  const tile =
-    tone === "gold"
-      ? "bg-gold-100 text-gold-600"
-      : tone === "in"
-        ? "bg-emerald-50 text-emerald-700"
-        : tone === "out"
-          ? "bg-red-50 text-red-700"
-          : tone === "warn"
-            ? "bg-amber-50 text-amber-700"
-            : "bg-forest-100 text-forest";
   const body = (
     <>
-      <div className="flex items-start justify-between gap-2">
-        <span className={cn("flex size-10 items-center justify-center rounded-xl", tile)}>
-          <IconC className="size-5" strokeWidth={1.75} />
+      <span
+        className="pointer-events-none absolute -top-10 -right-10 size-28 rounded-full bg-[radial-gradient(closest-side,var(--sb),transparent)] opacity-25"
+        aria-hidden
+      />
+      <div className="relative flex items-start justify-between gap-2">
+        <span className="tile-accent flex size-11 items-center justify-center rounded-2xl">
+          <IconC className="size-5" strokeWidth={2} />
         </span>
         {href || onClick ? (
-          <ChevronRight className="text-muted-foreground/60 size-4" aria-hidden />
+          <span className="bg-muted text-muted-foreground group-hover:bg-accent-grad flex size-7 items-center justify-center rounded-full transition-colors group-hover:text-white">
+            <ChevronRight className="size-4" aria-hidden />
+          </span>
         ) : null}
       </div>
-      <span className="text-muted-foreground mt-3 text-sm leading-snug">{label}</span>
+      <span className="text-muted-foreground relative mt-3 text-sm leading-snug font-medium">
+        {label}
+      </span>
       <span
-        className="tabular mt-0.5 text-[26px] leading-tight font-semibold tracking-tight sm:text-[28px]"
+        className="tabular relative mt-0.5 text-[24px] leading-tight font-bold tracking-tight min-[400px]:text-[26px] sm:text-[28px]"
         data-testid={testId}
         data-value={raw.toString()}
       >
@@ -85,11 +111,17 @@ export function MetricCard({
           </span>
         ) : null}
       </span>
-      {sub ? <span className="text-muted-foreground mt-1 text-xs">{sub}</span> : null}
+      {sub ? <span className="text-muted-foreground relative mt-1 text-xs">{sub}</span> : null}
+      <span
+        className="bg-accent-grad anim-grow-x absolute inset-x-0 bottom-0 h-[3px] opacity-80"
+        aria-hidden
+      />
     </>
   );
-  const cls =
-    "press lift bg-card flex min-h-[132px] flex-col rounded-2xl border p-4 text-left shadow-card transition-shadow";
+  const cls = cn(
+    "press lift group bg-card shadow-card relative flex min-h-[136px] flex-col overflow-hidden rounded-[1.25rem] border p-4 text-left",
+    `tone-${tone}`,
+  );
   return (
     <StaggerItem i={index}>
       {href ? (
@@ -150,21 +182,23 @@ export type PillStatus = "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE" | "VOID" | "O
 export function StatusPill({ status }: { status: PillStatus }) {
   const { t } = useI18n();
   const cls: Record<PillStatus, string> = {
-    PAID: "bg-emerald-50 text-emerald-800 ring-emerald-600/20",
-    PARTIAL: "bg-amber-50 text-amber-800 ring-amber-600/20",
-    UNPAID: "bg-red-50 text-red-800 ring-red-600/15",
-    OVERDUE: "bg-red-100 text-red-900 ring-red-700/25",
+    PAID: "bg-emerald-50 text-emerald-800 ring-emerald-600/25 dark:bg-emerald-950/60 dark:text-emerald-300",
+    PARTIAL:
+      "bg-amber-50 text-amber-800 ring-amber-600/25 dark:bg-amber-950/60 dark:text-amber-300",
+    UNPAID: "bg-rose-50 text-rose-800 ring-rose-600/20 dark:bg-rose-950/60 dark:text-rose-300",
+    OVERDUE: "bg-red-600 text-white ring-red-700/40",
     VOID: "bg-muted text-muted-foreground ring-border line-through",
-    ORDER: "bg-gold-100 text-accent-foreground ring-gold/30",
-    CONFIRMED: "bg-forest-100 text-forest ring-forest/20",
+    ORDER: "bg-gold-100 text-accent-foreground ring-gold/40",
+    CONFIRMED: "bg-sky-50 text-sky-800 ring-sky-600/25 dark:bg-sky-950/60 dark:text-sky-300",
   };
   return (
     <span
       className={cn(
-        "inline-flex h-6 items-center rounded-full px-2.5 text-xs font-medium ring-1 ring-inset",
+        "inline-flex h-6 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ring-1 ring-inset",
         cls[status],
       )}
     >
+      <span className="size-1.5 rounded-full bg-current opacity-80" aria-hidden />
       {t(`ui.status.${status}` as TKey)}
     </span>
   );
@@ -186,7 +220,7 @@ export function TxnCard({
   extra,
 }: {
   icon: Icon;
-  tone?: "green" | "gold" | "in" | "out";
+  tone?: Tone;
   title: string;
   subtitle?: string;
   date?: string;
@@ -199,21 +233,18 @@ export function TxnCard({
   extra?: ReactNode;
 }) {
   const { money } = useI18n();
-  const tile =
-    tone === "gold"
-      ? "bg-gold-100 text-gold-600"
-      : tone === "in"
-        ? "bg-emerald-50 text-emerald-700"
-        : tone === "out"
-          ? "bg-red-50 text-red-700"
-          : "bg-forest-100 text-forest";
   const body = (
     <>
-      <span className={cn("flex size-11 shrink-0 items-center justify-center rounded-xl", tile)}>
-        <IconC className="size-5" strokeWidth={1.75} />
+      <span
+        className={cn(
+          "tile-accent flex size-11 shrink-0 items-center justify-center rounded-2xl",
+          `tone-${tone}`,
+        )}
+      >
+        <IconC className="size-5" strokeWidth={2} />
       </span>
       <span className="flex min-w-0 flex-1 flex-col">
-        <span className="truncate text-[15px] font-medium">{title}</span>
+        <span className="truncate text-[15px] font-semibold">{title}</span>
         {subtitle ? (
           <span className="text-muted-foreground truncate text-sm">{subtitle}</span>
         ) : null}
@@ -223,7 +254,7 @@ export function TxnCard({
         {amountPaise !== undefined ? (
           <span
             className={cn(
-              "tabular text-[15px] font-semibold",
+              "tabular text-base font-bold",
               direction === "IN" ? "text-money-in" : direction === "OUT" ? "text-money-out" : "",
               status === "VOID" && "text-muted-foreground line-through",
             )}
@@ -238,7 +269,7 @@ export function TxnCard({
     </>
   );
   const cls =
-    "press lift bg-card flex min-h-[72px] items-center gap-3 rounded-2xl border px-3 py-3 shadow-card";
+    "press lift bg-card shadow-card flex min-h-[76px] items-center gap-3 rounded-[1.25rem] border px-3 py-3";
   return (
     <StaggerItem i={index}>
       {href ? (
@@ -270,13 +301,11 @@ export function EmptyState({
 }) {
   return (
     <div
-      className="bg-card/60 flex flex-col items-center gap-3 rounded-2xl border border-dashed px-6 py-12 text-center"
+      className="bg-card/70 anim-zoom flex flex-col items-center gap-3 rounded-[1.5rem] border border-dashed px-6 py-12 text-center"
       data-testid={testId}
     >
-      <span className="bg-gold-100 text-gold-600 flex size-16 items-center justify-center rounded-2xl">
-        <IconC className="size-8" strokeWidth={1.5} />
-      </span>
-      <p className="text-base font-medium">{title}</p>
+      <EmptyArt icon={IconC} />
+      <p className="text-base font-semibold">{title}</p>
       {hint ? <p className="text-muted-foreground max-w-sm text-sm">{hint}</p> : null}
       {action}
     </div>
@@ -294,7 +323,7 @@ export function Skeleton({ rows = 3, className }: { rows?: number; className?: s
   return (
     <div className={cn("flex flex-col gap-3", className)} aria-hidden>
       {Array.from({ length: rows }, (_, i) => (
-        <div key={i} className="skeleton h-[72px] rounded-2xl" />
+        <div key={i} className="skeleton h-[76px] rounded-[1.25rem]" />
       ))}
     </div>
   );
@@ -306,17 +335,40 @@ export function Panel({
   action,
   children,
   className,
+  icon: IconC,
+  tone = "green",
 }: {
   title?: string;
   action?: ReactNode;
   children: ReactNode;
   className?: string;
+  icon?: Icon;
+  tone?: Tone;
 }) {
   return (
-    <section className={cn("bg-card shadow-card rounded-2xl border p-4", className)}>
+    <section
+      className={cn(
+        "bg-card shadow-card anim-rise min-w-0 rounded-[1.25rem] border p-4 sm:p-5",
+        `tone-${tone}`,
+        className,
+      )}
+    >
       {title || action ? (
-        <div className="mb-3 flex items-center justify-between gap-2">
-          {title ? <h2 className="text-lg font-semibold">{title}</h2> : <span />}
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          {title ? (
+            <h2 className="flex min-w-0 items-center gap-2.5 text-lg font-bold">
+              {IconC ? (
+                <span className="tile-accent flex size-8 shrink-0 items-center justify-center rounded-xl">
+                  <IconC className="size-4" strokeWidth={2.2} />
+                </span>
+              ) : (
+                <span className="bg-accent-grad h-5 w-1.5 shrink-0 rounded-full" aria-hidden />
+              )}
+              <span className="min-w-0">{title}</span>
+            </h2>
+          ) : (
+            <span />
+          )}
           {action}
         </div>
       ) : null}

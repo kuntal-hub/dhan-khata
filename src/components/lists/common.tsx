@@ -46,11 +46,16 @@ export function SyncIcon({ entityId, serverSeq }: { entityId: string; serverSeq?
 export function EmptyState({ text, action }: { text: string; action?: ReactNode }) {
   return (
     <div
-      className="text-muted-foreground flex flex-col items-center gap-3 py-10 text-center"
+      className="text-muted-foreground anim-zoom flex flex-col items-center gap-3 py-10 text-center"
       data-testid="empty-state"
     >
-      <Inbox className="size-10 opacity-60" aria-hidden />
-      <p className="text-sm">{text}</p>
+      <span className="relative flex size-24 items-center justify-center" aria-hidden>
+        <span className="from-gold-100 absolute inset-0 rounded-full bg-linear-to-br to-emerald-100 opacity-70 dark:opacity-20" />
+        <span className="anim-pop relative flex size-14 items-center justify-center rounded-[1.25rem] bg-linear-to-br from-[var(--gold-300)] to-[var(--gold-600)] text-white shadow-[0_8px_18px_-8px_rgb(183_128_10/0.8)]">
+          <Inbox className="size-7" strokeWidth={1.8} />
+        </span>
+      </span>
+      <p className="text-foreground/80 text-[15px] font-medium">{text}</p>
       {action}
     </div>
   );

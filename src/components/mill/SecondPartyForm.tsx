@@ -134,10 +134,7 @@ export function SecondPartyForm({
                   touch();
                 }}
                 data-testid={`sp-kind-${k}`}
-                className={cn(
-                  "press min-h-14 rounded-xl border px-3 text-[15px] font-medium",
-                  kind === k ? "border-primary bg-primary text-primary-foreground" : "bg-card",
-                )}
+                className={cn("choice min-h-14 px-3 text-[15px] font-medium")}
               >
                 {t(`mill.${k}`)}
               </button>

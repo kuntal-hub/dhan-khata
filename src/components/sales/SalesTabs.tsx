@@ -29,7 +29,6 @@ import { formatWeightNumber } from "@/domain/units";
 import type { PayStatus } from "@/domain/v2/payments";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
-import { cn } from "@/lib/utils";
 
 const DELIVERY: readonly DeliveryStatus[] = ["PENDING", "LOADED", "IN_TRANSIT", "DELIVERED"];
 
@@ -50,10 +49,7 @@ function Chip({
       aria-pressed={on}
       onClick={onClick}
       data-testid={testId}
-      className={cn(
-        "press min-h-10 shrink-0 rounded-full border px-4 text-sm",
-        on ? "bg-primary text-primary-foreground border-primary" : "bg-card",
-      )}
+      className={"chip"}
     >
       {children}
     </button>
@@ -149,7 +145,7 @@ export function SalesList() {
             {s === "ALL" ? t("pur.filterAll") : t(`ui.status.${s}` as TKey)}
           </Chip>
         ))}
-        <label className="bg-card flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
+        <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
           {t("pur.filterFrom")}
           <input
             type="date"
@@ -158,7 +154,7 @@ export function SalesList() {
             onChange={(e) => setFrom(e.target.value)}
           />
         </label>
-        <label className="bg-card flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
+        <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
           {t("pur.filterTo")}
           <input
             type="date"

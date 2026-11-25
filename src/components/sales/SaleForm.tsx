@@ -495,12 +495,7 @@ export function SaleForm({
                 aria-checked={s.delivery === d}
                 onClick={() => set({ delivery: d })}
                 data-testid={`sale-delivery-${d}`}
-                className={cn(
-                  "press min-h-12 rounded-xl border px-3 text-sm",
-                  s.delivery === d
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : "bg-card",
-                )}
+                className={cn("choice min-h-12 px-3 text-sm")}
               >
                 {t(`sl.delivery.${d}` as TKey)}
               </button>
@@ -577,10 +572,7 @@ export function SaleForm({
                           role="radio"
                           aria-checked={s.transitGroup === g}
                           onClick={() => set({ transitGroup: g, varietyId: r.doc.varietyId })}
-                          className={cn(
-                            "press min-h-12 rounded-xl border px-3 text-left text-sm",
-                            s.transitGroup === g ? "border-primary bg-forest-100/60" : "bg-card",
-                          )}
+                          className={cn("choice min-h-12 px-3 text-left text-sm")}
                         >
                           {t("sl.transitLeft", {
                             party: r.party?.name ?? "",

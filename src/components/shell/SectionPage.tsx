@@ -8,6 +8,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
+import { Plus } from "lucide-react";
 import { golaColourClass } from "@/components/gola/colours";
 import { FadeSlide } from "@/components/motion/Motion";
 import { PageSuspense } from "@/components/system/page";
@@ -27,52 +28,52 @@ function Tabs({ section, active }: { section: Section; active: string }) {
   const router = useRouter();
   const path = usePathname();
   return (
-    <div
-      className="-mx-3 overflow-x-auto px-3 sm:mx-0 sm:px-0"
-      role="tablist"
-      aria-label={t(section.label)}
-    >
-      <div className="bg-card shadow-card inline-flex min-w-max gap-1 rounded-2xl border p-1">
-        {section.tabs.map((tab) => {
-          const on = tab.key === active;
-          const cls = cn(
-            "press relative flex min-h-11 items-center rounded-xl px-3.5 text-[15px] whitespace-nowrap transition-colors duration-200",
-            on
-              ? "bg-primary text-primary-foreground font-semibold shadow-sm"
-              : "text-foreground/75 hover:bg-muted hover:text-foreground",
-          );
-          return tab.href ? (
-            <Link
-              key={tab.key}
-              href={tab.href}
-              className={cls}
-              role="tab"
-              aria-selected={false}
-              data-testid={`stab-${tab.key}`}
-            >
-              <span className="relative">{t(tab.label)}</span>
-            </Link>
-          ) : (
-            <button
-              key={tab.key}
-              type="button"
-              role="tab"
-              aria-selected={on}
-              className={cls}
-              data-testid={`stab-${tab.key}`}
-              onClick={() =>
-                router.replace(tab.key === section.tabs[0]!.key ? path : `${path}?tab=${tab.key}`, {
-                  scroll: false,
-                })
-              }
-            >
-              <span className="relative">{t(tab.label)}</span>
-            </button>
-          );
-        })}
+    <div className="glass sticky top-16 z-20 -mx-3 px-1 sm:-mx-4 sm:px-2 lg:mx-0 lg:rounded-2xl lg:px-2">
+      <div className="tabbar" role="tablist" aria-label={t(section.label)}>
+        {section.tabs
+          .filter((tab) => !tab.href)
+          .map((tab) => {
+            const on = tab.key === active;
+            return (
+              <button
+                key={tab.key}
+                type="button"
+                role="tab"
+                aria-selected={on}
+                className="tab"
+                data-testid={`stab-${tab.key}`}
+                onClick={() =>
+                  router.replace(
+                    tab.key === section.tabs[0]!.key ? path : `${path}?tab=${tab.key}`,
+                    { scroll: false },
+                  )
+                }
+              >
+                {t(tab.label)}
+              </button>
+            );
+          })}
       </div>
     </div>
   );
+}
+
+/** Tabs that open a form ("নতুন কেনা") are actions, so they render as real buttons. */
+function NewButtons({ section }: { section: Section }) {
+  const { t } = useI18n();
+  return section.tabs
+    .filter((tab) => tab.href)
+    .map((tab) => (
+      <Link
+        key={tab.key}
+        href={tab.href!}
+        data-testid={`stab-${tab.key}`}
+        className="press flex h-11 shrink-0 items-center gap-1.5 rounded-xl border border-white/60 bg-white px-3 text-[15px] font-bold text-(--sa) shadow-[0_2px_0_rgb(0_0_0/0.12),0_8px_18px_-8px_rgb(0_0_0/0.4)] hover:bg-white/95 active:translate-y-px"
+      >
+        <Plus className="size-5" strokeWidth={2.5} aria-hidden />
+        <span className="max-w-[28vw] truncate sm:max-w-none">{t(tab.label)}</span>
+      </Link>
+    ));
 }
 
 function SectionPageInner({
@@ -90,37 +91,44 @@ function SectionPageInner({
   const { godown, consolidated } = useActiveGodown();
   const Icon = section.icon;
   return (
-    <div className="flex flex-col gap-4" data-testid={`section-${section.key}`}>
-      <div className="flex items-center gap-3">
-        <span className="bg-forest-100 text-forest flex size-11 shrink-0 items-center justify-center rounded-xl">
-          <Icon className="size-6" strokeWidth={1.75} aria-hidden />
-        </span>
-        <div className="flex min-w-0 flex-1 flex-col">
-          <h1 className="truncate text-xl leading-tight font-semibold sm:text-2xl">
-            {t(section.label)}
-          </h1>
-          <span className="text-muted-foreground flex items-center gap-1.5 text-sm">
-            {consolidated ? (
-              t("gola.all")
-            ) : godown ? (
-              <>
-                <span
-                  className={`size-2 rounded-full ${golaColourClass(godown.colour)}`}
-                  aria-hidden
-                />
-                {godown.name}
-              </>
-            ) : null}
+    <div
+      className={cn("flex flex-col gap-4", `accent-${section.key}`)}
+      data-testid={`section-${section.key}`}
+    >
+      <div className="hero anim-zoom rounded-[1.75rem] px-4 py-4 sm:px-6 sm:py-5">
+        <div className="flex items-center gap-3">
+          <span className="flex size-12 shrink-0 items-center justify-center rounded-2xl bg-white/20 shadow-[inset_0_1px_0_rgb(255_255_255/0.35)] ring-1 ring-white/30 sm:size-14">
+            <Icon className="size-6 sm:size-7" strokeWidth={2} aria-hidden />
           </span>
+          <div className="flex min-w-0 flex-1 flex-col items-start gap-1">
+            <h1 className="max-w-full truncate text-xl leading-tight font-bold drop-shadow-sm sm:text-2xl">
+              {t(section.label)}
+            </h1>
+            {consolidated || godown ? (
+              <span className="inline-flex max-w-full items-center gap-1.5 truncate rounded-full bg-black/15 px-2.5 py-0.5 text-xs font-medium">
+                {consolidated ? (
+                  t("gola.all")
+                ) : godown ? (
+                  <>
+                    <span
+                      className={`size-2 shrink-0 rounded-full ring-1 ring-white/70 ${golaColourClass(godown.colour)}`}
+                      aria-hidden
+                    />
+                    <span className="truncate">{godown.name}</span>
+                  </>
+                ) : null}
+              </span>
+            ) : null}
+          </div>
+          {actions}
+          <NewButtons section={section} />
         </div>
-        {actions}
       </div>
       <Tabs section={section} active={tab} />
       <FadeSlide k={tab}>{render(tab)}</FadeSlide>
     </div>
   );
 }
-
 export function SectionPage(props: {
   sectionKey: Section["key"];
   render: (tab: string) => ReactNode;

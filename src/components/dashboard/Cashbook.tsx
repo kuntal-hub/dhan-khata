@@ -491,10 +491,7 @@ export default function Cashbook() {
             aria-pressed={book === b.id}
             onClick={() => setBook(b.id)}
             data-testid={`cb-book-${b.id === "CASH" ? "CASH" : "BANK"}`}
-            className={cn(
-              "press min-h-10 shrink-0 rounded-full border px-4 text-sm",
-              book === b.id ? "bg-primary text-primary-foreground border-primary" : "bg-card",
-            )}
+            className={"chip"}
           >
             {b.name}
           </button>

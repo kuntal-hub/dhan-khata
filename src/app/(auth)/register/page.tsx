@@ -92,7 +92,7 @@ export default function RegisterPage() {
     <>
       <AuthHeader />
       {open === false ? (
-        <Card className="rounded-2xl">
+        <Card className="shadow-lift rounded-3xl">
           <CardContent className="flex flex-col gap-4 pt-6">
             <p className="text-base" data-testid="registration-closed">
               {t("acct.registrationClosed")}
@@ -103,7 +103,7 @@ export default function RegisterPage() {
           </CardContent>
         </Card>
       ) : (
-        <Card className="rounded-2xl">
+        <Card className="shadow-lift rounded-3xl">
           <CardHeader>
             <CardTitle className="text-xl">{t("acct.registerTitle")}</CardTitle>
             <p className="text-muted-foreground text-sm">{t("acct.registerHint")}</p>

@@ -1,8 +1,8 @@
 "use client";
 
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 import { useState, type FormEvent, type ReactNode } from "react";
-import { ArrowLeft, Loader2 } from "lucide-react";
+import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
+import { sectionOf } from "@/components/shell/sections";
 import { useUnsavedGuard } from "@/client/ui/hooks";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -45,6 +46,7 @@ export function FormShell({
 }) {
   const { t } = useI18n();
   const router = useRouter();
+  const section = sectionOf(usePathname());
   const [confirmLeave, setConfirmLeave] = useState(false);
   useUnsavedGuard(dirty);
 
@@ -59,34 +61,44 @@ export function FormShell({
   };
 
   return (
-    <div className="bg-background fixed inset-0 z-40 flex flex-col" data-testid={testId}>
-      <header className="flex items-center gap-2 border-b px-2 py-1">
-        <Button
-          variant="ghost"
-          size="icon"
-          className="size-11"
+    <div
+      className={`bg-background fixed inset-0 z-40 flex flex-col accent-${section?.key ?? "dashboard"}`}
+      data-testid={testId}
+    >
+      <header className="hero flex items-center gap-2 rounded-b-[1.5rem] px-2 pt-[max(0.5rem,env(safe-area-inset-top))] pb-3">
+        <button
+          type="button"
+          className="press flex size-11 shrink-0 items-center justify-center rounded-full bg-white/20 ring-1 ring-white/30 hover:bg-white/30"
           onClick={back}
           aria-label={t("common.back")}
         >
           <ArrowLeft className="size-5" aria-hidden />
-        </Button>
-        <h1 className="min-w-0 flex-1 truncate text-lg font-semibold">{title}</h1>
+        </button>
+        {section ? (
+          <section.icon className="size-5 shrink-0 opacity-90" strokeWidth={2} aria-hidden />
+        ) : null}
+        <h1 className="min-w-0 flex-1 truncate text-lg font-bold drop-shadow-sm">{title}</h1>
       </header>
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit} noValidate>
-        <div className="mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col gap-4 overflow-y-auto p-4 pb-8">
+        <div className="anim-rise mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col gap-4 overflow-y-auto p-4 pb-8">
           {restoreBanner}
           {children}
         </div>
-        <div className="bg-background border-t">
+        <div className="glass border-t border-(--hairline) pb-[env(safe-area-inset-bottom)] shadow-[0_-10px_30px_-16px_rgb(20_40_30/0.35)]">
           <div className="mx-auto flex w-full max-w-md items-center gap-3 p-3">
             <div className="min-w-0 flex-1">{totals}</div>
             <Button
               type="submit"
+              size="lg"
               className="h-12 min-w-28 text-base"
               disabled={saving}
               data-testid="form-save"
             >
-              {saving ? <Loader2 className="size-4 animate-spin" aria-hidden /> : null}
+              {saving ? (
+                <Loader2 className="size-4 animate-spin" aria-hidden />
+              ) : (
+                <Check className="size-5" strokeWidth={2.5} aria-hidden />
+              )}
               {saveLabel ?? t("common.save")}
             </Button>
           </div>
@@ -123,7 +135,7 @@ export function RestoreDraftBanner({
 }) {
   const { t } = useI18n();
   return (
-    <div className="flex flex-wrap items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+    <div className="anim-zoom flex flex-wrap items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-3 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
       <span className="flex-1">{t("form.draftFound")}</span>
       <Button
         type="button"

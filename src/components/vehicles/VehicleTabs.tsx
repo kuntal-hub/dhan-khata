@@ -9,7 +9,8 @@
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useDeferredValue, useState } from "react";
-import { Pencil, Plus, Truck, Users } from "lucide-react";
+import { BarChart3, Pencil, Plus, Truck, Users } from "lucide-react";
+import { LazyBarsChart } from "@/components/charts/lazy";
 import { Segmented } from "@/components/entry/Fields";
 import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
 import { EmptyState, Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
@@ -311,45 +312,74 @@ export function PnlTab() {
       ) : rows.length === 0 ? (
         <EmptyState icon={Truck} title={t("veh.empty")} />
       ) : (
-        <div className="-mx-1 overflow-x-auto">
-          <table className="w-full text-sm">
-            <thead className="text-muted-foreground text-xs">
-              <tr>
-                <th className="bg-background sticky left-0 py-2 text-left font-normal">
-                  {t("veh.period")}
-                </th>
-                <th className="py-2 text-right font-normal">{t("veh.income")}</th>
-                <th className="py-2 text-right font-normal">{t("veh.costs")}</th>
-                <th className="py-2 text-right font-normal">{t("veh.linkedExpenses")}</th>
-                <th className="py-2 text-right font-normal">{t("veh.net")}</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y">
-              {rows.map((r) => (
-                <tr key={r.period} data-testid="pnl-row">
-                  <td className="bg-background sticky left-0 py-2 whitespace-nowrap">
-                    {by === "day" ? date(r.period, "short") : monthLabel(r.period)}
-                  </td>
-                  <td className="tabular py-2 text-right">{money(r.pnl.incomePaise)}</td>
-                  <td className="tabular py-2 text-right">
-                    {money(r.pnl.cost.DRIVER + r.pnl.cost.DIESEL + r.pnl.cost.OTHER)}
-                  </td>
-                  <td className="tabular py-2 text-right">{money(r.pnl.expensePaise)}</td>
-                  <td className="tabular py-2 text-right font-semibold">{money(r.pnl.netPaise)}</td>
+        <>
+          <Panel title={t("viz.pnlChart")} icon={BarChart3} tone="blue">
+            <LazyBarsChart
+              testId="pnl-chart"
+              series={[
+                { key: "income", label: t("veh.income"), color: "var(--chart-1)" },
+                { key: "cost", label: t("veh.costs"), color: "var(--chart-4)" },
+                { key: "net", label: t("veh.net"), color: "var(--chart-8)" },
+              ]}
+              rows={[...rows]
+                .sort((a, b) => (a.period < b.period ? -1 : 1))
+                .slice(-12)
+                .map((r) => ({
+                  key: r.period,
+                  label:
+                    by === "day"
+                      ? date(r.period, "short").split(" ").slice(0, 2).join(" ")
+                      : monthLabel(r.period),
+                  values: {
+                    income: r.pnl.incomePaise,
+                    cost: r.pnl.cost.DRIVER + r.pnl.cost.DIESEL + r.pnl.cost.OTHER,
+                    net: r.pnl.netPaise,
+                  },
+                }))}
+            />
+          </Panel>
+          <div className="-mx-1 overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead className="text-muted-foreground text-xs">
+                <tr>
+                  <th className="bg-background sticky left-0 py-2 text-left font-normal">
+                    {t("veh.period")}
+                  </th>
+                  <th className="py-2 text-right font-normal">{t("veh.income")}</th>
+                  <th className="py-2 text-right font-normal">{t("veh.costs")}</th>
+                  <th className="py-2 text-right font-normal">{t("veh.linkedExpenses")}</th>
+                  <th className="py-2 text-right font-normal">{t("veh.net")}</th>
                 </tr>
-              ))}
-              <tr className="font-semibold">
-                <td className="bg-background sticky left-0 py-2">{t("dly.total")}</td>
-                <td className="tabular py-2 text-right">{money(total.income)}</td>
-                <td className="tabular py-2 text-right">{money(total.cost)}</td>
-                <td className="tabular py-2 text-right">{money(total.exp)}</td>
-                <td className="tabular py-2 text-right" data-testid="pnl-total-net">
-                  {money(total.net)}
-                </td>
-              </tr>
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody className="divide-y">
+                {rows.map((r) => (
+                  <tr key={r.period} data-testid="pnl-row">
+                    <td className="bg-background sticky left-0 py-2 whitespace-nowrap">
+                      {by === "day" ? date(r.period, "short") : monthLabel(r.period)}
+                    </td>
+                    <td className="tabular py-2 text-right">{money(r.pnl.incomePaise)}</td>
+                    <td className="tabular py-2 text-right">
+                      {money(r.pnl.cost.DRIVER + r.pnl.cost.DIESEL + r.pnl.cost.OTHER)}
+                    </td>
+                    <td className="tabular py-2 text-right">{money(r.pnl.expensePaise)}</td>
+                    <td className="tabular py-2 text-right font-semibold">
+                      {money(r.pnl.netPaise)}
+                    </td>
+                  </tr>
+                ))}
+                <tr className="font-semibold">
+                  <td className="bg-background sticky left-0 py-2">{t("dly.total")}</td>
+                  <td className="tabular py-2 text-right">{money(total.income)}</td>
+                  <td className="tabular py-2 text-right">{money(total.cost)}</td>
+                  <td className="tabular py-2 text-right">{money(total.exp)}</td>
+                  <td className="tabular py-2 text-right" data-testid="pnl-total-net">
+                    {money(total.net)}
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </>
       )}
     </div>
   );

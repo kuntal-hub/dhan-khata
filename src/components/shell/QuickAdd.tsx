@@ -64,6 +64,18 @@ export const QUICK_ACTIONS: QuickAction[] = [
   { key: "trip", label: "quick.trip", href: "/vehicles/trip/new", icon: Truck, ready: true },
 ];
 
+/** Section colour of each quick action (tile accent). */
+export const SECTION_OF: Record<string, string> = {
+  purchase: "purchase",
+  sale: "sales",
+  expense: "expenses",
+  paid: "dues",
+  received: "dues",
+  load: "loads",
+  dispatch: "mill",
+  trip: "vehicles",
+};
+
 export function QuickAddFab() {
   const { t } = useI18n();
   const { readOnly } = useWriteGodown();
@@ -78,9 +90,9 @@ export function QuickAddFab() {
         onClick={() => setOpen(true)}
         aria-label={t("quick.open")}
         data-testid="quick-add"
-        className="press bg-primary text-primary-foreground ring-gold/60 shadow-lift fixed right-4 bottom-24 z-30 flex size-14 items-center justify-center rounded-2xl ring-2 lg:right-8 lg:bottom-8 print:hidden"
+        className="press anim-pop fixed right-4 bottom-24 z-30 flex size-15 items-center justify-center rounded-[1.25rem] border border-[var(--gold-600)] bg-linear-to-br from-[var(--gold-300)] via-[var(--gold)] to-[var(--gold-600)] text-[#2b1f02] shadow-[inset_0_1px_0_rgb(255_255_255/0.5),0_3px_0_var(--gold-600),0_14px_30px_-8px_rgb(183_128_10/0.75)] hover:brightness-105 active:translate-y-0.5 lg:right-8 lg:bottom-8 print:hidden"
       >
-        <Plus className="size-7" aria-hidden />
+        <Plus className="size-8 transition-transform duration-300" strokeWidth={2.5} aria-hidden />
       </button>
       {open ? (
         <BottomSheet
@@ -91,7 +103,7 @@ export function QuickAddFab() {
         >
           <ul className="grid grid-cols-2 gap-3 pb-2 sm:grid-cols-4">
             {ready.map((a) => (
-              <li key={a.key}>
+              <li key={a.key} className={`accent-${SECTION_OF[a.key]}`}>
                 <Link
                   href={a.href}
                   onClick={(e) => {
@@ -103,12 +115,12 @@ export function QuickAddFab() {
                     );
                   }}
                   data-testid={`qa-${a.key}`}
-                  className="press lift bg-card shadow-card flex min-h-20 flex-col items-start justify-between gap-2 rounded-2xl border p-3"
+                  className="press lift bg-card shadow-card anim-rise flex min-h-24 flex-col items-start justify-between gap-2 rounded-2xl border p-3.5"
                 >
-                  <span className="bg-gold-100 text-forest flex size-10 items-center justify-center rounded-xl">
-                    <a.icon className="size-5" strokeWidth={1.75} aria-hidden />
+                  <span className="tile-accent flex size-11 items-center justify-center rounded-xl">
+                    <a.icon className="size-5" strokeWidth={2} aria-hidden />
                   </span>
-                  <span className="text-[15px] font-medium">{t(a.label)}</span>
+                  <span className="text-[15px] font-semibold">{t(a.label)}</span>
                 </Link>
               </li>
             ))}

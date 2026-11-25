@@ -25,7 +25,7 @@ export function Banners() {
   return (
     <div className="flex flex-col gap-2 empty:hidden">
       {sync.authRequired ? (
-        <div className="flex items-center gap-2 rounded-md border border-amber-300 bg-amber-50 p-2 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
+        <div className="anim-zoom shadow-card flex items-center gap-2 rounded-2xl border border-amber-300 bg-amber-50 p-2.5 text-sm text-amber-900 dark:bg-amber-950 dark:text-amber-100">
           <LogIn className="size-4 shrink-0" aria-hidden />
           <span className="flex-1">{t("auth.reloginBanner")}</span>
           <Button asChild size="sm" className="h-11">
@@ -34,8 +34,8 @@ export function Banners() {
         </div>
       ) : null}
       {updateReady ? (
-        <div className="bg-primary/10 flex items-center gap-2 rounded-md p-2 text-sm">
-          <Sparkles className="size-4 shrink-0" aria-hidden />
+        <div className="anim-zoom border-primary/25 shadow-card flex items-center gap-2 rounded-2xl border bg-linear-to-r from-[color-mix(in_oklab,var(--primary)_12%,var(--card))] to-[var(--gold-100)] p-2.5 text-sm">
+          <Sparkles className="text-gold-600 size-5 shrink-0" aria-hidden />
           <span className="flex-1">{t("pwa.updateAvailable")}</span>
           <Button
             size="sm"
@@ -49,13 +49,13 @@ export function Banners() {
         </div>
       ) : null}
       {skewMin !== null ? (
-        <div className="text-destructive flex items-center gap-2 rounded-md border p-2 text-sm">
+        <div className="text-destructive bg-card shadow-card flex items-center gap-2 rounded-2xl border border-red-200 p-2.5 text-sm">
           <Clock className="size-4 shrink-0" aria-hidden />
           <span>{t("pwa.clockSkew", { minutes: count(skewMin) })}</span>
         </div>
       ) : null}
       {storageNotice === "pending" ? (
-        <div className="flex items-center gap-2 rounded-md border p-2 text-sm">
+        <div className="bg-card shadow-card flex items-center gap-2 rounded-2xl border p-2.5 text-sm">
           <HardDrive className="size-4 shrink-0" aria-hidden />
           <span className="flex-1">{t("pwa.storageDenied")}</span>
           <Button

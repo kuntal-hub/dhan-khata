@@ -10,7 +10,8 @@
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useDeferredValue, useState } from "react";
-import { ChevronLeft, ChevronRight, Receipt, Settings2, Wheat } from "lucide-react";
+import { ChevronLeft, ChevronRight, PieChart, Receipt, Settings2, Wheat } from "lucide-react";
+import { Donut } from "@/components/charts/Donut";
 import { AddPaymentSheet } from "@/components/entry/Payments";
 import { EmptyState, Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { SearchBox } from "@/components/sales/SalesTabs";
@@ -30,8 +31,44 @@ import { addDays, todayIST } from "@/domain/dates";
 import type { PayStatus } from "@/domain/v2/payments";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
-import { cn } from "@/lib/utils";
 import { CategoryManager, categoryName } from "./category";
+
+/** Expenses by category (donut), shown when two or more categories have spending. */
+function CategoryDonut({ rows, testId }: { rows: readonly ExpenseRow[]; testId: string }) {
+  const { t, money } = useI18n();
+  const by = new Map<string, { label: string; paise: bigint }>();
+  for (const r of rows) {
+    if (r.doc.status !== "active") continue;
+    const code = r.doc.categoryCode;
+    const e = by.get(code) ?? { label: categoryName(r.category, t, code), paise: 0n };
+    e.paise += BigInt(r.doc.amountPaise);
+    by.set(code, e);
+  }
+  if (by.size < 2) return null;
+  // Stable colour per category: alphabetical by code (never by rank).
+  const items = [...by.entries()]
+    .sort(([a], [b]) => (a < b ? -1 : 1))
+    .map(([code, e], i) => ({
+      key: code,
+      label: e.label,
+      value: e.paise,
+      display: money(e.paise),
+      color: `var(--chart-${(i % 8) + 1})`,
+    }))
+    .sort((a, b) => (a.value > b.value ? -1 : a.value < b.value ? 1 : 0));
+  const total = items.reduce((s, i) => s + i.value, 0n);
+  return (
+    <Panel title={t("viz.byCategory")} icon={PieChart} tone="out">
+      <Donut
+        testId={testId}
+        items={items}
+        total={money(total)}
+        centerLabel={t("viz.total")}
+        otherLabel={t("viz.other")}
+      />
+    </Panel>
+  );
+}
 
 function ExpenseCard({
   r,
@@ -119,20 +156,22 @@ export function TodayExpenses() {
       ) : (
         <>
           <div className="grid grid-cols-2 gap-3" data-testid="xp-day-totals">
-            <div className="bg-card shadow-card rounded-2xl border p-3">
-              <span className="text-muted-foreground text-xs">{t("xp.incurred")}</span>
+            <div className="bg-card shadow-card tone-out relative overflow-hidden rounded-[1.25rem] border p-3.5">
+              <span className="bg-accent-grad absolute inset-y-0 left-0 w-1" aria-hidden />
+              <span className="text-muted-foreground text-xs font-medium">{t("xp.incurred")}</span>
               <p
-                className="tabular text-xl font-semibold"
+                className="tabular text-xl font-bold"
                 data-testid="xp-incurred"
                 data-paise={data.incurredPaise.toString()}
               >
                 {money(data.incurredPaise)}
               </p>
             </div>
-            <div className="bg-card shadow-card rounded-2xl border p-3">
-              <span className="text-muted-foreground text-xs">{t("xp.cashOut")}</span>
+            <div className="bg-card shadow-card tone-warn relative overflow-hidden rounded-[1.25rem] border p-3.5">
+              <span className="bg-accent-grad absolute inset-y-0 left-0 w-1" aria-hidden />
+              <span className="text-muted-foreground text-xs font-medium">{t("xp.cashOut")}</span>
               <p
-                className="tabular text-xl font-semibold text-red-800"
+                className="tabular text-xl font-bold text-red-700 dark:text-red-300"
                 data-testid="xp-cashout"
                 data-paise={data.cashOutPaise.toString()}
               >
@@ -143,6 +182,7 @@ export function TodayExpenses() {
               </span>
             </div>
           </div>
+          <CategoryDonut rows={data.groups.flatMap((g) => g.rows)} testId="xp-day-donut" />
           {data.groups.length === 0 ? (
             <EmptyState icon={Receipt} title={t("xp.empty")} hint={date(day)} />
           ) : (
@@ -237,11 +277,6 @@ export function AllExpenses() {
   );
   const cats = useLiveQuery(() => (godownId ? categoryList(godownId) : []), [godownId]);
   const totals = rows ? expenseTotals(rows) : null;
-  const chip = (on: boolean) =>
-    cn(
-      "press min-h-10 shrink-0 rounded-full border px-4 text-sm",
-      on ? "bg-primary text-primary-foreground border-primary" : "bg-card",
-    );
   return (
     <div className="flex flex-col gap-3">
       <SearchBox value={q} onChange={setQ} placeholder={t("xp.search")} testId="expense-search" />
@@ -252,14 +287,14 @@ export function AllExpenses() {
             type="button"
             aria-pressed={status === s}
             onClick={() => setStatus(s)}
-            className={chip(status === s)}
+            className="chip"
           >
             {s === "ALL" ? t("pur.filterAll") : t(`ui.status.${s}` as TKey)}
           </button>
         ))}
       </div>
       <div className="-mx-3 flex flex-wrap gap-2 px-3 sm:mx-0 sm:px-0">
-        <label className="bg-card flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
+        <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
           {t("xp.byDate")}
           <select
             className="bg-transparent"
@@ -271,7 +306,7 @@ export function AllExpenses() {
             <option value="PAYMENT">{t("xp.byPayment")}</option>
           </select>
         </label>
-        <label className="bg-card flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
+        <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
           {t("pur.filterFrom")}
           <input
             type="date"
@@ -280,7 +315,7 @@ export function AllExpenses() {
             onChange={(e) => setFrom(e.target.value)}
           />
         </label>
-        <label className="bg-card flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
+        <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 items-center gap-1 rounded-full border px-3 text-sm">
           {t("pur.filterTo")}
           <input
             type="date"
@@ -319,16 +354,17 @@ export function AllExpenses() {
       </div>
       {totals && totals.count > 0 ? (
         <div
-          className="bg-forest-100/60 text-forest grid grid-cols-3 gap-2 rounded-2xl p-3 text-center text-sm"
+          className="tone-out bg-accent-grad shadow-card grid grid-cols-3 gap-2 rounded-2xl p-3 text-center text-sm text-white"
           data-testid="expense-totals"
         >
           <span>{t("xp.count", { count: totals.count })}</span>
           <span className="tabular font-semibold">{money(totals.amountPaise)}</span>
-          <span className="tabular text-red-800">
+          <span className="tabular font-medium">
             {t("xp.due", { amount: money(totals.duePaise) })}
           </span>
         </div>
       ) : null}
+      {rows ? <CategoryDonut rows={rows} testId="xp-all-donut" /> : null}
       {rows === undefined ? (
         <Skeleton rows={4} />
       ) : rows.length === 0 ? (
@@ -372,7 +408,7 @@ export function UnpaidExpenses() {
         <div className="flex items-center justify-between rounded-2xl bg-red-50 p-3">
           <span className="text-sm text-red-900">{t("xp.totalUnpaid")}</span>
           <span
-            className="tabular text-xl font-semibold text-red-800"
+            className="tabular text-xl font-bold text-red-700 dark:text-red-300"
             data-testid="expense-unpaid-total"
           >
             {money(total)}

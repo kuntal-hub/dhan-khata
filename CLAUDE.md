@@ -112,6 +112,12 @@ Keep this list up to date.
 - Dues: `queries/dues.ts` (`partyDues`: remaining = ledger balance; use `dueBillsOf`, never `billsOf`, for anything "owed"), `payParty` (FIFO across bills), `components/dues/{DueTabs,PayAcross}`.
 - Vehicles: `repo/trips.ts` (`saveTrip`), `queries/vehicles.ts`, `components/vehicles/*` (`VehiclePicker`, `TripForm`, `VehicleTabs`). i18n namespaces `ld`, `dues`, `veh` (the v1 `due` namespace still exists and would shadow a v2 `due`).
 
+## Key building blocks (UI refresh, D52)
+- Design tokens + component classes live in `src/app/globals.css`: section accents `.accent-<section>` (`--sa`/`--sb`), tones `.tone-{green,gold,in,out,warn,blue,violet}`, `.hero`, `.tile-accent`, `.bg-accent-grad`, `.glass`, `.surface`. Controls: `Button` (raised), `.tabbar` + `.tab` (underline, `aria-selected`), `.chip` (`aria-pressed`), `.choice` (`aria-checked`), `.seg` (small switch). Never style a tab or chip like a button, or the reverse.
+- Motion: `anim-rise` / `anim-zoom` / `anim-pop` / `anim-grow-x` (CSS only; never add a JS animation library: start-up budget).
+- Kit: `Panel` takes `icon` + `tone`; `MetricCard` / `TxnCard` take `tone`; `EmptyArt`.
+- Charts: `components/charts/Donut` (SVG, legend + exact amounts), `LazyTrendChart` / `LazyBarsChart` from `components/charts/lazy` (recharts, lazy). Colours `var(--chart-1…8)` in fixed order (validated for colour blindness); keep an entity's colour stable, never by rank. Dashboard trend data: `golaTrend` / `trendFor`.
+
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**
 - The project folder is **inside OneDrive** (the user chose to keep it there). `pnpm-workspace.yaml` sets `nodeLinker: hoisted` to avoid symlink problems. If `pnpm install` or a build fails with EPERM / EBUSY / file-locked errors, ask the user to **pause OneDrive sync** and retry.

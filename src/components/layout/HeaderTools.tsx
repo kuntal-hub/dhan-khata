@@ -34,7 +34,7 @@ export function HeaderTools() {
     <>
       <Link
         href="/search"
-        className="press hover:bg-muted flex size-10 items-center justify-center rounded-full sm:size-11"
+        className="press hover:bg-foreground/[0.06] text-foreground/80 flex size-10 items-center justify-center rounded-full sm:size-11"
         aria-label={t("search.open")}
         data-testid="header-search"
       >
@@ -42,14 +42,17 @@ export function HeaderTools() {
       </Link>
       <Link
         href="/dues?tab=reminders"
-        className="press hover:bg-muted relative flex size-10 items-center justify-center rounded-full sm:size-11"
+        className="press hover:bg-foreground/[0.06] text-foreground/80 relative flex size-10 items-center justify-center rounded-full sm:size-11"
         aria-label={due ? t("search.bellCount", { count: due }) : t("search.bell")}
         data-testid="header-bell"
         data-count={due ?? 0}
       >
-        <Bell className="size-5" aria-hidden />
+        <Bell
+          className={due ? "size-5 origin-top animate-[wiggle_1s_ease-in-out_2]" : "size-5"}
+          aria-hidden
+        />
         {due ? (
-          <span className="bg-destructive text-destructive-foreground tabular absolute top-1 right-1 min-w-4 rounded-full px-1 text-center text-[10px] leading-4 font-semibold">
+          <span className="bg-destructive ring-card anim-pop tabular absolute top-0.5 right-0.5 min-w-[18px] rounded-full px-1 text-center text-[10px] leading-[18px] font-bold text-white ring-2">
             {count(due > 99 ? 99 : due)}
           </span>
         ) : null}

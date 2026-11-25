@@ -1,6 +1,6 @@
 "use client";
 
-import { Loader2 } from "lucide-react";
+import { LogoMark } from "@/components/brand/Logo";
 
 /** Full-screen loading indicator (no text: shown before the language is known). */
 export function Splash({ label }: { label: string }) {
@@ -10,7 +10,10 @@ export function Splash({ label }: { label: string }) {
       aria-label={label}
       className="flex min-h-dvh flex-1 items-center justify-center"
     >
-      <Loader2 className="text-primary size-8 animate-spin" aria-hidden />
+      <span className="relative flex size-24 items-center justify-center" aria-hidden>
+        <span className="border-primary/15 border-t-primary absolute inset-0 animate-spin rounded-full border-[3px]" />
+        <LogoMark className="anim-pop size-14 drop-shadow-[0_8px_16px_rgb(227_168_23/0.4)]" />
+      </span>
     </div>
   );
 }

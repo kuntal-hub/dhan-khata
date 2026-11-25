@@ -263,10 +263,7 @@ export function DispatchForm({
                 disabled={!!existing}
                 onClick={() => set({ type: k })}
                 data-testid={`dispatch-type-${k}`}
-                className={cn(
-                  "press min-h-14 rounded-xl border px-3 text-[15px] font-medium",
-                  s.type === k ? "border-primary bg-primary text-primary-foreground" : "bg-card",
-                )}
+                className={cn("choice min-h-14 px-3 text-[15px] font-medium")}
               >
                 {t(`mill.${k}`)}
               </button>

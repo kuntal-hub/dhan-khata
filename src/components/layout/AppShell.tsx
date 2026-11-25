@@ -45,9 +45,9 @@ export function AppShell({ children }: { children: ReactNode }) {
       <div className="flex w-full flex-1">
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
-          <header className="bg-background/90 sticky top-0 z-30 flex h-16 items-center gap-2 border-b px-3 backdrop-blur lg:px-6 print:hidden">
+          <header className="glass sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-(--hairline) px-3 shadow-[0_6px_24px_-18px_rgb(20_40_30/0.5)] lg:px-6 print:hidden">
             <LogoMark
-              className="hidden size-9 shrink-0 sm:block lg:hidden"
+              className="hidden size-9 shrink-0 drop-shadow-[0_3px_8px_rgb(227_168_23/0.35)] sm:block lg:hidden"
               title={t("common.appName")}
             />
             <GodownSwitcher />

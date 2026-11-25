@@ -215,7 +215,7 @@ export function NewVarietyForm({
               type="button"
               aria-pressed={company === c}
               onClick={() => setCompany(c)}
-              className={`press min-h-11 rounded-full border px-4 text-sm ${company === c ? "bg-gold-100 border-gold text-accent-foreground font-semibold" : "bg-card"}`}
+              className="chip chip-gold"
             >
               {c === "NONE" ? t("vari.noCompany") : t(`vari.${c}` as TKey)}
             </button>

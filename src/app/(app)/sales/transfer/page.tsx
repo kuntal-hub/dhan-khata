@@ -133,10 +133,7 @@ function TransferForm({ godown, others }: { godown: Godown; others: Godown[] }) 
                 aria-checked={to === g._id}
                 onClick={() => change(setTo)(g._id)}
                 data-testid={`transfer-to-${g.code}`}
-                className={cn(
-                  "press min-h-12 rounded-xl border px-3 text-sm",
-                  to === g._id ? "border-primary bg-primary text-primary-foreground" : "bg-card",
-                )}
+                className={cn("choice min-h-12 px-3 text-sm")}
               >
                 {g.name}
               </button>

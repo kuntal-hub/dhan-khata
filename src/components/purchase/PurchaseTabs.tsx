@@ -72,12 +72,12 @@ export function PurchaseList() {
             type="button"
             aria-pressed={status === s}
             onClick={() => setStatus(s)}
-            className={`press min-h-10 shrink-0 rounded-full border px-4 text-sm ${status === s ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`}
+            className="chip"
           >
             {s === "ALL" ? t("pur.filterAll") : t(`ui.status.${s}` as TKey)}
           </button>
         ))}
-        <label className="bg-card flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
+        <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
           {t("pur.filterFrom")}
           <input
             type="date"
@@ -86,7 +86,7 @@ export function PurchaseList() {
             onChange={(e) => setFrom(e.target.value)}
           />
         </label>
-        <label className="bg-card flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
+        <label className="bg-card shadow-card focus-within:border-primary flex min-h-10 shrink-0 items-center gap-1 rounded-full border px-3 text-sm">
           {t("pur.filterTo")}
           <input
             type="date"
@@ -263,7 +263,7 @@ export function VarietyManager() {
             type="button"
             aria-pressed={product === p}
             onClick={() => setProduct(p)}
-            className={`press min-h-10 shrink-0 rounded-full border px-4 text-sm ${product === p ? "bg-primary text-primary-foreground border-primary" : "bg-card"}`}
+            className="chip"
           >
             {t(`vari.${p}` as TKey)}
           </button>
@@ -274,7 +274,7 @@ export function VarietyManager() {
             type="button"
             aria-pressed={company === c}
             onClick={() => setCompany(c)}
-            className={`press min-h-10 shrink-0 rounded-full border px-4 text-sm ${company === c ? "bg-gold-100 border-gold font-semibold" : "bg-card"}`}
+            className="chip chip-gold"
           >
             {c === "ALL"
               ? t("pur.filterAll")

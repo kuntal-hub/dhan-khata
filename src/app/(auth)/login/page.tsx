@@ -58,7 +58,7 @@ export default function LoginPage() {
   return (
     <>
       <AuthHeader />
-      <Card className="rounded-2xl">
+      <Card className="shadow-lift rounded-3xl">
         <CardContent className="pt-6">
           <form className="flex flex-col gap-4" onSubmit={(e) => void submit(e)}>
             <p className="text-muted-foreground text-sm">{t("auth.loginSubtitle")}</p>

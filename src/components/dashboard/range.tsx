@@ -7,7 +7,6 @@
 import { useSyncExternalStore } from "react";
 import { addDays, parseYmd, todayIST } from "@/domain/dates";
 import { useI18n } from "@/i18n/I18nProvider";
-import { cn } from "@/lib/utils";
 
 export type Preset = "today" | "yesterday" | "week" | "month" | "custom";
 export interface DashRange {
@@ -93,10 +92,7 @@ export function RangeBar() {
                 p === "custom" ? { ...r, preset: "custom" } : { preset: p, ...rangeOf(p) },
               )
             }
-            className={cn(
-              "press min-h-10 shrink-0 rounded-full border px-4 text-sm",
-              r.preset === p ? "bg-primary text-primary-foreground border-primary" : "bg-card",
-            )}
+            className={"chip"}
           >
             {t(`dsh.range.${p}`)}
           </button>
@@ -104,7 +100,7 @@ export function RangeBar() {
       </div>
       {r.preset === "custom" ? (
         <div className="flex flex-wrap gap-2">
-          <label className="bg-card flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm">
+          <label className="bg-card shadow-card focus-within:border-primary flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-medium">
             {t("dsh.from")}
             <input
               type="date"
@@ -115,7 +111,7 @@ export function RangeBar() {
               data-testid="dash-from"
             />
           </label>
-          <label className="bg-card flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm">
+          <label className="bg-card shadow-card focus-within:border-primary flex min-h-11 items-center gap-2 rounded-xl border px-3 text-sm font-medium">
             {t("dsh.to")}
             <input
               type="date"

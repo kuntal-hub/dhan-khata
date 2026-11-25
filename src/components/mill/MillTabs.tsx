@@ -25,7 +25,6 @@ import {
 import { saleRows } from "@/client/queries/sales";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
-import { cn } from "@/lib/utils";
 
 function Chip({
   on,
@@ -37,15 +36,7 @@ function Chip({
   children: React.ReactNode;
 }) {
   return (
-    <button
-      type="button"
-      aria-pressed={on}
-      onClick={onClick}
-      className={cn(
-        "press min-h-10 shrink-0 rounded-full border px-4 text-sm",
-        on ? "bg-primary text-primary-foreground border-primary" : "bg-card",
-      )}
-    >
+    <button type="button" aria-pressed={on} onClick={onClick} className={"chip"}>
       {children}
     </button>
   );

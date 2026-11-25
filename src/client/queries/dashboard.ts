@@ -244,6 +244,61 @@ export async function golaOverview(
   return o;
 }
 
+// ── Trend (dashboard charts) ─────────────────────────────────────────────────────────────────
+
+export interface TrendPoint {
+  date: string;
+  /** Closing balances at the end of the day. */
+  cashPaise: bigint;
+  bankPaise: bigint;
+  /** Flows within the day (same rules as the overview cards). */
+  purchasePaise: bigint;
+  salesPaise: bigint;
+}
+
+/** The `days` days ending at `to`: closing cash / bank and purchase / sales per day. */
+export async function golaTrend(godownId: string, to: string, days = 30): Promise<TrendPoint[]> {
+  const from = addDays(to, -(days - 1));
+  const docs = await golaDocs(godownId);
+  const pts = new Map<string, TrendPoint>(
+    daysBetween(from, to, days).map((date) => [
+      date,
+      { date, cashPaise: 0n, bankPaise: 0n, purchasePaise: 0n, salesPaise: 0n },
+    ]),
+  );
+  let cash = 0n;
+  let bank = 0n;
+  const cashDelta = new Map<string, bigint>();
+  const bankDelta = new Map<string, bigint>();
+  for (const e of docs.flatMap(cashEffects)) {
+    if (e.date > to) continue;
+    const isCash = e.account === "CASH";
+    if (!isCash && !e.account.startsWith("BANK:")) continue;
+    if (e.date < from) {
+      if (isCash) cash += e.signedPaise;
+      else bank += e.signedPaise;
+      continue;
+    }
+    const m = isCash ? cashDelta : bankDelta;
+    m.set(e.date, (m.get(e.date) ?? 0n) + e.signedPaise);
+  }
+  for (const doc of docs) {
+    if (doc.status !== "active") continue;
+    const p = pts.get(businessDate(doc));
+    if (!p) continue;
+    if (doc.type === "PURCHASE") p.purchasePaise += BigInt(doc.totalPaise);
+    else if (doc.type === "SALE" && doc.saleStatus === "CONFIRMED")
+      p.salesPaise += BigInt(doc.totalPaise);
+  }
+  for (const p of pts.values()) {
+    cash += cashDelta.get(p.date) ?? 0n;
+    bank += bankDelta.get(p.date) ?? 0n;
+    p.cashPaise = cash;
+    p.bankPaise = bank;
+  }
+  return [...pts.values()];
+}
+
 export interface RecentItem {
   doc: Doc;
   party?: Party;

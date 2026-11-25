@@ -19,7 +19,6 @@ import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { groupLoads, loadRows, type LoadGroupBy, type LoadRow } from "@/client/queries/loads";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
-import { cn } from "@/lib/utils";
 
 function LoadCard({ r, index }: { r: LoadRow; index: number }) {
   const { t, date, digits } = useI18n();
@@ -98,10 +97,7 @@ function Toolbar({
           aria-pressed={unlinked}
           onClick={() => setUnlinked(!unlinked)}
           data-testid="load-filter-unlinked"
-          className={cn(
-            "press min-h-10 rounded-full border px-4 text-sm",
-            unlinked ? "bg-primary text-primary-foreground border-primary" : "bg-card",
-          )}
+          className={"chip"}
         >
           {t("ld.notLinked")}
         </button>

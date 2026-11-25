@@ -37,7 +37,7 @@ export function SyncBadge() {
   return (
     <Link
       href="/sync"
-      className={`flex min-h-11 items-center gap-1.5 rounded-md px-2 text-xs font-medium ${tone}`}
+      className={`press hover:bg-foreground/[0.06] flex min-h-11 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold ${tone}`}
       aria-label={`${t("sync.title")}: ${text}`}
       data-testid="sync-badge"
       data-synced={allGood ? "yes" : "no"}

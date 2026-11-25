@@ -37,68 +37,92 @@ export default function PurchaseSalesChart({
     s: s.salesPaise,
   }));
   return (
-    <div className="h-56 w-full" data-testid="purchase-sales-chart">
-      <ResponsiveContainer width="100%" height="100%">
-        <BarChart
-          data={data}
-          margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
-          onClick={(e) => {
-            const i = e?.activeTooltipIndex;
-            const idx = typeof i === "number" ? i : Number(i);
-            const row = Number.isInteger(idx) ? data[idx] : undefined;
-            if (row) onDay(row.date);
-          }}
-        >
-          <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 3" />
-          <XAxis
-            dataKey="label"
-            tickLine={false}
-            axisLine={false}
-            fontSize={11}
-            interval="preserveStartEnd"
-          />
-          <YAxis hide />
-          <Tooltip
-            cursor={{ fill: "var(--muted)", opacity: 0.5 }}
-            content={({ active, payload }) => {
-              const row =
-                active && payload?.[0] ? (payload[0].payload as (typeof data)[number]) : null;
-              if (!row) return null;
-              return (
-                <div className="bg-card shadow-lift rounded-xl border p-2.5 text-xs">
-                  <p className="mb-1 font-medium">{date(row.date, "short")}</p>
-                  <p className="tabular">
-                    <span className="bg-gold mr-1.5 inline-block size-2 rounded-full" />
-                    {t("dsh.chartPurchase")}: {money(row.p)}
-                  </p>
-                  <p className="tabular">
-                    <span className="bg-primary mr-1.5 inline-block size-2 rounded-full" />
-                    {t("dsh.chartSales")}: {money(row.s)}
-                  </p>
-                </div>
-              );
+    <div className="flex flex-col gap-2">
+      <ul className="flex flex-wrap gap-x-4 text-xs" aria-hidden>
+        <li className="text-muted-foreground flex items-center gap-1.5">
+          <span className="size-2.5 rounded-[3px] bg-(--chart-2)" />
+          {t("dsh.chartPurchase")}
+        </li>
+        <li className="text-muted-foreground flex items-center gap-1.5">
+          <span className="size-2.5 rounded-[3px] bg-(--chart-1)" />
+          {t("dsh.chartSales")}
+        </li>
+      </ul>
+      <div className="h-56 w-full" data-testid="purchase-sales-chart">
+        <ResponsiveContainer width="100%" height="100%">
+          <BarChart
+            data={data}
+            margin={{ top: 8, right: 4, bottom: 0, left: 0 }}
+            barGap={2}
+            onClick={(e) => {
+              const i = e?.activeTooltipIndex;
+              const idx = typeof i === "number" ? i : Number(i);
+              const row = Number.isInteger(idx) ? data[idx] : undefined;
+              if (row) onDay(row.date);
             }}
-          />
-          <Bar
-            dataKey="purchase"
-            name={t("dsh.chartPurchase")}
-            fill="var(--color-gold, #C9A227)"
-            radius={[6, 6, 0, 0]}
-            maxBarSize={28}
-            isAnimationActive={!reduced}
-            animationDuration={350}
-          />
-          <Bar
-            dataKey="sales"
-            name={t("dsh.chartSales")}
-            fill="var(--primary)"
-            radius={[6, 6, 0, 0]}
-            maxBarSize={28}
-            isAnimationActive={!reduced}
-            animationDuration={350}
-          />
-        </BarChart>
-      </ResponsiveContainer>
+          >
+            <defs>
+              <linearGradient id="ps-p" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--chart-2)" stopOpacity={1} />
+                <stop offset="100%" stopColor="var(--chart-2)" stopOpacity={0.65} />
+              </linearGradient>
+              <linearGradient id="ps-s" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stopColor="var(--chart-1)" stopOpacity={1} />
+                <stop offset="100%" stopColor="var(--chart-1)" stopOpacity={0.65} />
+              </linearGradient>
+            </defs>
+            <CartesianGrid vertical={false} stroke="var(--border)" strokeDasharray="3 4" />
+            <XAxis
+              dataKey="label"
+              tickLine={false}
+              axisLine={false}
+              fontSize={11}
+              interval="preserveStartEnd"
+              tick={{ fill: "var(--muted-foreground)" }}
+            />
+            <YAxis hide />
+            <Tooltip
+              cursor={{ fill: "var(--muted)", opacity: 0.5 }}
+              content={({ active, payload }) => {
+                const row =
+                  active && payload?.[0] ? (payload[0].payload as (typeof data)[number]) : null;
+                if (!row) return null;
+                return (
+                  <div className="bg-card shadow-lift rounded-xl border p-2.5 text-xs">
+                    <p className="mb-1 font-semibold">{date(row.date, "short")}</p>
+                    <p className="tabular">
+                      <span className="mr-1.5 inline-block size-2 rounded-full bg-(--chart-2)" />
+                      {t("dsh.chartPurchase")}: {money(row.p)}
+                    </p>
+                    <p className="tabular">
+                      <span className="mr-1.5 inline-block size-2 rounded-full bg-(--chart-1)" />
+                      {t("dsh.chartSales")}: {money(row.s)}
+                    </p>
+                  </div>
+                );
+              }}
+            />
+            <Bar
+              dataKey="purchase"
+              name={t("dsh.chartPurchase")}
+              fill="url(#ps-p)"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={28}
+              isAnimationActive={!reduced}
+              animationDuration={600}
+            />
+            <Bar
+              dataKey="sales"
+              name={t("dsh.chartSales")}
+              fill="url(#ps-s)"
+              radius={[4, 4, 0, 0]}
+              maxBarSize={28}
+              isAnimationActive={!reduced}
+              animationDuration={600}
+            />
+          </BarChart>
+        </ResponsiveContainer>
+      </div>
     </div>
   );
 }

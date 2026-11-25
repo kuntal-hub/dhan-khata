@@ -19,7 +19,6 @@ import { normalizePhone } from "@/domain/phone";
 import type { PartyRole } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
 import { matchesSearch } from "@/i18n/translit";
-import { cn } from "@/lib/utils";
 
 export function FieldBox({
   label,
@@ -114,7 +113,7 @@ export function Segmented<T extends string>({
     <div
       role="radiogroup"
       aria-label={label}
-      className="bg-muted grid gap-1 rounded-xl p-1"
+      className="seg w-full"
       style={{ gridTemplateColumns: `repeat(${options.length}, minmax(0, 1fr))` }}
     >
       {options.map(([v, l]) => (
@@ -125,10 +124,7 @@ export function Segmented<T extends string>({
           aria-checked={value === v}
           data-testid={testId ? `${testId}-${v}` : undefined}
           onClick={() => onChange(v)}
-          className={cn(
-            "press min-h-11 rounded-lg px-2 text-[15px] transition-colors",
-            value === v ? "bg-card text-primary shadow-card font-semibold" : "text-foreground/70",
-          )}
+          className="min-h-11 px-2"
         >
           {l}
         </button>

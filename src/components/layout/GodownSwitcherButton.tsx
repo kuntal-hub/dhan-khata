@@ -22,19 +22,23 @@ export function GodownSwitcherButton(props: ComponentProps<"button">) {
   return (
     <button
       type="button"
-      className="press bg-card hover:bg-muted shadow-card flex h-11 max-w-[46vw] min-w-0 items-center gap-2 rounded-full border px-3 text-[15px] sm:max-w-sm"
+      className="press bg-card hover:border-primary/40 shadow-card flex h-11 max-w-[46vw] min-w-0 items-center gap-2 rounded-full border py-1 pr-2.5 pl-1.5 text-[15px] sm:max-w-sm"
       aria-haspopup="menu"
       aria-label={label}
       data-testid="godown-switcher"
       {...props}
     >
       {consolidated ? (
-        <Layers className="text-primary size-4 shrink-0" aria-hidden />
+        <span className="bg-accent-grad flex size-8 shrink-0 items-center justify-center rounded-full text-white">
+          <Layers className="size-4" aria-hidden />
+        </span>
       ) : (
         <span
-          className={`size-3 shrink-0 rounded-full transition-colors duration-300 ${golaColourClass(godown?.colour)}`}
+          className={`flex size-8 shrink-0 items-center justify-center rounded-full text-[13px] font-bold text-white shadow-[inset_0_-2px_0_rgb(0_0_0/0.15)] transition-colors duration-300 ${golaColourClass(godown?.colour)}`}
           aria-hidden
-        />
+        >
+          {[...(godown?.name.trim() ?? "")][0] ?? ""}
+        </span>
       )}
       <span className="truncate font-semibold sm:hidden">{short}</span>
       <span className="hidden truncate font-semibold sm:inline">{label}</span>

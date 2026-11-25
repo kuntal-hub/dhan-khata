@@ -18,7 +18,7 @@ export function UserMenuButton(props: ComponentProps<"button">) {
       data-testid="user-menu"
       {...props}
     >
-      <span className="bg-gold-100 text-forest ring-gold/40 flex size-9 items-center justify-center rounded-full text-base font-semibold ring-1">
+      <span className="ring-card flex size-9 items-center justify-center rounded-full bg-linear-to-br from-[var(--gold-300)] to-[var(--gold-600)] text-base font-bold text-[#3b2a02] shadow-[0_4px_10px_-4px_rgb(183_128_10/0.8)] ring-2">
         {initial}
       </span>
     </button>

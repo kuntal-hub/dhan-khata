@@ -287,12 +287,10 @@ export function ExpenseForm({
                 onClick={() => set({ categoryCode: c.code })}
                 data-testid={`expense-cat-${c.code}`}
                 className={cn(
-                  "press min-h-11 rounded-full border px-4 text-sm",
-                  s.categoryCode === c.code
-                    ? "border-primary bg-primary text-primary-foreground"
-                    : c.code === FARMER_PAYMENT_CODE
-                      ? "bg-gold-100 border-gold-300"
-                      : "bg-card",
+                  "chip min-h-11",
+                  c.code === FARMER_PAYMENT_CODE &&
+                    s.categoryCode !== c.code &&
+                    "bg-gold-100 border-gold-300",
                 )}
               >
                 {categoryName(c, t)}
@@ -364,10 +362,7 @@ export function ExpenseForm({
                     aria-checked={s.billId === "ADVANCE"}
                     data-testid="farmer-bill-advance"
                     onClick={() => set({ billId: "ADVANCE" })}
-                    className={cn(
-                      "press min-h-12 rounded-xl border px-3 text-left text-sm",
-                      s.billId === "ADVANCE" ? "border-primary bg-forest-100/60" : "bg-card",
-                    )}
+                    className={cn("choice min-h-12 px-3 text-left text-sm")}
                   >
                     {t("xp.advanceOption")}
                   </button>

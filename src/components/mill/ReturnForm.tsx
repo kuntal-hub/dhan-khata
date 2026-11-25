@@ -281,10 +281,7 @@ export function ReturnForm({
                   aria-checked={s.dispatchId === r.doc._id}
                   disabled={!!existing && r.doc._id !== existing.dispatchId}
                   onClick={() => set({ dispatchId: r.doc._id })}
-                  className={cn(
-                    "press min-h-12 rounded-xl border px-3 text-left text-sm",
-                    s.dispatchId === r.doc._id ? "border-primary bg-forest-100/60" : "bg-card",
-                  )}
+                  className={cn("choice min-h-12 px-3 text-left text-sm")}
                 >
                   {t("mill.dispatchPick", {
                     mill: r.mill?.name ?? "",

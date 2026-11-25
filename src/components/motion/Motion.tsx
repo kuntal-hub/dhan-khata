@@ -17,7 +17,7 @@ export function prefersReducedMotion(): boolean {
   );
 }
 
-/** Fade + 8 px slide-in, 200 ms, re-played whenever `k` changes (page, tab, Gola). */
+/** Fade + 10 px rise, 340 ms (ease-out-expo), re-played whenever `k` changes (page, tab, Gola). */
 export function FadeSlide({
   children,
   k,
@@ -28,10 +28,7 @@ export function FadeSlide({
   className?: string;
 }) {
   return (
-    <div
-      key={k}
-      className={cn("animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out", className)}
-    >
+    <div key={k} className={cn("anim-rise", className)}>
       {children}
     </div>
   );
@@ -54,7 +51,7 @@ export function CrossFade({
   );
 }
 
-/** Staggered fade-up entrance: 35 ms stagger for the first 8 items, then none. */
+/** Staggered fade-up entrance: 40 ms stagger for the first 10 items, then none. */
 export function StaggerItem({
   i,
   children,
@@ -65,14 +62,11 @@ export function StaggerItem({
   className?: string;
 }) {
   const style: CSSProperties = {
-    animationDelay: `${Math.min(i, 8) * 35}ms`,
-    animationFillMode: "both",
+    animationDelay: `${Math.min(i, 10) * 40}ms`,
+    animationFillMode: "backwards",
   };
   return (
-    <div
-      className={cn("animate-in fade-in slide-in-from-bottom-2 duration-200 ease-out", className)}
-      style={style}
-    >
+    <div className={cn("anim-rise", className)} style={style}>
       {children}
     </div>
   );
