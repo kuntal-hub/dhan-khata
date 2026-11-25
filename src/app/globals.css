@@ -262,4 +262,26 @@ html[lang="en"] {
     max-width: none !important;
     margin: 0 !important;
   }
+  /* Wide report tables print whole (no scroll box, no sticky column). */
+  .print-sheet .overflow-x-auto {
+    overflow: visible !important;
+  }
+  .print-sheet .sticky {
+    position: static !important;
+  }
+  .print-sheet .report-80mm,
+  .report-80mm {
+    width: 72mm !important;
+  }
+}
+
+/* 80 mm thermal receipt layout for reports (§13): narrow, small type. */
+.report-80mm {
+  max-width: 80mm;
+  margin-inline: auto;
+  font-size: 11px;
+  padding: 8px;
+}
+.report-80mm table {
+  font-size: 10px;
 }

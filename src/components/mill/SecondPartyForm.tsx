@@ -13,7 +13,7 @@ import { emptyPay, PaymentFields, toPart, type PayState } from "@/components/ent
 import { FormShell } from "@/components/forms/FormShell";
 import { AmountInput } from "@/components/money/inputs";
 import { lazyToast } from "@/components/system/IdleToaster";
-import { Input } from "@/components/ui/input";
+import { VoiceText } from "@/components/voice/VoiceText";
 import { errorKey } from "@/client/errors";
 import { newId, saveBillWithInitialPayment, type DraftOf } from "@/client/repo";
 import { paiseToInput, parseAmountField } from "@/client/ui/parse";
@@ -188,11 +188,10 @@ export function SecondPartyForm({
           </section>
         )}
         <FieldBox label={t("mill.notes")}>
-          <Input
-            className="h-12 text-base"
+          <VoiceText
             value={notes}
-            onChange={(e) => {
-              setNotes(e.target.value);
+            onChange={(v) => {
+              setNotes(v);
               touch();
             }}
           />

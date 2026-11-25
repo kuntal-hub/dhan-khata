@@ -2,9 +2,10 @@
 
 import { LoadGroups } from "@/components/loads/LoadTabs";
 import { QuickAddFab } from "@/components/shell/QuickAdd";
-import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { LazyReports } from "@/components/reports/LazyReports";
+import { SectionPage } from "@/components/shell/SectionPage";
 
-/** Section 5 — দৈনিক লোড খাতা / Daily Load Khata (requirement_v2 §12.5). Reports: Phase 11. */
+/** Section 5 — দৈনিক লোড খাতা / Daily Load Khata (requirement_v2 §12.5). */
 export default function LoadsPage() {
   return (
     <>
@@ -18,7 +19,7 @@ export default function LoadsPage() {
           ) : tab === "vehicle" ? (
             <LoadGroups by="vehicle" />
           ) : tab === "reports" ? (
-            <NotBuiltYet />
+            <LazyReports section="loads" />
           ) : (
             <LoadGroups by="date" />
           )

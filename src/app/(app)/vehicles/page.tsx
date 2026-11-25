@@ -1,10 +1,11 @@
 "use client";
 
 import { QuickAddFab } from "@/components/shell/QuickAdd";
-import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { LazyReports } from "@/components/reports/LazyReports";
+import { SectionPage } from "@/components/shell/SectionPage";
 import { ByCustomer, ByVehicle, PnlTab, TripList } from "@/components/vehicles/VehicleTabs";
 
-/** Section 7 — গাড়ির ব্যবসা / Vehicle Business (requirement_v2 §12.7). Reports: Phase 11. */
+/** Section 7 — গাড়ির ব্যবসা / Vehicle Business (requirement_v2 §12.7). */
 export default function VehiclesPage() {
   return (
     <>
@@ -18,7 +19,7 @@ export default function VehiclesPage() {
           ) : tab === "pnl" ? (
             <PnlTab />
           ) : tab === "reports" ? (
-            <NotBuiltYet />
+            <LazyReports section="vehicles" />
           ) : (
             <TripList />
           )

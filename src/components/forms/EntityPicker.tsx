@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label";
 import { cn } from "@/lib/utils";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
+import { VoiceButton } from "@/components/voice/VoiceButton";
 import { BottomSheet } from "./BottomSheet";
 
 export interface PickerItem {
@@ -137,8 +138,18 @@ export function EntityPicker({
                 placeholder={t("common.search")}
                 aria-label={t("common.search")}
                 data-testid={testId ? `${testId}-search` : undefined}
-                className="h-12 pl-9 text-base"
+                className="h-12 pr-12 pl-9 text-base"
               />
+              <span className="absolute top-1/2 right-1 -translate-y-1/2">
+                <VoiceButton
+                  mode="text"
+                  onText={(text) => {
+                    setQuery(text);
+                    freeText?.onChange(text);
+                  }}
+                  {...(testId ? { testId: `${testId}-search` } : {})}
+                />
+              </span>
             </div>
             {renderCreate ? (
               <Button

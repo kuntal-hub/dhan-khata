@@ -19,7 +19,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ✅ |
 | 9 | Mill & Second Party | Tests 2, 3 e2e | ✅ |
 | 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ✅ |
-| 11 | Reports, print, export, voice, WhatsApp | reports reconcile with dashboard | ⬜ |
+| 11 | Reports, print, export, voice, WhatsApp | reports reconcile with dashboard | ✅ |
 | 12 | Hardening | all of §21 | ⬜ |
 
 ## v1 build (requirement.md v1.1)
@@ -480,3 +480,18 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - The optional daily web-push due digest (§12.6) uses the v1 push code; Phase 12 checks it against the v2 reminders.
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 297 passed, 1 skipped (28 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 241.9 KB · `pnpm test:e2e` ✅ 15/15.
+### v2 Phase 11 — Reports, print, export, voice, WhatsApp — 2026-11-25
+**Built:**
+- Reports (§13): `client/reports/model.ts` (exact cells, auto totals, per-Gola merge, CSV with BOM), `defs.ts` (32 reports: daily purchase, purchase register, farmer ledger; daily sales, sales register, customer ledger, delivery status; daily / category-wise (+ chart) / month-wise / unpaid expenses; load register grouped by date / party / mill / vehicle; due & advance, aging, reminders, party ledger; vehicle income (+ chart), vehicle profit by vehicle / month / day; mill dispatch, mill return, mill stock, milling conversion, second-party ledger; date-range report, monthly business summary with gross profit, Gola-wise, all Golas combined, daily overview, cash book / bank book, daily stock, paddy stock, rice & other stock), `run.ts` (scope: one Gola or all, D45). UI `components/reports/ReportView.tsx` (`ReportsTab`: report chips, date presets / one date, report filter incl. party / bank pickers; `ReportDoc` header with business + logo, Gola or সব গোলা, period, generated-at; table with sticky first column + totals; lazy `ReportChart`; `ReportActions`: Print, Excel, CSV, share image), `LazyReports` in every section's রিপোর্ট tab (all `NotBuiltYet` placeholders are gone; the component was removed), `/print/report` (A4 / 80 mm; 80 mm prints rows as label: value blocks). Print CSS: wide tables print whole. Excel writer takes `preface` lines.
+- Receipts: "share as image" on every receipt (`ReceiptSheet`), `/print/trip` (vehicle hire receipt, linked from the trip), second-party statement and Due & Advance party statement print as the party-ledger report.
+- Voice (§14.1): `components/voice/VoiceButton.tsx` (+ `VoiceText`), in rate fields (`RateInput`, `voice` prop on number fields), manual weight, every picker search, the expense title and the notes of all entry forms (D46).
+- i18n: `rep`, `voice` namespaces; `veh.receipt*`.
+- Tests: `tests/repo/reports.test.ts` (reports reconcile with the dashboard: purchase / sales / expense flows, cash book day by day = cashbook screen, daily overview = Daily Overview rows, Gola-wise = each Gola and total = combined = sum, merged per-Gola reports, due & advance = ledger, party ledger closing = balance, every report builds for one and all Golas; CSV exact decimals + BOM + escaping), `tests/unit/voice-button.test.tsx` (unsupported → disabled mic; spoken number confirmed before filling; text inserted). e2e `tests/e2e/reports.spec.ts` bn + en (purchase register with totals, Excel + CSV downloads with exact decimals, print page 80 mm, Gola-wise, every section's reports tab, mics present). Offline spec covers the report tabs and print pages. Screenshots in `test-results/v2-reports/` were reviewed (80 mm layout changed to blocks after review).
+
+**Decisions:** D45–D47.
+
+**Known issues / notes for Phase 12:**
+- The v1 `due` and other partly used v1 i18n namespaces still exist; Phase 12 runs the i18n-usage cleanup (`tests/unit/i18n-usage.test.ts` is paused).
+- Reports run over the device's data on demand; very long ranges (> 400 days) are capped for the per-day reports.
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 307 passed, 1 skipped (30 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 243.1 KB · `pnpm test:e2e` ✅ 17/17 · reports reconcile with the dashboard ✅.

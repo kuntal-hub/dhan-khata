@@ -21,7 +21,7 @@ import {
 } from "@/components/entry/WeightBlockInput";
 import { FormShell } from "@/components/forms/FormShell";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { VoiceText } from "@/components/voice/VoiceText";
 import { errorKey } from "@/client/errors";
 import { useBusiness } from "@/client/hooks";
 import { conversionBps, convertibleReturns, dispatchRows } from "@/client/queries/mill";
@@ -337,11 +337,7 @@ export function ConversionForm({
           </section>
         ) : null}
         <FieldBox label={t("mill.notes")}>
-          <Input
-            className="h-12 text-base"
-            value={s.notes}
-            onChange={(e) => set({ notes: e.target.value })}
-          />
+          <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
         </FieldBox>
         {over ? (
           <div

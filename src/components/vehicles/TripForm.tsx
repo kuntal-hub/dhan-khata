@@ -22,6 +22,7 @@ import { FormShell } from "@/components/forms/FormShell";
 import { AmountInput } from "@/components/money/inputs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VoiceText } from "@/components/voice/VoiceText";
 import { errorKey } from "@/client/errors";
 import { useBusiness } from "@/client/hooks";
 import { newId, saveTrip, type DraftOf, type PaymentPart } from "@/client/repo";
@@ -476,11 +477,7 @@ export function TripForm({ godown, existing }: { godown: Godown; existing?: Trip
           </span>
         </div>
         <FieldBox label={t("mill.notes")}>
-          <Input
-            className="h-12 text-base"
-            value={s.notes}
-            onChange={(e) => set({ notes: e.target.value })}
-          />
+          <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
         </FieldBox>
         {error ? (
           <p

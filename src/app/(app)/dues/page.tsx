@@ -2,9 +2,10 @@
 
 import { DueCategoryList, DueSummaryTab, RemindersTab } from "@/components/dues/DueTabs";
 import { QuickAddFab } from "@/components/shell/QuickAdd";
-import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { LazyReports } from "@/components/reports/LazyReports";
+import { SectionPage } from "@/components/shell/SectionPage";
 
-/** Section 6 — বাকি ও অগ্রিম / Due & Advance (requirement_v2 §12.6). Reports: Phase 11. */
+/** Section 6 — বাকি ও অগ্রিম / Due & Advance (requirement_v2 §12.6). */
 export default function DuesPage() {
   return (
     <>
@@ -20,7 +21,7 @@ export default function DuesPage() {
           ) : tab === "reminders" ? (
             <RemindersTab />
           ) : tab === "reports" ? (
-            <NotBuiltYet />
+            <LazyReports section="dues" />
           ) : (
             <DueSummaryTab />
           )

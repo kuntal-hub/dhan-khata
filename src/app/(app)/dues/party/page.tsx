@@ -5,6 +5,7 @@
  * from every source with running balance and links (date-range filter), pay / collect across bills,
  * WhatsApp, call, print / share the statement.
  */
+import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Phone, Printer } from "lucide-react";
@@ -15,6 +16,7 @@ import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomShe
 import { Panel } from "@/components/kit/Kit";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
 import { Loading } from "@/components/lists/common";
+import { printHrefOf } from "@/components/reports/ReportView";
 import { PageTitle } from "@/components/shell/PageTitle";
 import { PageSuspense, ReadOnlyNotice, useParam, useWriteGodown } from "@/components/system/page";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,7 @@ import { db } from "@/client/db/dexie";
 import { useActiveGodown } from "@/client/hooks";
 import { dueCategory, openBillsOf } from "@/client/queries/dues";
 import { partyLedger } from "@/client/queries/purchases";
+import { todayIST } from "@/domain/dates";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 
@@ -139,9 +142,19 @@ function PartyLedger() {
       <Panel
         title={t("dues.statement")}
         action={
-          <Button variant="outline" className="no-print h-11" onClick={() => window.print()}>
-            <Printer className="size-4" aria-hidden />
-            {t("rcpt.print")}
+          <Button asChild variant="outline" className="no-print h-11">
+            <Link
+              href={printHrefOf({
+                id: "party-ledger",
+                from: from || (ledger.rows[0]?.date ?? todayIST()),
+                to: to || todayIST(),
+                opt: party._id,
+              })}
+              data-testid="due-party-print"
+            >
+              <Printer className="size-4" aria-hidden />
+              {t("rcpt.print")}
+            </Link>
           </Button>
         }
       >

@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { Pencil } from "lucide-react";
+import { Pencil, Printer } from "lucide-react";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { Panel, StatusPill } from "@/components/kit/Kit";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
@@ -227,6 +227,12 @@ function Detail() {
             <Link href={`/vehicles/trip/edit?id=${doc._id}`} data-testid="trip-edit">
               <Pencil className="size-5" aria-hidden />
               {t("mill.edit")}
+            </Link>
+          </Button>
+          <Button asChild variant="outline" className="h-12">
+            <Link href={`/print/trip?id=${doc._id}`} data-testid="trip-print">
+              <Printer className="size-5" aria-hidden />
+              {t("veh.receipt")}
             </Link>
           </Button>
           {customer ? (

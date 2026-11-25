@@ -8,9 +8,7 @@
 import Link from "next/link";
 import { usePathname, useRouter, useSearchParams } from "next/navigation";
 import type { ReactNode } from "react";
-import { Construction } from "lucide-react";
 import { golaColourClass } from "@/components/gola/colours";
-import { EmptyState } from "@/components/kit/Kit";
 import { FadeSlide } from "@/components/motion/Motion";
 import { PageSuspense } from "@/components/system/page";
 import { useActiveGodown } from "@/client/hooks";
@@ -132,21 +130,5 @@ export function SectionPage(props: {
     <PageSuspense>
       <SectionPageInner {...props} />
     </PageSuspense>
-  );
-}
-
-/**
- * TRANSITIONAL (v2 Phases 4–11): a tab whose screens are not built yet. Each later phase
- * replaces these with the real content; none may remain at the end (Phase 12 check).
- */
-export function NotBuiltYet() {
-  const { t } = useI18n();
-  return (
-    <EmptyState
-      icon={Construction}
-      title={t("sections.building")}
-      hint={t("sections.buildingHint")}
-      testId="not-built"
-    />
   );
 }

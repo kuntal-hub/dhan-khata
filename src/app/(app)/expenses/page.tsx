@@ -1,10 +1,11 @@
 "use client";
 
 import { AllExpenses, TodayExpenses, UnpaidExpenses } from "@/components/expenses/ExpenseTabs";
-import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { LazyReports } from "@/components/reports/LazyReports";
+import { SectionPage } from "@/components/shell/SectionPage";
 import { QuickAddFab } from "@/components/shell/QuickAdd";
 
-/** Section 4 — দৈনিক খরচ / Daily Expenses (requirement_v2 §12.4). Reports arrive in Phase 11. */
+/** Section 4 — দৈনিক খরচ / Daily Expenses (requirement_v2 §12.4). */
 export default function ExpensesPage() {
   return (
     <>
@@ -16,7 +17,7 @@ export default function ExpensesPage() {
           ) : tab === "unpaid" ? (
             <UnpaidExpenses />
           ) : tab === "reports" ? (
-            <NotBuiltYet />
+            <LazyReports section="expenses" />
           ) : (
             <TodayExpenses />
           )

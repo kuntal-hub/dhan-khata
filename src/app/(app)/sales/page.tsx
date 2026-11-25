@@ -1,10 +1,11 @@
 "use client";
 
 import { CustomerList, DeliveryBoard, SalesList } from "@/components/sales/SalesTabs";
-import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { LazyReports } from "@/components/reports/LazyReports";
+import { SectionPage } from "@/components/shell/SectionPage";
 import { QuickAddFab } from "@/components/shell/QuickAdd";
 
-/** Section 3 — ধান বিক্রি / Sales (requirement_v2 §12.3). Reports arrive in Phase 11. */
+/** Section 3 — ধান বিক্রি / Sales (requirement_v2 §12.3). */
 export default function SalesPage() {
   return (
     <>
@@ -16,7 +17,7 @@ export default function SalesPage() {
           ) : tab === "delivery" ? (
             <DeliveryBoard />
           ) : tab === "reports" ? (
-            <NotBuiltYet />
+            <LazyReports section="sales" />
           ) : (
             <SalesList />
           )

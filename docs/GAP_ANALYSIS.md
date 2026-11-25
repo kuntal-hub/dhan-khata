@@ -84,7 +84,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 7.1 | Backdated entry on closed day → "re-check" | done | `dayStatus.lateEntry` → Cashbook banner + reopen | Recheck flag computed from day-close vs later entries | 8 |
 | 7.2 | Unified Payment model | done | PAYMENT/RECEIPT vouchers | New PAYMENT document | 1 |
 | 7.2 | Overpayment → split bill + PARTY_ADVANCE with shared groupId | missing | — | `splitPayment()` domain helper | 1 |
-| 7.2 | Payment receipt (bilingual, logo, words) | partial (purchase + payment receipts done in Phase 5; others Phase 11) | `print/Receipt.tsx` | Re-target to Payment | 11 |
+| 7.2 | Payment receipt (bilingual, logo, words) | done (payment, purchase, invoice, load slip, trip; share as image D47) | `components/print/ReceiptSheet.tsx`, `(print)/*` | Re-target to Payment | 11 |
 | 7.3 | Cashbook classifier (received / paid / expenses; farmer payment = paid) | done (domain) | `queries/cashbank.ts` (account book) | `domain/cashbook.ts` | 1 |
 | 8 | Chart of accounts per Gola incl. STOCK_PADDY/RICE/OTHER/AT_MILL, EXP_PAYABLE, MILLING_* | partial | `posting/accounts.ts` | New account keys | 1 |
 | 8 | Event → posting table | done | `post.ts` | Rewrite for v2 events | 1 |
@@ -115,7 +115,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 12.1B | Daily Cashbook (opening/received/paid/expenses/expected/actual/diff, formula, itemised, correct, day close, reopen, bank toggle, contra, drawings/capital) | done | `components/dashboard/Cashbook.tsx`, `repo/daily.ts` | Cashbook tab over the v2 classifier | 8 |
 | 12.1C | Daily Stock (paddy/rice/other, mill block, verification, history) | done | `components/dashboard/StockTab.tsx` | Stock tab | 8 |
 | 12.1D | Daily Overview table | done (Excel/CSV export Phase 11) | `components/dashboard/DailyOverview.tsx`, `dailyRows` | New query + tab | 8 |
-| 12.1 | Dashboard reports tab (business-wide, Gola-wise, combined) | partial | `/reports` | Move into Dashboard → রিপোর্ট | 8, 11 |
+| 12.1 | Dashboard reports tab (business-wide, Gola-wise, combined) | done | `client/reports/defs.ts`, `components/reports/*` (D45) | Move into Dashboard → রিপোর্ট | 8, 11 |
 | 12.2 | Purchase form (bag-wise, variety picker, initial payment, due date) | done | `PurchaseForm.tsx`, `LinesEditor.tsx` | New form | 5 |
 | 12.2 | Purchase detail (payment ledger, add due payment, receipts, audit) | done | `VoucherView.tsx` | New detail page | 5 |
 | 12.2 | Purchase list (search, filters incl. paid status, totals) | done | `/purchase`, `VoucherList` | New list | 5 |
@@ -138,9 +138,9 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 ### §13–§20
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
-| 13 | Reports per section, header with business/logo/Gola, print A4 + 80 mm, xlsx + csv, image share | partial | `client/reports/*`, `(print)/*` | `ReportShell`; reports moved into sections; CSV | 11 |
-| 14.1 | Voice input + Bengali/English number parser | missing | — | `domain/voiceNumber.ts` (Phase 1), `VoiceButton` (Phase 11) | 1, 11 |
-| 14.2 | WhatsApp click-to-chat templates everywhere specified | partial (purchase detail, farmer account, payment receipt done) | `PartyProfile` তাগাদা | `WhatsAppButton` + templates | 10–11 |
+| 13 | Reports per section, header with business/logo/Gola, print A4 + 80 mm, xlsx + csv, image share | done | `client/reports/*`, `components/reports/*`, `/print/report` (D45) | `ReportShell`; reports moved into sections; CSV | 11 |
+| 14.1 | Voice input + Bengali/English number parser | done | `domain/voiceNumber.ts`, `components/voice/*` (D46) | `domain/voiceNumber.ts` (Phase 1), `VoiceButton` (Phase 11) | 1, 11 |
+| 14.2 | WhatsApp click-to-chat templates everywhere specified | done (party ledgers, Due rows + reminders, purchase / sale / expense / trip / dispatch detail, receipts; share image D47) | `components/kit/WhatsApp.tsx` | `WhatsAppButton` + templates | 10–11 |
 | 15.1 | Logo SVG, icons, palette tokens, fonts | done | `globals.css`, `public/icons` | New tokens/logo | 4 |
 | 15.2–15.3 | Premium components, animations, reduced motion | done (kit + CSS motion, D19; charts Phase 8) | — | `motion` LazyMotion | 4 |
 | 15.4 | Non-technical UX: 48 px buttons, confirmations stating effect, calc on tap, undo | partial | `Computed` | `ConfirmDialog`, undo toast | 4+ |

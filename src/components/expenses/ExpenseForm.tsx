@@ -18,6 +18,7 @@ import { VehiclePicker } from "@/components/vehicles/VehiclePicker";
 import { AmountInput } from "@/components/money/inputs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VoiceText } from "@/components/voice/VoiceText";
 import { errorKey } from "@/client/errors";
 import { categoryList, openPurchasesOf } from "@/client/queries/expenses";
 import {
@@ -405,12 +406,11 @@ export function ExpenseForm({
               label={t("xp.title")}
               error={showErrors && !s.title.trim() ? t("acct.required") : null}
             >
-              <Input
-                className="h-12 text-base"
+              <VoiceText
                 value={s.title}
                 placeholder={t("xp.titlePh")}
-                onChange={(e) => set({ title: e.target.value })}
-                data-testid="expense-title"
+                onChange={(title) => set({ title })}
+                testId="expense-title"
               />
             </FieldBox>
             <AmountInput
@@ -502,11 +502,7 @@ export function ExpenseForm({
               />
             ) : null}
             <FieldBox label={t("xp.notes")}>
-              <Input
-                className="h-12 text-base"
-                value={s.notes}
-                onChange={(e) => set({ notes: e.target.value })}
-              />
+              <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
             </FieldBox>
             <VehiclePicker
               godownId={godown._id}

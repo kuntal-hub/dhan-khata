@@ -16,6 +16,7 @@ import { computeWeight, type WeightResult } from "@/domain/v2/weightBlock";
 import { DomainError } from "@/domain/errors";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
+import { VoiceButton } from "@/components/voice/VoiceButton";
 import { FieldBox, Segmented } from "./Fields";
 
 export interface WeightState {
@@ -287,14 +288,21 @@ export function WeightBlockInput({
       ) : (
         <div className="grid grid-cols-[1fr_auto] items-end gap-2">
           <FieldBox label={t("wt.total")}>
-            <input
-              className="border-input focus-visible:ring-ring/50 tabular h-12 rounded-md border px-3 text-base outline-none focus-visible:ring-[3px]"
-              inputMode="decimal"
-              value={value.manual}
-              onChange={(e) => onChange({ ...value, manual: e.target.value })}
-              data-testid={`${testId}-manual`}
-              aria-label={t("wt.total")}
-            />
+            <div className="border-input focus-within:ring-ring/50 flex h-12 min-w-0 items-center rounded-md border pr-1 focus-within:ring-[3px]">
+              <input
+                className="tabular h-full min-w-0 flex-1 bg-transparent px-3 text-base outline-none"
+                inputMode="decimal"
+                value={value.manual}
+                onChange={(e) => onChange({ ...value, manual: e.target.value })}
+                data-testid={`${testId}-manual`}
+                aria-label={t("wt.total")}
+              />
+              <VoiceButton
+                mode="number"
+                onText={(manual) => onChange({ ...value, manual })}
+                testId={`${testId}-manual`}
+              />
+            </div>
           </FieldBox>
           <div className="w-44">
             <Segmented

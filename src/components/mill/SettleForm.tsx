@@ -23,7 +23,7 @@ import { FormShell } from "@/components/forms/FormShell";
 import { RateInput } from "@/components/money/inputs";
 import { lazyToast } from "@/components/system/IdleToaster";
 import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
+import { VoiceText } from "@/components/voice/VoiceText";
 import { errorKey } from "@/client/errors";
 import { useBusiness, useGodownSettings } from "@/client/hooks";
 import { dispatchRows } from "@/client/queries/mill";
@@ -241,11 +241,7 @@ export function SettleForm({ godown, dispatchId }: { godown: Godown; dispatchId?
           allowFuture
         />
         <FieldBox label={t("mill.notes")}>
-          <Input
-            className="h-12 text-base"
-            value={s.notes}
-            onChange={(e) => set({ notes: e.target.value })}
-          />
+          <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
         </FieldBox>
         {over ? (
           <div

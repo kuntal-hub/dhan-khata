@@ -3,7 +3,8 @@
 import dynamic from "next/dynamic";
 import { Skeleton } from "@/components/kit/Kit";
 import { InstallButton } from "@/components/pwa/InstallButton";
-import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { LazyReports } from "@/components/reports/LazyReports";
+import { SectionPage } from "@/components/shell/SectionPage";
 import { QuickAddFab } from "@/components/shell/QuickAdd";
 
 // Each tab loads on demand: the Home start-up JS stays within its budget (CLAUDE.md).
@@ -16,7 +17,7 @@ const DailyOverview = dynamic(() => import("@/components/dashboard/DailyOverview
   loading,
 });
 
-/** Section 1 — ড্যাশবোর্ড / Dashboard (requirement_v2 §12.1). Reports arrive in Phase 11. */
+/** Section 1 — ড্যাশবোর্ড / Dashboard (requirement_v2 §12.1). */
 export default function DashboardPage() {
   return (
     <div className="flex flex-col gap-4" data-testid="home">
@@ -30,7 +31,7 @@ export default function DashboardPage() {
           ) : tab === "daily" ? (
             <DailyOverview />
           ) : tab === "reports" ? (
-            <NotBuiltYet />
+            <LazyReports section="dashboard" />
           ) : (
             <Overview />
           )

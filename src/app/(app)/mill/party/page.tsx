@@ -8,7 +8,9 @@
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { Scale } from "lucide-react";
+import { Printer, Scale } from "lucide-react";
+import { printHrefOf } from "@/components/reports/ReportView";
+import { todayIST } from "@/domain/dates";
 import { AdvanceSheet, LedgerTable } from "@/components/entry/PartyAccount";
 import { PaymentList } from "@/components/entry/Payments";
 import { EmptyState, Panel, TxnCard } from "@/components/kit/Kit";
@@ -141,7 +143,25 @@ function Account() {
           <PaymentList payments={onAccount} godownId={godown._id} />
         </Panel>
       ) : null}
-      <Panel title={t("mill.spLedger")}>
+      <Panel
+        title={t("mill.spLedger")}
+        action={
+          <Button asChild variant="outline" className="h-11">
+            <Link
+              href={printHrefOf({
+                id: "party-ledger",
+                from: ledger.rows[0]?.date ?? todayIST(),
+                to: todayIST(),
+                opt: party._id,
+              })}
+              data-testid="sp-statement"
+            >
+              <Printer className="size-4" aria-hidden />
+              {t("dues.statement")}
+            </Link>
+          </Button>
+        }
+      >
         <LedgerTable
           rows={ledger.rows}
           debitLabel={t("mill.spDebit")}

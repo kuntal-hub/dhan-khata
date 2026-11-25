@@ -11,6 +11,8 @@ export interface SheetSpec {
   name: string;
   headers: string[];
   rows: Array<Array<string | number | null | TypedCell>>;
+  /** Lines above the header (report title, Gola, period, generated at). */
+  preface?: string[];
   /** Optional totals row (bold). */
   totals?: Array<string | number | null | TypedCell>;
   /** Column indexes that hold money (paise strings → rupee numbers, 2 dp). */
@@ -31,9 +33,14 @@ function exactCell(v: string | number | null, scale: number): { formula: string 
 export async function downloadWorkbook(filename: string, sheets: SheetSpec[]): Promise<void> {
   const ExcelJS = (await import("exceljs")).default;
   const wb = new ExcelJS.Workbook();
-  wb.creator = "Dhan Khata";
+  wb.creator = "Dhan Gola";
   for (const s of sheets) {
-    const ws = wb.addWorksheet(s.name.slice(0, 31));
+    const ws = wb.addWorksheet(s.name.replace(/[\\/?*[\]:]/g, " ").slice(0, 31));
+    s.preface?.forEach((line, i) => {
+      const r = ws.addRow([line]);
+      if (i === 0) r.font = { bold: true, size: 13 };
+    });
+    if (s.preface?.length) ws.addRow([]);
     ws.addRow(s.headers).font = { bold: true };
     const add = (r: Array<string | number | null | TypedCell>, bold = false) => {
       const row = ws.addRow(

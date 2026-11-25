@@ -129,5 +129,14 @@ A party's tab follows its ledger balance and roles: balance > 0 → ক্রে
 ### D44: Vehicle costs vs. daily expenses linked to a vehicle
 Net profit per trip = income − the trip's own costs (§12.7). A Daily Expense can name a vehicle (optional); it is shown in the vehicle and month views as a separate "দৈনিক খরচে লেখা" column and is not added into the trip net profit, so the same money is never counted twice.
 
+### D45: One report model for screen, print and export
+Every report (`client/reports/defs.ts`) returns one model (columns + exact cells: paise, grams, counts, dates). The section tab, the print page (A4 or 80 mm), Excel (exact decimal formulas, header lines with business / Gola / period) and CSV (UTF-8 BOM, exact decimals) all render that model, so they can't disagree. In the all-Golas view a section report runs per Gola and is merged with a Gola column (read-only); Gola-wise and combined run once over all Golas. On 80 mm paper each row prints as "label: value" lines. Gross profit = SALES − COGS ledger lines (average cost). Reports reconcile with the dashboard (`tests/repo/reports.test.ts`).
+
+### D46: Voice input
+The browser's speech recognition only (no AI, no paid API), `bn-IN` / `en-IN` by UI language, a long press switches it for the field. Numbers go through the local parser and are shown ("শুনলাম: ৫২.৫") for a tap to confirm; text is inserted as said. Where the browser has no recognition, or the phone is offline (Chrome's recognition needs the network), the mic is shown disabled and a tap explains "type instead". Mics are in rate and quantity fields, picker searches (party / farmer / variety names), the expense title and notes.
+
+### D47: Share as image
+Reports and receipts have "ছবি শেয়ার": the sheet is rendered to PNG on the device (`html-to-image`, lazy) and shared through the Web Share API, or downloaded when sharing files isn't supported. WhatsApp buttons only open WhatsApp with a prepared text; nothing is sent automatically.
+
 ### D36: Day close and reopen
 Closing writes a DAY_CLOSE with the expected cash at that moment, the counted cash and the difference (note required when ≠ 0; denomination counts kept). The difference posts to CASH_DIFF, so the next day's opening equals the counted cash. Only the owner reopens (the close is voided with a reason). An entry dated on a closed day shows "পরে এন্ট্রি হয়েছে — আবার মেলান"; "আবার মেলান" reopens the day so it can be counted again.

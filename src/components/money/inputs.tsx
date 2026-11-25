@@ -4,6 +4,7 @@ import { useId, useState, type ReactNode } from "react";
 import { Calculator } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
+import { VoiceButton } from "@/components/voice/VoiceButton";
 import { amountForWeight } from "@/domain/money";
 import { cn } from "@/lib/utils";
 import {
@@ -30,6 +31,8 @@ interface BaseProps {
   testId?: string;
   className?: string;
   placeholder?: string;
+  /** Mic inside the field: spoken number, confirmed before filling (§14.1). */
+  voice?: boolean;
 }
 
 /** Big numeric text field (≥ 48 px, 16 px text, decimal keypad, Bengali digits accepted). */
@@ -48,6 +51,7 @@ function NumberField({
   parsed,
   inputMode = "decimal",
   extra,
+  voice,
 }: BaseProps & {
   prefix?: string;
   suffix?: string;
@@ -89,6 +93,14 @@ function NumberField({
           {suffix ? (
             <span className="text-muted-foreground ml-1 shrink-0 text-sm">{suffix}</span>
           ) : null}
+          {voice && !disabled ? (
+            <VoiceButton
+              mode="number"
+              onText={onChange}
+              className="-mr-2"
+              {...(testId ? { testId } : {})}
+            />
+          ) : null}
         </div>
         {extra}
       </div>
@@ -112,7 +124,13 @@ export function RateInput(props: BaseProps) {
   const { t } = useI18n();
   const parsed = parseRateField(props.value, props.required, props.required ? 1n : 0n);
   return (
-    <NumberField {...props} prefix="₹" suffix={`/${t("units.quintalShort")}`} parsed={parsed} />
+    <NumberField
+      voice
+      {...props}
+      prefix="₹"
+      suffix={`/${t("units.quintalShort")}`}
+      parsed={parsed}
+    />
   );
 }
 

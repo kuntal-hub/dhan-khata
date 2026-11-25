@@ -7,9 +7,10 @@ import {
   ReturnList,
   SecondPartyList,
 } from "@/components/mill/MillTabs";
-import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { LazyReports } from "@/components/reports/LazyReports";
+import { SectionPage } from "@/components/shell/SectionPage";
 
-/** Section 8 — মিল ও পার্টির হিসাব / Mill & Second Party (requirement_v2 §12.8). Reports: Phase 11. */
+/** Section 8 — মিল ও পার্টির হিসাব / Mill & Second Party (requirement_v2 §12.8). */
 export default function MillPage() {
   return (
     <SectionPage
@@ -24,7 +25,7 @@ export default function MillPage() {
         ) : tab === "consignment" ? (
           <ConsignmentList />
         ) : tab === "reports" ? (
-          <NotBuiltYet />
+          <LazyReports section="mill" />
         ) : (
           <SecondPartyList />
         )

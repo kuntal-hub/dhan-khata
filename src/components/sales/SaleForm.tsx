@@ -16,6 +16,7 @@ import { FormShell } from "@/components/forms/FormShell";
 import { AmountInput, RateInput } from "@/components/money/inputs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { VoiceText } from "@/components/voice/VoiceText";
 import { db } from "@/client/db/dexie";
 import { errorKey } from "@/client/errors";
 import { useBusiness, useGodownSettings } from "@/client/hooks";
@@ -524,11 +525,7 @@ export function SaleForm({
           </FieldBox>
         </div>
         <FieldBox label={t("sl.notes")}>
-          <Input
-            className="h-12 text-base"
-            value={s.notes}
-            onChange={(e) => set({ notes: e.target.value })}
-          />
+          <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
         </FieldBox>
         <details
           open={more}

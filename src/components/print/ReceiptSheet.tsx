@@ -6,8 +6,9 @@
  * the action bar is hidden on paper.
  */
 import { useRouter } from "next/navigation";
-import type { ReactNode } from "react";
-import { ArrowLeft, Printer } from "lucide-react";
+import { useRef, type ReactNode } from "react";
+import { ArrowLeft, Image as ImageIcon, Printer } from "lucide-react";
+import { lazyToast } from "@/components/system/IdleToaster";
 import { Button } from "@/components/ui/button";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
 import { useBusiness } from "@/client/hooks";
@@ -43,6 +44,29 @@ export function ReceiptSheet({
   const { t, money, date: fmtDate, lang } = useI18n();
   const router = useRouter();
   const business = useBusiness();
+  const sheet = useRef<HTMLElement>(null);
+  /** Share the receipt as an image (Web Share API), or download it (§14.2). */
+  const shareImage = async () => {
+    if (!sheet.current) return;
+    try {
+      const { toBlob } = await import("html-to-image");
+      const blob = await toBlob(sheet.current, { backgroundColor: "#ffffff", pixelRatio: 2 });
+      if (!blob) return;
+      const file = new File([blob], `${number}.png`, { type: "image/png" });
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title });
+      } else {
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement("a");
+        a.href = url;
+        a.download = file.name;
+        a.click();
+        setTimeout(() => URL.revokeObjectURL(url), 10_000);
+      }
+    } catch (e) {
+      if ((e as Error)?.name !== "AbortError") lazyToast(t("rep.shareFailed"), "error");
+    }
+  };
   return (
     <div className="bg-background min-h-dvh p-3 sm:p-8">
       <div className="no-print mx-auto mb-3 flex max-w-xl flex-wrap gap-2">
@@ -54,9 +78,19 @@ export function ReceiptSheet({
           <Printer className="size-5" aria-hidden />
           {t("rcpt.print")}
         </Button>
+        <Button
+          variant="outline"
+          className="h-12"
+          onClick={() => void shareImage()}
+          data-testid="receipt-image"
+        >
+          <ImageIcon className="size-5" aria-hidden />
+          {t("rep.image")}
+        </Button>
         {waText ? <WhatsAppButton phone={phone} text={waText} className="h-12" /> : null}
       </div>
       <article
+        ref={sheet}
         className="print-sheet bg-card shadow-card mx-auto max-w-xl rounded-2xl border p-5 text-[15px]"
         data-testid={testId}
       >
