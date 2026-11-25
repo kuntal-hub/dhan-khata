@@ -85,3 +85,11 @@ Delivery status is a timeline (PENDING → LOADED → IN_TRANSIT → DELIVERED).
 
 ### D28: Negative stock warning on sales
 When a confirmed sale needs more than the position holds (all dates, this sale excluded), the form shows the stock and the need and saves only after "তবুও সেভ করুন" (§9.3). The integrity check lists negative positions (Phase 12).
+### D29: Daily Expenses day view
+"আজকের খরচ" shows any day (◀ ▶, today by default). "এই দিনের খরচ" = expenses by expense date, grouped by category. "এই দিনে টাকা গেল" = every payment made that day for expenses (whatever the expense date) plus farmer payments, with the cash part separately. Farmer payments (PURCHASE payments, and advances to FARMER/SUPPLIER parties) are listed in their own block with a "পেমেন্ট" badge and are never added to expenses (§7.3).
+
+### D30: Farmer payment from the expense form
+Choosing "কৃষক পেমেন্ট" turns the form into the farmer-payment flow: farmer (create inline) → one open purchase (its due is filled in) or "অগ্রিম" → payment fields. It saves through `payBill` / `payAdvance`, so it is exactly the same record as a payment made from the purchase screen. Paying more than the bill's due asks "keep the extra as advance" (D22). Expense documents with `FARMER_PAYMENT` are refused (`CATEGORY_IS_PAYMENT`).
+
+### D31: Expense categories
+Built-in categories (§12.4) render through i18n and can be hidden, not renamed. Custom categories get a generated immutable code (`U_…`) and a typed name, and can be renamed or hidden. "কৃষক পেমেন্ট" can't be hidden. A hidden category stays valid for old expenses.

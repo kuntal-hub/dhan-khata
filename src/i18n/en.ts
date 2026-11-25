@@ -750,7 +750,12 @@ export const en = {
     OTHER: "Other",
   },
   expenseCategory: {
+    FARMER_PAYMENT: "Farmer payment",
     LABOUR: "Labour",
+    LOADING: "Loading / unloading",
+    DIESEL: "Diesel",
+    VEHICLE: "Vehicle expense",
+    OFFICE: "Office expense",
     TRANSPORT: "Transport",
     OTHERS: "Others",
     GODOWN_RENT: "Gola rent",

@@ -15,7 +15,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ✅ |
 | 5 | Purchase + Variety | Test 1 e2e | ✅ |
 | 6 | Sales | Test 6 e2e | ✅ |
-| 7 | Daily Expenses | Test 5 e2e | ⬜ |
+| 7 | Daily Expenses | Test 5 e2e | ✅ |
 | 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ⬜ |
 | 9 | Mill & Second Party | Tests 2, 3 e2e | ⬜ |
 | 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ⬜ |
@@ -404,3 +404,15 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 **Known issues / notes:** The Sales reports tab stays transitional until Phase 11. Consignment settlement (a sale against a mill dispatch) is Phase 9. The cashbook screen check for Test 6 comes with the Dashboard cashbook (Phase 8).
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 270 passed, 1 skipped (23 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 243 KB · `pnpm test:e2e` sales + offline ✅ (full suite re-run at Phase 8).
+### v2 Phase 7 — Daily Expenses — 2026-11-25
+**Built:**
+- Queries `queries/expenses.ts`: `expenseRows` (by expense date or by payment date, category, status incl. OPEN, search by title / person / number / amount), `unpaidExpenses` (earliest due first), `expenseTotals`, `expenseDay` (incurred by category, money out that day incl. the cash part, the farmer-payments block), `categoryList`, `openPurchasesOf` (farmer-payment flow).
+- Screens: Expenses tabs আজকের খরচ (any day with ◀ ▶) / সব খরচ (filters, totals, "খরচের ধরন সাজান") / বাকি খরচ (total, pay button → `AddPaymentSheet`); `/expenses/new` (title, category chips + "নতুন ধরন", amount, expense date, entry date shown read-only, person: party or typed name, "এখনই পুরো দিলাম" / "কিছু দিলাম" / "এখনও দিইনি" with the actual payment date, mode, bank, reference; due date; notes; `?category=` preset), the farmer-payment flow inside the form, `/expenses/edit`, `/expenses/view` (paid / still to pay, payments with their dates, "+ পেমেন্ট দিন", edit, void with payments, WhatsApp to a party, history). Quick action "খরচ" is on. `PaymentFields` gained `hideAmount`.
+- i18n: `xp` namespace; v2 category names (কৃষক পেমেন্ট, লেবার খরচ, লোডিং/আনলোডিং, ডিজেল, গাড়ির খরচ, অফিস খরচ).
+- Tests: `tests/repo/expenses.test.ts` (Test 5 incl. cashbook ₹3,000 on the expense date and ₹2,000 today, counted once; unpaid → void with payments; FARMER_PAYMENT refused as expense; farmer payments shown but under "cash paid"; custom / hidden categories); `tests/e2e/expenses.spec.ts` Test 5 bn + en at 360 px (+ day view, unpaid list, farmer-payment flow, filter by payment date). Offline spec covers the new routes. Screenshots in `test-results/v2-expenses/` were reviewed.
+
+**Decisions:** D29 (day view), D30 (farmer payment from the expense form), D31 (categories).
+
+**Known issues / notes:** Expense reports (category-wise, month comparison, chart) are Phase 11. Linking an expense to a vehicle / trip comes with Phase 10.
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 275 passed, 1 skipped (24 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 244 KB · `pnpm test:e2e` expenses + offline ✅.

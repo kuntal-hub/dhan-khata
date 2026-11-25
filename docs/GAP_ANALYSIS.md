@@ -124,8 +124,8 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 12.3 | Sale form (product, advance as payment, delivery, Order/Confirmed, source, charges collapsed) | done | `components/sales/SaleForm.tsx` | New form | 6 |
 | 12.3 | Collections, invoice, delivery tracking, customer ledger | done | `/sales/view`, `/print/sale`, `/sales/customer`, `?tab=delivery` | New | 6 |
 | 12.3 | Inter-Gola transfer action | done | `/sales/transfer` | Inside Sales | 6 |
-| 12.4 | Expense categories incl. Farmer payment special flow | partial | `ExpenseForm.tsx` | Rebuild | 7 |
-| 12.4 | Incurred vs paid, backdated payments, unpaid list | conflicts | expense = payment | New flow | 7 |
+| 12.4 | Expense categories incl. Farmer payment special flow | done | `components/expenses/ExpenseForm.tsx`, `category.tsx` | Rebuild | 7 |
+| 12.4 | Incurred vs paid, backdated payments, unpaid list | done | `queries/expenses.ts`, `ExpenseTabs.tsx`, `/expenses/view` | New flow | 7 |
 | 12.5 | Load khata = register, link/create sale or dispatch, slip | conflicts | `LoadForm.tsx`, `calc/load.ts` | Rebuild | 10 |
 | 12.6 | Due & Advance unified view, tabs, ledger, FIFO allocation, aging, reminders, WhatsApp | partial | `/due`, `/reminders`, `queries/parties.ts` | Rebuild over payments | 10 |
 | 12.7 | Vehicle trips with multiple collections, driver/diesel/other costs with payments, net profit, daily/monthly | partial | `TripForm.tsx`, `/vehicle` | Rebuild | 10 |
@@ -159,7 +159,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 2 Stock 126 / mill 20 | missing | Domain (Phase 1) + e2e (Phases 8–9) |
 | 3 Mill return 131 / 15 | missing | Domain (Phase 1) + e2e (Phase 9) |
 | 4 Cashbook 30,000 / shortage 500 / excess 200 | partial (G5 dashboard) | Domain (Phase 1) + e2e (Phase 8) |
-| 5 Backdated expense | missing | Domain (Phase 1) + e2e (Phase 7) |
+| 5 Backdated expense | done (`v2-acceptance`, `tests/repo/expenses.test.ts`, e2e `expenses.spec.ts` bn + en; cashbook screen check in Phase 8) | Domain (Phase 1) + e2e (Phase 7) |
 | 6 Partial sales collection | done (`v2-acceptance`, `tests/repo/sales.test.ts`, e2e `sales.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 6) |
 | 7 Two Golas + combined | done (Vitest; e2e Phase 12) | e2e (Phase 3/8) |
 | 8 Persistence | done (Vitest; e2e Phase 12) | e2e (Phase 3/12) |

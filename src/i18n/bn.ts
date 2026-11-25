@@ -749,7 +749,12 @@ export const bn = {
     OTHER: "অন্যান্য",
   },
   expenseCategory: {
-    LABOUR: "লেবার",
+    FARMER_PAYMENT: "কৃষক পেমেন্ট",
+    LABOUR: "লেবার খরচ",
+    LOADING: "লোডিং/আনলোডিং",
+    DIESEL: "ডিজেল",
+    VEHICLE: "গাড়ির খরচ",
+    OFFICE: "অফিস খরচ",
     TRANSPORT: "পরিবহন",
     OTHERS: "অন্যান্য",
     GODOWN_RENT: "গোলা ভাড়া",

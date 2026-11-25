@@ -38,7 +38,7 @@ export interface QuickAction {
 export const QUICK_ACTIONS: QuickAction[] = [
   { key: "purchase", label: "quick.purchase", href: "/purchase/new", icon: Wheat, ready: true },
   { key: "sale", label: "quick.sale", href: "/sales/new", icon: HandCoins, ready: true },
-  { key: "expense", label: "quick.expense", href: "/expenses/new", icon: Receipt, ready: false },
+  { key: "expense", label: "quick.expense", href: "/expenses/new", icon: Receipt, ready: true },
   {
     key: "paid",
     label: "quick.paid",

@@ -78,6 +78,7 @@ export function PaymentFields({
   testId = "pay",
   allowZero = false,
   hint,
+  hideAmount = false,
 }: {
   godownId: string;
   value: PayState;
@@ -86,18 +87,22 @@ export function PaymentFields({
   testId?: string;
   allowZero?: boolean;
   hint?: string;
+  /** The amount is entered elsewhere (e.g. "paid fully now" = the expense amount). */
+  hideAmount?: boolean;
 }) {
   const { t } = useI18n();
   return (
     <div className="flex flex-col gap-3">
-      <AmountInput
-        label={amountLabel}
-        value={value.amount}
-        onChange={(amount) => onChange({ ...value, amount })}
-        allowZero={allowZero}
-        testId={`${testId}-amount`}
-        hint={hint}
-      />
+      {hideAmount ? null : (
+        <AmountInput
+          label={amountLabel}
+          value={value.amount}
+          onChange={(amount) => onChange({ ...value, amount })}
+          allowZero={allowZero}
+          testId={`${testId}-amount`}
+          hint={hint}
+        />
+      )}
       <DateField
         label={t("pay.date")}
         value={value.date}
