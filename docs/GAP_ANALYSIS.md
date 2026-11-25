@@ -62,7 +62,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 2.3 | Form title shows Gola; switching with dirty form asks | partial | `FormShell` shows godown | Confirm on switch with dirty form | 4 |
 | 2.3 | Combined (all Golas) read-only view | done | `queries/consolidated` | Rebuild as side-by-side + total in Dashboard & reports | 8 |
 | 2.3 | Parties per Gola + "copy from other Gola" | done | `PartyForm` | Keep | — |
-| 2.3 | Inter-Gola transfer = linked sale + purchase | partial | `repo/transfer.ts` (paddy + money transfers) | Keep paddy transfer as Sales action; money transfer via payments | 6 |
+| 2.3 | Inter-Gola transfer = linked sale + purchase | done | `repo/sales.ts` `saveInterGolaTransfer` (one op group across both Golas) | Keep paddy transfer as Sales action; money transfer via payments | 6 |
 | 2.4 | Server checks session/owner/godown/same-Gola refs (+ businessId) | done | `applyOp.ts`, `scope.ts` | Add `businessId` | 2 |
 
 ### §5–§9 Core engine
@@ -121,9 +121,9 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 12.2 | Purchase list (search, filters incl. paid status, totals) | done | `/purchase`, `VoucherList` | New list | 5 |
 | 12.2 | Farmer history | done | `PartyProfile.tsx` | Purchase → কৃষকের হিসাব tab | 5 |
 | 12.2 | Variety management (companies, duplicate prevention, recents, merge, seed verified) | done | `settings/masters` | New tab | 5 |
-| 12.3 | Sale form (product, advance as payment, delivery, Order/Confirmed, source, charges collapsed) | partial | `SaleForm.tsx` | New form | 6 |
-| 12.3 | Collections, invoice, delivery tracking, customer ledger | partial/missing | `print/voucher` | New | 6 |
-| 12.3 | Inter-Gola transfer action | partial | `/transfer` | Inside Sales | 6 |
+| 12.3 | Sale form (product, advance as payment, delivery, Order/Confirmed, source, charges collapsed) | done | `components/sales/SaleForm.tsx` | New form | 6 |
+| 12.3 | Collections, invoice, delivery tracking, customer ledger | done | `/sales/view`, `/print/sale`, `/sales/customer`, `?tab=delivery` | New | 6 |
+| 12.3 | Inter-Gola transfer action | done | `/sales/transfer` | Inside Sales | 6 |
 | 12.4 | Expense categories incl. Farmer payment special flow | partial | `ExpenseForm.tsx` | Rebuild | 7 |
 | 12.4 | Incurred vs paid, backdated payments, unpaid list | conflicts | expense = payment | New flow | 7 |
 | 12.5 | Load khata = register, link/create sale or dispatch, slip | conflicts | `LoadForm.tsx`, `calc/load.ts` | Rebuild | 10 |
@@ -155,12 +155,12 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 ### §21 Acceptance tests
 | Test | Status | Planned |
 |---|---|---|
-| 1 Purchase payments | missing | Domain (Phase 1) + e2e bn/en (Phase 5) |
+| 1 Purchase payments | done (`v2-acceptance`, `tests/repo/payments.test.ts`, e2e `purchase.spec.ts` bn + en; cashbook screen check in Phase 8) | Domain (Phase 1) + e2e bn/en (Phase 5) |
 | 2 Stock 126 / mill 20 | missing | Domain (Phase 1) + e2e (Phases 8–9) |
 | 3 Mill return 131 / 15 | missing | Domain (Phase 1) + e2e (Phase 9) |
 | 4 Cashbook 30,000 / shortage 500 / excess 200 | partial (G5 dashboard) | Domain (Phase 1) + e2e (Phase 8) |
 | 5 Backdated expense | missing | Domain (Phase 1) + e2e (Phase 7) |
-| 6 Partial sales collection | missing | Domain (Phase 1) + e2e (Phase 6) |
+| 6 Partial sales collection | done (`v2-acceptance`, `tests/repo/sales.test.ts`, e2e `sales.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 6) |
 | 7 Two Golas + combined | done (Vitest; e2e Phase 12) | e2e (Phase 3/8) |
 | 8 Persistence | done (Vitest; e2e Phase 12) | e2e (Phase 3/12) |
 | 9 Security | done (`isolation.test.ts`, `account.test.ts`) | + businessId, second business (Phase 2/3) |

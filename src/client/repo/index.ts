@@ -31,3 +31,12 @@ export {
 } from "./payments";
 export { mergeVarieties } from "./varieties";
 export { saveBankAccount, type BankInput } from "./banks";
+export {
+  setDeliveryStatus,
+  confirmSaleOrder,
+  saveInterGolaTransfer,
+  pairedTransferDoc,
+  voidInterGolaTransfer,
+  type DeliveryStatus,
+  type TransferInput,
+} from "./sales";

@@ -14,7 +14,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 3 | Auth & Gola management | Tests 7, 8, 9 | ✅ |
 | 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ✅ |
 | 5 | Purchase + Variety | Test 1 e2e | ✅ |
-| 6 | Sales | Test 6 e2e | ⬜ |
+| 6 | Sales | Test 6 e2e | ✅ |
 | 7 | Daily Expenses | Test 5 e2e | ⬜ |
 | 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ⬜ |
 | 9 | Mill & Second Party | Tests 2, 3 e2e | ⬜ |
@@ -390,4 +390,17 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 
 **Known issues / notes for next phases:** Payments made through FIFO across bills come in Phase 10. Cashbook / bank-book screens for Test 1's cashbook checks arrive in Phase 8 (the domain test `v2-acceptance` already covers them). `components/entry/*` and `PaymentList` / `AddPaymentSheet` are meant to be reused by Sales (`direction="IN"`).
 
-**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 261 passed, 1 skipped (22 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 243 KB (budget 250) · `pnpm test:e2e` ✅ 5/5.
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 261 passed, 1 skipped (22 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 243 KB (budget 250) · `pnpm test:e2e` ✅ 5/5.### v2 Phase 6 — Sales — 2026-11-25
+**Built:**
+- Repo `repo/sales.ts`: `setDeliveryStatus` (time-stamped delivery log), `confirmSaleOrder`, `saveInterGolaTransfer` (SALE in the sender + PURCHASE in the receiver, one Dexie transaction, one op group across both Golas; GOLA-role parties and the matching variety created on first use), `pairedTransferDoc`, `voidInterGolaTransfer` (both halves together). Sales use `saveBillWithInitialPayment` / `payBill` like purchases (advance = IN payment, `isInitial`).
+- Queries `queries/sales.ts`: `saleRows` (paid / due / status, search, date range, payment status, delivery status, order / confirmed, party), `saleTotals` (confirmed only; orders counted apart), `customerSummaries`, `stockAvailable` (one position, any date), `openTransitPurchases`. `matchesQuery` is shared with purchases.
+- Screens: Sales tabs বিক্রির তালিকা (+ "অন্য গোলায় পাঠান" for the owner) / ক্রেতার হিসাব / ডেলিভারি (counts per status, one-tap next step); `/sales/new`, `/sales/edit`, `/sales/view` (collections with "+ টাকা পেলাম", delivery timeline + next step with note, confirm order, invoice, WhatsApp, reverse with collections, transfer badge), `/sales/customer` (balance, sales, ledger, take advance, WhatsApp), `/sales/transfer`, `/print/sale` (invoice). Sale form: buyer or mill (inline create), product ধান / চাল, variety, bag-wise or total weight, rate → total with formula, advance, due, due date, Confirmed / Order, delivery status, vehicle, driver, notes; under "আরও": source (Gola / direct from a TRANSIT purchase / mill) and charges (noted only). Negative stock → warning with "তবুও সেভ করুন". The quick action "নতুন বিক্রি" is on.
+- Shared: `components/entry/PartyAccount.tsx` (`LedgerTable` with links to each source, `AdvanceSheet` IN / OUT; the farmer page uses them too), `components/entry/docPath.ts`. The purchase half of a transfer can't be edited and reverses as a pair.
+- i18n: `sl` namespace, `rcpt.invoiceTitle`.
+- Tests: `tests/repo/sales.test.ts` (Test 6 incl. customer ledger and cashbook by date, advance in one op group, void with collections, order → confirm once, delivery timeline, search, direct delivery via TRANSIT, inter-Gola transfer + reversal + parties reused, same-Gola refusal); `tests/e2e/sales.spec.ts` Test 6 bn + en at 360 px (inline buyer, stock warning → save anyway, ₹25,000 → ₹15,000 → ₹10,000, ledger dates, delivery step, invoice, list, refresh). Offline spec covers the new routes. Screenshots in `test-results/v2-sales/` were reviewed.
+
+**Decisions:** D25 (direct delivery), D26 (inter-Gola transfer), D27 (delivery steps, orders), D28 (negative stock warning).
+
+**Known issues / notes:** The Sales reports tab stays transitional until Phase 11. Consignment settlement (a sale against a mill dispatch) is Phase 9. The cashbook screen check for Test 6 comes with the Dashboard cashbook (Phase 8).
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 270 passed, 1 skipped (23 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 243 KB · `pnpm test:e2e` sales + offline ✅ (full suite re-run at Phase 8).

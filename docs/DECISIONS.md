@@ -74,3 +74,14 @@ A new bank account with an opening balance writes one OPENING document (kind BAN
 
 ### D24: Seeded variety names carry the public variety code
 The seeded varieties show their common code where one exists ("স্বর্ণ (MTU-7029)", "শতাব্দী (IET-4786)") and IR-36 was added, so that "স্বর্ণ" and "লাল স্বর্ণ" are easy to tell apart in the picker. These are display names (i18n); the stored `systemKey` is unchanged.
+### D25: Direct delivery and the sale's source
+A sale "সরাসরি (কেনা থেকে)" picks one open direct-delivery purchase (stored at TRANSIT). The sale takes that purchase's group id (`purchase.groupId ?? purchase._id`), so it takes exactly that paddy at that cost and never touches the warehouse. Rice is always sold from the Gola. "মিল থেকে" needs the mill; the link to a consignment dispatch comes with Phase 9.
+
+### D26: Inter-Gola transfer
+Owner only, paddy only. One Dexie transaction and one op group write a CONFIRMED SALE in the sending Gola and a PURCHASE (stored) in the receiving Gola at the same rate, with one shared groupId and `interGola` on both. Each Gola sees the other as a party with role GOLA (created on first use; `linkedGodownId`), so A is owed and B owes until a payment settles it through the normal payment screens. The variety is matched in the receiving Gola by seed key or normalized name + company, or copied. A transfer is never edited: "গোলা বদল বাতিল করুন" voids both halves together (blocked while either has active payments). **Why:** both books must change together or not at all.
+
+### D27: Sale delivery steps and orders
+Delivery status is a timeline (PENDING → LOADED → IN_TRANSIT → DELIVERED). Each step is an edit of the sale that appends `{status, at, note?}` to `deliveryLog`; it never moves stock or money. An ORDER posts nothing (D3). "অর্ডার নিশ্চিত করুন" edits it to CONFIRMED, which takes the stock out once. An advance taken on an order is a normal IN payment against the sale and shows as the buyer's advance until the order is confirmed.
+
+### D28: Negative stock warning on sales
+When a confirmed sale needs more than the position holds (all dates, this sale excluded), the form shows the stock and the need and saves only after "তবুও সেভ করুন" (§9.3). The integrity check lists negative positions (Phase 12).

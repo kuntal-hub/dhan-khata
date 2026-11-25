@@ -99,7 +99,11 @@ export async function purchaseRows(
   );
 }
 
-function matchesQuery(r: PurchaseRow, q: string): boolean {
+/** Search a bill row by party name / phone, variety, bill number, or amount in rupees. */
+export function matchesQuery(
+  r: { party?: Party; variety?: Variety; doc: { number: string; totalPaise: string } },
+  q: string,
+): boolean {
   const s = q.trim().toLowerCase();
   if (!s) return true;
   const digits = s.replace(/[^0-9]/g, "");

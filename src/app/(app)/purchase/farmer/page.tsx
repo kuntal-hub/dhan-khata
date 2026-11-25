@@ -8,23 +8,18 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { Wheat } from "lucide-react";
 import { varietyName } from "@/components/entry/Variety";
-import { emptyPay, PaymentFields, toPart, type PayState } from "@/components/entry/Payments";
-import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
+import { AdvanceSheet, LedgerTable } from "@/components/entry/PartyAccount";
 import { EmptyState, Panel, TxnCard } from "@/components/kit/Kit";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
 import { Loading } from "@/components/lists/common";
 import { PageTitle } from "@/components/shell/PageTitle";
-import { lazyToast } from "@/components/system/IdleToaster";
 import { PageSuspense, ReadOnlyNotice, useParam, useWriteGodown } from "@/components/system/page";
 import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
-import { errorKey } from "@/client/errors";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { partyLedger, purchaseRows } from "@/client/queries/purchases";
-import { payAdvance } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
-import type { TKey } from "@/i18n/translate";
 
 function Farmer() {
   const { t, money, date, digits } = useI18n();
@@ -129,90 +124,25 @@ function Farmer() {
         )}
       </Panel>
       <Panel title={t("farmerV.ledger")}>
-        <table className="w-full text-sm" data-testid="farmer-ledger">
-          <thead className="text-muted-foreground text-xs">
-            <tr>
-              <th className="py-2 text-left font-normal">{t("pay.date")}</th>
-              <th className="py-2 text-right font-normal">{t("farmerV.debit")}</th>
-              <th className="py-2 text-right font-normal">{t("farmerV.credit")}</th>
-              <th className="py-2 text-right font-normal">{t("farmerV.closing")}</th>
-            </tr>
-          </thead>
-          <tbody className="divide-y">
-            {ledger.rows.map((r) => (
-              <tr key={r.doc._id}>
-                <td className="py-2">
-                  {date(r.date, "short")}
-                  <span className="text-muted-foreground block text-xs">
-                    {t(`voucherType.${r.doc.type}` as TKey)}
-                  </span>
-                </td>
-                <td className="tabular py-2 text-right">
-                  {r.debitPaise ? money(r.debitPaise) : ""}
-                </td>
-                <td className="tabular py-2 text-right">
-                  {r.creditPaise ? money(r.creditPaise) : ""}
-                </td>
-                <td className="tabular py-2 text-right font-medium">
-                  {money(r.balancePaise < 0n ? -r.balancePaise : r.balancePaise)}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+        <LedgerTable
+          rows={ledger.rows}
+          debitLabel={t("farmerV.debit")}
+          creditLabel={t("farmerV.credit")}
+          testId="farmer-ledger"
+        />
       </Panel>
       {advance ? (
-        <AdvanceSheet godownId={godown._id} partyId={party._id} onClose={() => setAdvance(false)} />
+        <AdvanceSheet
+          godownId={godown._id}
+          partyId={party._id}
+          direction="OUT"
+          title={t("farmerV.giveAdvance")}
+          onClose={() => setAdvance(false)}
+        />
       ) : null}
     </div>
   );
 }
-
-function AdvanceSheet({
-  godownId,
-  partyId,
-  onClose,
-}: {
-  godownId: string;
-  partyId: string;
-  onClose: () => void;
-}) {
-  const { t } = useI18n();
-  const [s, setS] = useState<PayState>(emptyPay());
-  const [error, setError] = useState<string | null>(null);
-  const save = async () => {
-    const r = toPart(s, false);
-    if (r.error || !r.part) return setError(t(r.error ?? "errors.validation.required"));
-    try {
-      await payAdvance(godownId, partyId, "OUT", r.part);
-      lazyToast(t("pay.saved"), "success");
-      onClose();
-    } catch (e) {
-      setError(t(errorKey(e)));
-    }
-  };
-  return (
-    <BottomSheet
-      open
-      onOpenChange={(o) => !o && onClose()}
-      title={t("farmerV.giveAdvance")}
-      testId="advance-sheet"
-    >
-      <PaymentFields
-        godownId={godownId}
-        value={s}
-        onChange={setS}
-        amountLabel={t("pay.amount")}
-        testId="advance-pay"
-      />
-      {error ? <p className="text-destructive text-sm">{error}</p> : null}
-      <Button className="h-12 text-base" onClick={() => void save()} data-testid="advance-save">
-        {t("pay.save")}
-      </Button>
-    </BottomSheet>
-  );
-}
-
 export default function FarmerPage() {
   return (
     <PageSuspense>

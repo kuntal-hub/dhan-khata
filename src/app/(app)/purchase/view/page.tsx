@@ -25,7 +25,7 @@ import { db } from "@/client/db/dexie";
 import { errorKey } from "@/client/errors";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { paymentsOf, stateOf } from "@/client/queries/purchases";
-import { voidDoc } from "@/client/repo";
+import { voidDoc, voidInterGolaTransfer } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -194,12 +194,18 @@ function Detail() {
 
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-          <Button asChild variant="outline" className="h-12">
-            <Link href={`/purchase/edit?id=${doc._id}`} data-testid="purchase-edit">
-              <Pencil className="size-5" aria-hidden />
-              {t("pur.edit")}
-            </Link>
-          </Button>
+          {doc.interGola ? (
+            <p className="text-muted-foreground col-span-2 self-center text-sm">
+              {t("sl.transferNoEdit")}
+            </p>
+          ) : (
+            <Button asChild variant="outline" className="h-12">
+              <Link href={`/purchase/edit?id=${doc._id}`} data-testid="purchase-edit">
+                <Pencil className="size-5" aria-hidden />
+                {t("pur.edit")}
+              </Link>
+            </Button>
+          )}
           <Button asChild variant="outline" className="h-12">
             <Link href={`/print/purchase?id=${doc._id}`}>
               <Printer className="size-5" aria-hidden />
@@ -214,7 +220,7 @@ function Detail() {
             data-testid="purchase-reverse"
           >
             <Undo2 className="size-5" aria-hidden />
-            {t("pur.reverse")}
+            {doc.interGola ? t("sl.transferReverse") : t("pur.reverse")}
           </Button>
         </div>
       ) : null}
@@ -251,13 +257,14 @@ function Detail() {
       <ConfirmDialog
         open={reversing}
         onOpenChange={setReversing}
-        title={t("pur.reverse")}
+        title={doc.interGola ? t("sl.transferReverse") : t("pur.reverse")}
         body={`${t("pur.reverseConfirm", { qty: `${formatWeightNumber(BigInt(doc.weight.netG), "QTL", o)} ${t("ui.unitQtlShort")}`, amount: money(BigInt(doc.totalPaise)) })}${active.length ? ` ${t("pur.reverseWithPayments", { count: count(active.length) })}` : ""}`}
         confirmLabel={t("pur.reverse")}
         onConfirm={async () => {
           if (!reason.trim()) return lazyToast(t("pay.reasonRequired"), "error");
           try {
-            await voidDoc(godown._id, doc._id, reason.trim(), { withPayments: true });
+            if (doc.interGola) await voidInterGolaTransfer(godown._id, doc._id, reason.trim());
+            else await voidDoc(godown._id, doc._id, reason.trim(), { withPayments: true });
             lazyToast(t("pur.reversed"), "success");
             setReversing(false);
             router.replace("/purchase");

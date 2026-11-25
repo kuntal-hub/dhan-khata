@@ -18,7 +18,12 @@ function Edit() {
   const doc = useLiveQuery(() => (id ? db().vouchers.get(id) : undefined), [id]);
   if (readOnly || !godown) return <ReadOnlyNotice reason={readOnly ?? "noGodown"} />;
   if (doc === undefined) return <Loading />;
-  if (doc.type !== "PURCHASE" || doc.godownId !== godown._id || doc.status !== "active") {
+  if (
+    doc.type !== "PURCHASE" ||
+    doc.godownId !== godown._id ||
+    doc.status !== "active" ||
+    doc.interGola
+  ) {
     return <ReadOnlyNotice reason="notFound" />;
   }
   return (

@@ -1,0 +1,27 @@
+/**
+ * Where a document opens (detail screen). Pure and tiny: safe on the Home path. A payment opens
+ * the bill it settles; a payment without a bill opens its receipt. Types whose screens come in
+ * later phases return undefined (shown without a link).
+ */
+import type { Doc } from "@/domain/schemas";
+
+const VIEW: Partial<Record<Doc["type"], string>> = {
+  PURCHASE: "/purchase/view",
+  SALE: "/sales/view",
+  EXPENSE: "/expenses/view",
+};
+
+const SOURCE_VIEW: Partial<Record<string, string>> = {
+  PURCHASE: "/purchase/view",
+  SALE: "/sales/view",
+  EXPENSE: "/expenses/view",
+};
+
+export function docPath(d: Doc): string | undefined {
+  if (d.type === "PAYMENT") {
+    const view = d.source.id ? SOURCE_VIEW[d.source.type] : undefined;
+    return view ? `${view}?id=${d.source.id!.split(":")[0]}` : `/print/payment?id=${d._id}`;
+  }
+  const view = VIEW[d.type];
+  return view ? `${view}?id=${d._id}` : undefined;
+}
