@@ -91,6 +91,10 @@ Keep this list up to date.
 - Bills + payments: `saveBillWithInitialPayment`, `payBill` (OVERPAYMENT → `extraAsAdvance`), `payAdvance`, `mergeVarieties`, `saveBankAccount` in `src/client/repo`; reads in `queries/purchases.ts`.
 - Entry kit `src/components/entry/*` (DateField, PartyPicker, BankPicker, VarietyPicker, WeightBlockInput, PaymentFields / PaymentList / AddPaymentSheet); `components/kit/WhatsApp.tsx`; print views in `src/app/(print)` with `components/print/ReceiptSheet.tsx`.
 
+## Key building blocks (v2 Phases 6–8)
+- Sales: `repo/sales.ts` (delivery steps, confirm order, inter-Gola transfer = one op group across two Golas), `queries/sales.ts` (incl. `stockAvailable`). Expenses: `queries/expenses.ts` (day view, unpaid, farmer-payment bills). Dashboard: `queries/dashboard.ts` (one Gola) + `queries/consolidated/dashboard.ts` (sum), `repo/daily.ts` (day close / reopen, contra, opening cash / stock, stock count).
+- Shared UI: `components/entry/{PartyAccount,docPath,docLabel}`; dashboard tabs are `next/dynamic` chunks (keep heavy code off Home).
+
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**
 - The project folder is **inside OneDrive** (the user chose to keep it there). `pnpm-workspace.yaml` sets `nodeLinker: hoisted` to avoid symlink problems. If `pnpm install` or a build fails with EPERM / EBUSY / file-locked errors, ask the user to **pause OneDrive sync** and retry.

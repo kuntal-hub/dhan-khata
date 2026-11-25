@@ -416,3 +416,33 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 **Known issues / notes:** Expense reports (category-wise, month comparison, chart) are Phase 11. Linking an expense to a vehicle / trip comes with Phase 10.
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 275 passed, 1 skipped (24 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 244 KB · `pnpm test:e2e` expenses + offline ✅.
+### v2 Phase 8 — Dashboard — 2026-11-25
+**Built:**
+- Queries `queries/dashboard.ts` (one Gola): `golaOverview` (flows in the range, balances at its end, per-day purchase / sales series, cash and bank flow summary, paddy by variety, mills, receivable / farmer payable / mill payable by party role), `recentEntries`, `dueAlerts` (overdue + due within 3 days, collect vs pay), `lowStockAlerts`, `cashbookView` (one day of the cash or a bank book, bank closings, closed / late-entry state), `dailyRows`, `docsOfDay`, `golaMoves`. `queries/consolidated/dashboard.ts`: the all-Golas sum (`overviewFor`, `recentFor`, `alertsFor`, `dailyRowsFor`, `movesFor`), read-only.
+- Repo `repo/daily.ts`: `closeDay` (expected from the cashbook, counted, difference, note, denominations), `reopenDay` (owner), `saveContra` (deposit, withdraw, bank → bank, capital in, drawings), `saveOpeningCash` (once), `saveOpeningStock`, `approveStockCount`.
+- Screens (all four Dashboard tabs; each loads on demand):
+  - সারাংশ: date filter আজ / গতকাল / এই সপ্তাহ / এই মাস / custom (shared with দৈনিক হিসাব); the 14 metric cards with count-up and drill-down links; the per-Gola table in combined mode; the purchase-vs-sales bar chart (recharts, lazy; a tap opens that day); the cash / bank money-flow summary; the stock summary with paddy by variety; due alerts with WhatsApp; low-stock alerts; recent transactions (readable titles, IST time); quick actions.
+  - ক্যাশবই: any date ◀ ▶; cash or each bank; opening, received, paid, expenses, expected with the written formula; the day's lines in three groups with "সংশোধন"; day close with the note-counting helper; owner reopen; late-entry banner; cash moves; opening cash.
+  - স্টক: any date; ধান / চাল / অন্যান্য; variety filter; kg / quintal / mon. Paddy lines (each opens its movements with links), expected closing, physical count → shortage / excess → reasoned approval. Per-mill block, rice block, other products, 14-day history, opening stock.
+  - দৈনিক হিসাব: day rows for the range with a totals row, a sticky date column, print; `?day=` single-day entries.
+- Shared: `components/entry/docLabel.ts` (`docTitle`, `timeIST`), `components/dashboard/range.tsx`.
+- Bundle: dashboard tabs dynamic; 35 unused v1 i18n namespaces removed (D32). Home JS is 237.9 KB.
+- Tests: `tests/repo/dashboard.test.ts` covers:
+  - Test 4: ₹30,000 expected; ₹29,500 counted → short ₹500 → next opening ₹29,500; reopen and count ₹30,200 → excess ₹200 → next opening ₹30,200; a note is required; a second close is refused; a late entry raises the flag.
+  - Cash ↔ bank, capital and drawings.
+  - Test 2 numbers: 100 + 56 − 10 − 20 = 126, mill 20.
+  - Overview flows vs balances.
+  - Physical count → adjustment.
+  - Daily rows and recent entries.
+  - Combined = sum of the Golas.
+  - Due and low-stock alerts.
+- e2e `tests/e2e/dashboard.spec.ts` runs in bn and en at 360 px: Test 4 through the UI, then opening stock, count → adjustment, the Overview with "this month", and the Daily Overview with a custom range → day view. The offline spec covers `?tab=stock`, `?tab=daily` and the day view. Screenshots in `test-results/v2-dashboard/` were reviewed; recent-entry and cashbook titles were fixed after that review.
+
+**Decisions:** D32–D36.
+
+**Known issues / notes:**
+- Test 2's mill dispatch is entered through the UI in Phase 9; the domain and repo tests already cover it.
+- The Dashboard reports tab (business-wide, Gola-wise, combined) and Excel/CSV export are Phase 11.
+- Due-alert links for mill / trip / second-party bills open once those screens exist (Phases 9–10).
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 281 passed, 1 skipped (25 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 237.9 KB · `pnpm test:e2e` ✅ 11/11 (Tests 1, 4, 5, 6 in bn + en, shell, reduced motion, cold offline).

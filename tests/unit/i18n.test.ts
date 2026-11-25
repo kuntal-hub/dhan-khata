@@ -26,7 +26,7 @@ describe("dictionaries", () => {
     for (const lang of ["bn", "en"] as const) {
       expect(translate(lang, "errors.domain.CROSS_GODOWN_REFERENCE")).not.toContain("errors.");
       expect(translate(lang, "variety.GOBINDOBHOG")).not.toContain("variety.");
-      expect(translate(lang, "payMode.UPI")).not.toContain("payMode.");
+      expect(translate(lang, "pay.UPI")).not.toContain("pay.");
     }
   });
 

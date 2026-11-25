@@ -93,3 +93,17 @@ Choosing "কৃষক পেমেন্ট" turns the form into the farmer-pay
 
 ### D31: Expense categories
 Built-in categories (§12.4) render through i18n and can be hidden, not renamed. Custom categories get a generated immutable code (`U_…`) and a typed name, and can be renamed or hidden. "কৃষক পেমেন্ট" can't be hidden. A hidden category stays valid for old expenses.
+### D32: Dashboard tabs load on demand; dead v1 strings removed
+The Overview, Cashbook, Stock and Daily Overview tabs are `next/dynamic` chunks (precached by the service worker, so they open offline), and recharts loads only inside the chart. 35 v1 i18n namespaces with no remaining use (old screens removed in Phase 2) were deleted from `bn.ts` / `en.ts`; the Bengali dictionary is on the start-up path. Home JS went from 246.5 KB to 237.9 KB. Partly used v1 namespaces are cleaned in Phase 12 with the i18n-usage test.
+
+### D33: Dashboard money cards follow the cashbook
+"নগদ পেলাম" / "নগদ দিলাম" use the same classifier as the cashbook (§7.3): received includes bank → cash withdrawals and capital brought in as cash; paid includes farmer and other payments, deposits, drawings and cash expenses. So the card always equals the cashbook total for the same range. Receivables = positive balances of customer / mill / vehicle-customer / Gola parties; farmer payables = negative balances of farmer / supplier parties; mill payable = negative balances of mill parties.
+
+### D34: Opening cash and opening stock
+"শুরুর নগদ বসান" writes one OPENING (CASH) document for the Gola, once. Later corrections are cash moves or day-close differences. Opening stock is entered per variety (qty + value per quintal) from the Stock tab as OPENING (STOCK) documents, dated the viewed day.
+
+### D35: Correcting a cashbook line
+Lines from a purchase, sale, expense or payment open their detail page (edit / reverse there, audited). Cash ↔ bank, capital and drawings have no detail page: "সংশোধন" voids the entry with a reason and the user enters the right one. Every following day recalculates either way.
+
+### D36: Day close and reopen
+Closing writes a DAY_CLOSE with the expected cash at that moment, the counted cash and the difference (note required when ≠ 0; denomination counts kept). The difference posts to CASH_DIFF, so the next day's opening equals the counted cash. Only the owner reopens (the close is voided with a reason). An entry dated on a closed day shows "পরে এন্ট্রি হয়েছে — আবার মেলান"; "আবার মেলান" reopens the day so it can be counted again.

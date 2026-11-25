@@ -81,7 +81,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 6.4 | Property tests (balanced, void restores, edit-back, Gola isolation) | done (v2) | `tests/property/*` | Re-target to v2 documents | 1 |
 | 7.1 | Separate date fields + entryDate | done | single `date` | Per-type dates, `businessDate()`, `entryDate` | 1 |
 | 7.1 | Future business dates blocked (except dueDate) | partial | `validateVoucherRules` | Keep for v2 | 1 |
-| 7.1 | Backdated entry on closed day → "re-check" | partial | `dayStatus.lateEntry` | Recheck flag computed from day-close vs later entries | 8 |
+| 7.1 | Backdated entry on closed day → "re-check" | done | `dayStatus.lateEntry` → Cashbook banner + reopen | Recheck flag computed from day-close vs later entries | 8 |
 | 7.2 | Unified Payment model | done | PAYMENT/RECEIPT vouchers | New PAYMENT document | 1 |
 | 7.2 | Overpayment → split bill + PARTY_ADVANCE with shared groupId | missing | — | `splitPayment()` domain helper | 1 |
 | 7.2 | Payment receipt (bilingual, logo, words) | partial (purchase + payment receipts done in Phase 5; others Phase 11) | `print/Receipt.tsx` | Re-target to Payment | 11 |
@@ -91,9 +91,9 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 9.1 | StockMove product/location/mill/bags | done | `StockMove` (variety, STORE/TRANSIT) | New move shape | 1 |
 | 9.2 | Movement rules per transaction | done | `post.ts` | v2 rules | 1 |
 | 9.3 | No silent negative stock ("Save anyway") | partial | integrity check | `wouldGoNegative()` + UI confirm | 1, 5–9 |
-| 9.3 | Date-wise stock ledger | partial | `stockRegister` | Per product/location | 8 |
-| 9.3 | Physical verification + reasoned adjustment | partial | `StockAdjustForm` | Count → approve | 8 |
-| 9.3 | Low-stock alerts per Gola | missing | — | thresholds on Gola + dashboard alert | 8 |
+| 9.3 | Date-wise stock ledger | done | `components/dashboard/StockTab.tsx` (any date, per variety, 14-day history) | Per product/location | 8 |
+| 9.3 | Physical verification + reasoned adjustment | done | `approveStockCount` + Stock tab | Count → approve | 8 |
+| 9.3 | Low-stock alerts per Gola | done | `lowStockAlerts` + Overview (threshold on Gola edit) | thresholds on Gola + dashboard alert | 8 |
 
 ### §10 Data model
 | § | Requirement | Status | Files | Planned change | Phase |
@@ -111,10 +111,10 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 11 | 8 sections, desktop sidebar, mobile bottom bar (4) + "All sections" sheet | done | `nav.tsx`, `AppShell.tsx` | New shell | 4 |
 | 11 | Header: switcher, sync badge, search, bell; avatar menu (profile, business, Golas, banks, settings, language, logout) | partial | `UserMenu`, `GodownMenu`, `SyncBadge`, `ReminderBadge` | Restructure avatar menu | 4 |
 | 11 | Floating quick-add (8 actions) | partial | Home FAB sheet | New FAB with v2 actions | 4 |
-| 12.1A | Overview cards (14), charts, recent, due & low-stock alerts, quick actions, date filters, combined | partial | `Dashboard.tsx` (10 cards, one day) | Rebuild with range filters + charts | 8 |
-| 12.1B | Daily Cashbook (opening/received/paid/expenses/expected/actual/diff, formula, itemised, correct, day close, reopen, bank toggle, contra, drawings/capital) | partial | `/cashbank`, `/day-close`, `DayClose.tsx`, `ContraForm.tsx` | Cashbook tab over the v2 classifier | 8 |
-| 12.1C | Daily Stock (paddy/rice/other, mill block, verification, history) | partial | `/stock`, `/stock/register`, `/stock/adjust` | Stock tab | 8 |
-| 12.1D | Daily Overview table | missing | — | New query + tab | 8 |
+| 12.1A | Overview cards (14), charts, recent, due & low-stock alerts, quick actions, date filters, combined | done (Gola-wise / combined report shortcuts come with the reports tab, Phase 11) | `components/dashboard/Overview.tsx`, `queries/dashboard.ts`, `consolidated/dashboard.ts` | Rebuild with range filters + charts | 8 |
+| 12.1B | Daily Cashbook (opening/received/paid/expenses/expected/actual/diff, formula, itemised, correct, day close, reopen, bank toggle, contra, drawings/capital) | done | `components/dashboard/Cashbook.tsx`, `repo/daily.ts` | Cashbook tab over the v2 classifier | 8 |
+| 12.1C | Daily Stock (paddy/rice/other, mill block, verification, history) | done | `components/dashboard/StockTab.tsx` | Stock tab | 8 |
+| 12.1D | Daily Overview table | done (Excel/CSV export Phase 11) | `components/dashboard/DailyOverview.tsx`, `dailyRows` | New query + tab | 8 |
 | 12.1 | Dashboard reports tab (business-wide, Gola-wise, combined) | partial | `/reports` | Move into Dashboard → রিপোর্ট | 8, 11 |
 | 12.2 | Purchase form (bag-wise, variety picker, initial payment, due date) | done | `PurchaseForm.tsx`, `LinesEditor.tsx` | New form | 5 |
 | 12.2 | Purchase detail (payment ledger, add due payment, receipts, audit) | done | `VoucherView.tsx` | New detail page | 5 |
@@ -156,9 +156,9 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | Test | Status | Planned |
 |---|---|---|
 | 1 Purchase payments | done (`v2-acceptance`, `tests/repo/payments.test.ts`, e2e `purchase.spec.ts` bn + en; cashbook screen check in Phase 8) | Domain (Phase 1) + e2e bn/en (Phase 5) |
-| 2 Stock 126 / mill 20 | missing | Domain (Phase 1) + e2e (Phases 8–9) |
+| 2 Stock 126 / mill 20 | partial (`v2-acceptance`, `tests/repo/dashboard.test.ts`; UI e2e with the dispatch screen in Phase 9) | Domain (Phase 1) + e2e (Phases 8–9) |
 | 3 Mill return 131 / 15 | missing | Domain (Phase 1) + e2e (Phase 9) |
-| 4 Cashbook 30,000 / shortage 500 / excess 200 | partial (G5 dashboard) | Domain (Phase 1) + e2e (Phase 8) |
+| 4 Cashbook 30,000 / shortage 500 / excess 200 | done (`v2-acceptance`, `tests/repo/dashboard.test.ts`, e2e `dashboard.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 8) |
 | 5 Backdated expense | done (`v2-acceptance`, `tests/repo/expenses.test.ts`, e2e `expenses.spec.ts` bn + en; cashbook screen check in Phase 8) | Domain (Phase 1) + e2e (Phase 7) |
 | 6 Partial sales collection | done (`v2-acceptance`, `tests/repo/sales.test.ts`, e2e `sales.spec.ts` bn + en) | Domain (Phase 1) + e2e (Phase 6) |
 | 7 Two Golas + combined | done (Vitest; e2e Phase 12) | e2e (Phase 3/8) |

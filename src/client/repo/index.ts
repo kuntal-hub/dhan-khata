@@ -40,3 +40,15 @@ export {
   type DeliveryStatus,
   type TransferInput,
 } from "./sales";
+export {
+  closeDay,
+  reopenDay,
+  expectedCash,
+  saveContra,
+  saveOpeningCash,
+  hasOpeningCash,
+  saveOpeningStock,
+  approveStockCount,
+  type ContraKind,
+  type AdjustReason,
+} from "./daily";
