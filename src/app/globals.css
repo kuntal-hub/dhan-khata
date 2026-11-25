@@ -247,3 +247,19 @@ html[lang="en"] {
     transform: none;
   }
 }
+
+/* Print views (receipts, bills, reports): white paper, no chrome. */
+@media print {
+  .no-print {
+    display: none !important;
+  }
+  body {
+    background: #fff !important;
+  }
+  .print-sheet {
+    box-shadow: none !important;
+    border: 0 !important;
+    max-width: none !important;
+    margin: 0 !important;
+  }
+}

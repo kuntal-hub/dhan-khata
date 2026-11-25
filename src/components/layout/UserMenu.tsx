@@ -9,6 +9,7 @@ import {
   LogOut,
   RefreshCw,
   Smartphone,
+  Landmark,
   UserRound,
   Warehouse,
 } from "lucide-react";
@@ -38,6 +39,7 @@ const LINKS: Array<{
   { href: "/profile", label: "menu.profile", icon: UserRound },
   { href: "/business", label: "menu.business", icon: Building2, owner: true },
   { href: "/golas", label: "menu.golas", icon: Warehouse, owner: true },
+  { href: "/banks", label: "menu.banks", icon: Landmark, owner: true },
   { href: "/sessions", label: "menu.sessions", icon: Smartphone },
   { href: "/sync", label: "menu.sync", icon: RefreshCw },
 ];

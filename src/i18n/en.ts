@@ -736,6 +736,10 @@ export const en = {
     DAY_CLOSE: "Day close",
     OPENING: "Opening",
     JOURNAL: "Journal",
+    MILL_DISPATCH: "Sent to mill",
+    MILL_RETURN: "Mill return",
+    CONVERSION: "Milling",
+    SECOND_PARTY: "Second party",
   },
   payMode: {
     CASH: "Cash",
@@ -757,9 +761,10 @@ export const en = {
     REPAIR: "Repair",
   },
   variety: {
-    SWARNA: "Swarna",
+    SWARNA: "Swarna (MTU-7029)",
+    IR36: "IR-36",
     MINIKIT: "Minikit",
-    SATABDI: "Satabdi",
+    SATABDI: "Satabdi (IET-4786)",
     GOBINDOBHOG: "Gobindobhog",
     LAL_SWARNA: "Lal Swarna",
     V1010: "1010",

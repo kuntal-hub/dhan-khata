@@ -75,7 +75,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 6.1 | Storage units; parse rejects >2 dp money / >3 dp kg | done | `decimal.ts`, `client/ui/parse.ts` | Keep | — |
 | 6.2 | kg / quintal / mon (monKg configurable) + 3-unit display line | missing | `i18n/parse.ts` (qtl + kg) | `domain/units.ts`, `UnitToggle`, `QtyTriple` | 1, 4 |
 | 6.3 | WeightBlock (bag-wise / manual), avg bag | done (domain) | `TradeLine` (gross + deductions) | `domain/weightBlock.ts` | 1 |
-| 6.3 | Deductions optional, off by default | conflicts | trade lines always deduct | `deductions?` in WeightBlock + setting | 1, 5 |
+| 6.3 | Deductions optional, off by default | done (setting \usiness.settings.deductionsEnabled\; block shown only when on) | trade lines always deduct | `deductions?` in WeightBlock + setting | 1, 5 |
 | 6.3 | Closing paddy/mill formulas, vehicle net profit | missing/partial | `calc/vehicle.ts` | Stock engine v2, `calc/trip` v2 | 1 |
 | 6.4 | Golden G1–G8 | done | `tests/unit/golden.test.ts` (G1, G4–G7 equivalents) | Add G2 (mon), G3 (bags), G8 (cashbook) | 1 |
 | 6.4 | Property tests (balanced, void restores, edit-back, Gola isolation) | done (v2) | `tests/property/*` | Re-target to v2 documents | 1 |
@@ -84,7 +84,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 7.1 | Backdated entry on closed day → "re-check" | partial | `dayStatus.lateEntry` | Recheck flag computed from day-close vs later entries | 8 |
 | 7.2 | Unified Payment model | done | PAYMENT/RECEIPT vouchers | New PAYMENT document | 1 |
 | 7.2 | Overpayment → split bill + PARTY_ADVANCE with shared groupId | missing | — | `splitPayment()` domain helper | 1 |
-| 7.2 | Payment receipt (bilingual, logo, words) | partial | `print/Receipt.tsx` | Re-target to Payment | 11 |
+| 7.2 | Payment receipt (bilingual, logo, words) | partial (purchase + payment receipts done in Phase 5; others Phase 11) | `print/Receipt.tsx` | Re-target to Payment | 11 |
 | 7.3 | Cashbook classifier (received / paid / expenses; farmer payment = paid) | done (domain) | `queries/cashbank.ts` (account book) | `domain/cashbook.ts` | 1 |
 | 8 | Chart of accounts per Gola incl. STOCK_PADDY/RICE/OTHER/AT_MILL, EXP_PAYABLE, MILLING_* | partial | `posting/accounts.ts` | New account keys | 1 |
 | 8 | Event → posting table | done | `post.ts` | Rewrite for v2 events | 1 |
@@ -100,7 +100,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 |---|---|---|---|---|---|
 | 10 | BaseDoc incl. `businessId`, `entryDate` | done | `schemas/common.ts` | Add fields | 1–2 |
 | 10 | Party roles v2 (FARMER, SUPPLIER, CUSTOMER, MILL, SECOND_PARTY, VEHICLE_CUSTOMER, DRIVER, LABOUR, OTHER), mobile, address, opening balance | done (schema) | `schemas/masters.ts` (lowercase roles) | New role enum + migration mapping | 1–2 |
-| 10 | Variety: company, product, normalizedKey, verified, lastUsedAt | missing | `VarietySchema` | Extend + dedupe | 1, 5 |
+| 10 | Variety: company, product, normalizedKey, verified, lastUsedAt | done | `VarietySchema` | Extend + dedupe | 1, 5 |
 | 10 | Vehicle (OWN/EXTERNAL, driver) | partial | `VehicleSchema` | Keep shape, add driver fields | 10 |
 | 10 | Purchase/Sale/Expense/Load/MillDispatch/MillReturn/Conversion/ConsignmentSettlement/Trip/SecondParty/StockCount/DayClose/Contra/Reminder/AuditLog | done (schemas; D5 settlement = sale, StockCount = STOCK_ADJUST lines) | `schemas/vouchers.ts` | v2 document union (see DECISIONS D1) | 1 |
 | 10 | Indexes prefixed `businessId, godownId` | done | `server/db.ts` (godownId only) | Add businessId to compound indexes | 2 |
@@ -116,11 +116,11 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 12.1C | Daily Stock (paddy/rice/other, mill block, verification, history) | partial | `/stock`, `/stock/register`, `/stock/adjust` | Stock tab | 8 |
 | 12.1D | Daily Overview table | missing | — | New query + tab | 8 |
 | 12.1 | Dashboard reports tab (business-wide, Gola-wise, combined) | partial | `/reports` | Move into Dashboard → রিপোর্ট | 8, 11 |
-| 12.2 | Purchase form (bag-wise, variety picker, initial payment, due date) | partial | `PurchaseForm.tsx`, `LinesEditor.tsx` | New form | 5 |
-| 12.2 | Purchase detail (payment ledger, add due payment, receipts, audit) | partial | `VoucherView.tsx` | New detail page | 5 |
-| 12.2 | Purchase list (search, filters incl. paid status, totals) | partial | `/purchase`, `VoucherList` | New list | 5 |
-| 12.2 | Farmer history | partial | `PartyProfile.tsx` | Purchase → কৃষকের হিসাব tab | 5 |
-| 12.2 | Variety management (companies, duplicate prevention, recents, merge, seed verified) | partial | `settings/masters` | New tab | 5 |
+| 12.2 | Purchase form (bag-wise, variety picker, initial payment, due date) | done | `PurchaseForm.tsx`, `LinesEditor.tsx` | New form | 5 |
+| 12.2 | Purchase detail (payment ledger, add due payment, receipts, audit) | done | `VoucherView.tsx` | New detail page | 5 |
+| 12.2 | Purchase list (search, filters incl. paid status, totals) | done | `/purchase`, `VoucherList` | New list | 5 |
+| 12.2 | Farmer history | done | `PartyProfile.tsx` | Purchase → কৃষকের হিসাব tab | 5 |
+| 12.2 | Variety management (companies, duplicate prevention, recents, merge, seed verified) | done | `settings/masters` | New tab | 5 |
 | 12.3 | Sale form (product, advance as payment, delivery, Order/Confirmed, source, charges collapsed) | partial | `SaleForm.tsx` | New form | 6 |
 | 12.3 | Collections, invoice, delivery tracking, customer ledger | partial/missing | `print/voucher` | New | 6 |
 | 12.3 | Inter-Gola transfer action | partial | `/transfer` | Inside Sales | 6 |
@@ -140,7 +140,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 |---|---|---|---|---|---|
 | 13 | Reports per section, header with business/logo/Gola, print A4 + 80 mm, xlsx + csv, image share | partial | `client/reports/*`, `(print)/*` | `ReportShell`; reports moved into sections; CSV | 11 |
 | 14.1 | Voice input + Bengali/English number parser | missing | — | `domain/voiceNumber.ts` (Phase 1), `VoiceButton` (Phase 11) | 1, 11 |
-| 14.2 | WhatsApp click-to-chat templates everywhere specified | partial | `PartyProfile` তাগাদা | `WhatsAppButton` + templates | 10–11 |
+| 14.2 | WhatsApp click-to-chat templates everywhere specified | partial (purchase detail, farmer account, payment receipt done) | `PartyProfile` তাগাদা | `WhatsAppButton` + templates | 10–11 |
 | 15.1 | Logo SVG, icons, palette tokens, fonts | done | `globals.css`, `public/icons` | New tokens/logo | 4 |
 | 15.2–15.3 | Premium components, animations, reduced motion | done (kit + CSS motion, D19; charts Phase 8) | — | `motion` LazyMotion | 4 |
 | 15.4 | Non-technical UX: 48 px buttons, confirmations stating effect, calc on tap, undo | partial | `Computed` | `ConfirmDialog`, undo toast | 4+ |

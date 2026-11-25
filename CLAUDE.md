@@ -87,6 +87,10 @@ Keep this list up to date.
 - Diagnostics: Dexie v3 `clientErrors`, `(app)/error.tsx` boundary, upload + quick integrity after each sync (`src/client/diagnostics.ts`).
 - Keep the Home route light: never import `@/client/repo`, `@/client/sync/*` (except `constants`), `@/client/admin` or a value from `@/domain/schemas` in modules reached by the (app) layout or Home; use `queries/*`, `domain/vehicleNumber`, `domain/godownSettings`, `components/vouchers/{paths,VoucherRow}`, `LazyBottomSheet`. Also keep out of that path: `sonner` (use `lazyToast` from `components/system/IdleToaster`), Radix dialog/dropdown/tabs (header menus load on tap via `layout/lazyMenu`), `@tanstack/react-virtual` (`lists/VirtualList`, not `lists/common`), `date-fns`, and `@/i18n/en` / `@/i18n/translateAll` (English loads lazily; `translate()` falls back to Bengali until it is in). Check with `pnpm check:bundle`.
 
+## Key building blocks (v2 Phase 5)
+- Bills + payments: `saveBillWithInitialPayment`, `payBill` (OVERPAYMENT → `extraAsAdvance`), `payAdvance`, `mergeVarieties`, `saveBankAccount` in `src/client/repo`; reads in `queries/purchases.ts`.
+- Entry kit `src/components/entry/*` (DateField, PartyPicker, BankPicker, VarietyPicker, WeightBlockInput, PaymentFields / PaymentList / AddPaymentSheet); `components/kit/WhatsApp.tsx`; print views in `src/app/(print)` with `components/print/ReceiptSheet.tsx`.
+
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**
 - The project folder is **inside OneDrive** (the user chose to keep it there). `pnpm-workspace.yaml` sets `nodeLinker: hoisted` to avoid symlink problems. If `pnpm install` or a build fails with EPERM / EBUSY / file-locked errors, ask the user to **pause OneDrive sync** and retry.

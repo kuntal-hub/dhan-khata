@@ -62,3 +62,15 @@ During v2 Phases 4–11 the 8 sections and their tabs exist (navigation, offline
 
 ### D9: Payment modes CASH / BANK / UPI only
 v1 modes CHEQUE, DD, BANK_TRANSFER and OTHER are migrated to BANK, with the bank account kept. The `CHEQUE_IN_HAND` stage disappears. This is an intentional v2 semantic change, listed in the migration report.
+
+### D21: Farmer account offers per-bill payment and advance; "pay across bills" waits for Due & Advance
+In Purchase → কৃষকের হিসাব a farmer's dues are paid from each purchase ("+ বাকি টাকা দিন"), and an advance can be given. One amount spread over several open bills, oldest first (`allocateFifo`, §12.6), belongs to the Due & Advance section and arrives in Phase 10. Until then nothing is allocated automatically, so no money can land on the wrong bill.
+
+### D22: Paying more than a bill's due
+`payBill` refuses with `OVERPAYMENT` (the extra amount in `detail`). The sheet then says how much is extra and offers "keep the extra as advance". Only after that tap is the payment split: the due part against the bill, the rest as a party advance (`splitOverpayment`). An initial payment larger than the bill total is refused outright on the form.
+
+### D23: Bank account opening balance
+A new bank account with an opening balance writes one OPENING document (kind BANK) dated the day it is added, in the same transaction as the account. Editing the account later never re-posts the opening; a wrong opening is corrected with a CONTRA or a stock/opening correction in the Dashboard (Phase 8).
+
+### D24: Seeded variety names carry the public variety code
+The seeded varieties show their common code where one exists ("স্বর্ণ (MTU-7029)", "শতাব্দী (IET-4786)") and IR-36 was added, so that "স্বর্ণ" and "লাল স্বর্ণ" are easy to tell apart in the picker. These are display names (i18n); the stored `systemKey` is unchanged.

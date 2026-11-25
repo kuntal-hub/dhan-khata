@@ -84,6 +84,11 @@ test("reduced motion: everything is shown at once", async () => {
   await page.setViewportSize({ width: 360, height: 740 });
   await loginFresh(page);
   await expect(page.getByTestId("overview-cards")).toBeVisible();
-  await expect(page.getByTestId("m-cash")).toHaveAttribute("data-value", "0");
+  // Other specs share the server, so the value is not fixed: it must be final at once (no count-up).
+  const cash = page.getByTestId("m-cash");
+  await expect(cash).toHaveAttribute("data-value", /^-?\d+$/);
+  const first = await cash.textContent();
+  await page.waitForTimeout(800);
+  expect(await cash.textContent()).toBe(first);
   await ctx.close();
 });

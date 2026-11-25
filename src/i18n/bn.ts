@@ -722,7 +722,7 @@ export const bn = {
     vehicleExpense: "গাড়ি খরচ – {name}",
   },
   voucherType: {
-    PURCHASE: "ক্রয়",
+    PURCHASE: "ধান কেনা",
     SALE: "বিক্রি",
     LOAD: "লোড",
     PAYMENT: "পেমেন্ট",
@@ -735,6 +735,10 @@ export const bn = {
     DAY_CLOSE: "দিন শেষ",
     OPENING: "প্রারম্ভিক",
     JOURNAL: "জার্নাল",
+    MILL_DISPATCH: "মিলে পাঠানো",
+    MILL_RETURN: "মিল থেকে ফেরত",
+    CONVERSION: "মিলিং",
+    SECOND_PARTY: "সেকেন্ড পার্টি",
   },
   payMode: {
     CASH: "নগদ",
@@ -756,9 +760,10 @@ export const bn = {
     REPAIR: "মেরামত",
   },
   variety: {
-    SWARNA: "স্বর্ণ",
+    SWARNA: "স্বর্ণ (MTU-7029)",
+    IR36: "IR-36",
     MINIKIT: "মিনিকিট",
-    SATABDI: "শতাব্দী",
+    SATABDI: "শতাব্দী (IET-4786)",
     GOBINDOBHOG: "গোবিন্দভোগ",
     LAL_SWARNA: "লাল স্বর্ণ",
     V1010: "১০১০",

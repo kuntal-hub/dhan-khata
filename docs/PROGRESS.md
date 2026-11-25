@@ -13,7 +13,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 2 | Data layer & migration (Dexie v4, repo, server, op groups, businessId, `scripts/migrate-v2.ts`) | sync + isolation tests; migration dry-run reconciles | ✅ |
 | 3 | Auth & Gola management | Tests 7, 8, 9 | ✅ |
 | 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ✅ |
-| 5 | Purchase + Variety | Test 1 e2e | ⬜ |
+| 5 | Purchase + Variety | Test 1 e2e | ✅ |
 | 6 | Sales | Test 6 e2e | ⬜ |
 | 7 | Daily Expenses | Test 5 e2e | ⬜ |
 | 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ⬜ |
@@ -376,3 +376,18 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 **Decisions:** D19 (CSS animations instead of `motion`), D20 (transitional tabs).
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 250 passed, 1 skipped (21 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 238 KB (budget 250) · `pnpm test:e2e` ✅ 3/3 · visual review ✅ (bn/en at 360, 768, 1280).
+### v2 Phase 5 — Purchase + Variety — 2026-11-25
+**Built:**
+- Repo: `repo/payments.ts` (`saveBillWithInitialPayment` writes the purchase and its initial payment in one op group; `payBill` with `OVERPAYMENT` → confirmed split to advance; `payAdvance`; `dueOf`), `repo/varieties.ts` (`mergeVarieties` repoints every document and archives the dropped variety), `repo/banks.ts` (`saveBankAccount`, opening balance as one OPENING doc).
+- Queries: `queries/purchases.ts` (`purchaseRows` with paid / due / status from active payments, search by farmer / phone / variety / bill no. / amount, date range, status filter; `purchaseTotals`; `farmerSummaries`; `partyLedger` with opening and running balance; `varietyRows` with uses + recents; `bankRows`; `paymentsOf` incl. reversed).
+- Entry kit (`components/entry/*`): `DateField` (future blocked, back-date note), `Segmented`, `PartyPicker` with inline new farmer (works offline), `BankPicker`, `VarietyPicker` (recents first, company shown, "Did you mean…" before creating), `WeightBlockInput` (bag by bag with Enter → next bag, chips, delete + undo, live total / bags / average in kg · qtl · mon; or a total in kg / qtl / mon with bag count; deductions only when the business turned them on), `PaymentFields`, `PaymentList` (edit, reverse with reason and a confirmation that states the effect, receipt), `AddPaymentSheet`.
+- Screens: Purchase section tabs কেনার তালিকা / কৃষকের হিসাব / ধানের জাত (reports tab stays transitional until Phase 11); `/purchase/new`, `/purchase/edit?id=`, `/purchase/view?id=` (bags, paid / due, payment ledger, + বাকি টাকা দিন, edit, receipt, WhatsApp, reverse with payments, history), `/purchase/farmer?id=` (balance, purchases, ledger, give advance, WhatsApp), `/banks` (avatar menu, owner), print views `/print/purchase` and `/print/payment` (business header + logo, Gola, amount in words, signature; `(print)` route group without app chrome). Quick action "নতুন কেনা" is on. `WhatsAppButton` (`wa.me/91…`, only opens WhatsApp).
+- i18n: `rcpt`, `farmerV`, `wa`, `hist` namespaces; v2 document types in `voucherType`; seeded variety names with public codes + IR-36 (D24).
+- Tests: `tests/repo/payments.test.ts` (Test 1 through the repo incl. cash vs bank, one op group, full credit moves no cash, overpayment → advance, reversals, LINKED_PAYMENTS, ledger running balance, search / filters, variety recents + merge + duplicate refusal, bank opening once); `tests/e2e/purchase.spec.ts` Test 1 in bn (total weight) and en (bag by bag) at 360 px: inline farmer and bank, ₹1,34,400 → ₹84,400 → ₹54,400 → ₹34,400, three dated payments, refresh, list, farmer balance. Offline spec covers the new routes. Screenshots in `test-results/v2-purchase/` were reviewed.
+- The reduced-motion e2e no longer expects cash = 0 (specs share one server); it checks the value is final at once.
+
+**Decisions:** D21 (pay across bills waits for Phase 10), D22 (overpayment), D23 (bank opening), D24 (variety display names).
+
+**Known issues / notes for next phases:** Payments made through FIFO across bills come in Phase 10. Cashbook / bank-book screens for Test 1's cashbook checks arrive in Phase 8 (the domain test `v2-acceptance` already covers them). `components/entry/*` and `PaymentList` / `AddPaymentSheet` are meant to be reused by Sales (`direction="IN"`).
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 261 passed, 1 skipped (22 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 243 KB (budget 250) · `pnpm test:e2e` ✅ 5/5.
