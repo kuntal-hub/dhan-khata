@@ -18,7 +18,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 7 | Daily Expenses | Test 5 e2e | ✅ |
 | 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ✅ |
 | 9 | Mill & Second Party | Tests 2, 3 e2e | ✅ |
-| 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ⬜ |
+| 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ✅ |
 | 11 | Reports, print, export, voice, WhatsApp | reports reconcile with dashboard | ⬜ |
 | 12 | Hardening | all of §21 | ⬜ |
 
@@ -464,3 +464,19 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 - A sale entered from the Sales form with source "মিল থেকে" is still possible without a consignment link (for MILLING paddy sold at the mill); consignments are settled from the Mill section.
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 292 passed, 1 skipped (27 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 240.1 KB · `pnpm test:e2e` ✅ 13/13 (Tests 1–6 in bn + en, shell, reduced motion, cold offline).
+### v2 Phase 10 — Load Khata, Due & Advance, Vehicle — 2026-11-25
+**Built:**
+- Domain: `dueBillsOf` (bills that are really owed: no consignment expected value, no order; D39). The dashboard due alerts use it.
+- Repo: `repo/loads.ts` (`saveLoad` with "update the linked record too", `linkLoad`, `unlinkLoad`, `linkFromLoadItem` for create-from-load, `activeLinkOf`; 1:1 checked on both sides, D42), `payParty` (one amount across bills + advance, one groupId, D43), `saveBillWithInitialPayment` takes `extra` items (same op group), `repo/trips.ts` (`saveTrip`: trip + advance + costs paid now in one op group; a paid cost can't be removed).
+- Queries: `queries/loads.ts` (`loadRows`, `groupLoads` by date / party / mill / vehicle with totals and unlinked count, `linkCandidates` ranked by date, vehicle, mill, variety), `queries/dues.ts` (`dueCategory`, `partyDues` with opening / total / paid / remaining = ledger / earliest due / overdue / last date, `dueSummary` with aging, `openBillsOf`, `reminderRows` auto + manual with state, `reminderWhen`), `queries/vehicles.ts` (`tripRow`, `tripRows`, `vehicleSummaries`, `tripCustomerSummaries`, `pnlByPeriod` by day / month).
+- Screens: Load Khata (তারিখ / পার্টি / মিল / গাড়ি tabs with totals, search, "যুক্ত নয়" filter; `/loads/new|edit|view` with link / unlink / create sale or dispatch from the load; `/print/load` slip). `SaleForm` / `DispatchForm` take `fromLoad` (`/sales/new?load=`, `/mill/dispatch/new?load=`). Due & Advance (সারাংশ with category cards, aging table, biggest dues; পাওনা / দেনা / মিলের দেনা / অগ্রিম / অন্যান্য rows with opening, total, settled, overdue, call and WhatsApp; রিমাইন্ডার with done / snooze 3 days / change date / manual reminders; `/dues/party` ledger with date range, open bills, pay / collect across bills, print; `/dues/pay?direction=` for the quick actions). Vehicle Business (ট্রিপ list, গাড়ি অনুযায়ী with add / edit vehicle and P&L by cost kind, খদ্দের অনুযায়ী, আয়-খরচ by day / month per vehicle; `/vehicles/trip/new|edit|view` with collections, per-cost payments, live net profit and its formula). The expense form can name a vehicle (D44). All 8 quick actions are on. `AddPaymentSheet` takes `sourceId` (trip costs); `VehiclePicker` / `VehicleForm`.
+- i18n: `ld`, `dues`, `veh` namespaces (`due` is still a v1 namespace; Phase 12 cleans it).
+- Tests: `tests/repo/loads-dues-trips.test.ts` (linked load never double-deducts incl. create-from-load, 1:1 both ways, update-linked, unlink, void → not linked, dispatch link; remaining == ledger for every party, categories, consignment not due, aging, reminders + done; FIFO across bills with advance and one group, over-allocation refused; trip with advance and costs paid now, net profit, later cost payment, paid cost not removable, vehicle P&L). e2e `tests/e2e/loads-dues-trips.spec.ts` bn + en at 360 px (load → sale from load: 50 → 30, edit load to 22 → 28; ₹12,000 across two bills → ₹2,000 advance; trip net ₹4,500, due ₹5,000). Offline spec covers every new route. Screenshots in `test-results/v2-p10/` were reviewed.
+
+**Decisions:** D41–D44.
+
+**Known issues / notes for next phases:**
+- Phase 11: Load / Due / Vehicle report tabs, vehicle income chart, trip receipt, the party statement as a proper print / share (today: browser print of the ledger page).
+- The optional daily web-push due digest (§12.6) uses the v1 push code; Phase 12 checks it against the v2 reminders.
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 297 passed, 1 skipped (28 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 241.9 KB · `pnpm test:e2e` ✅ 15/15.

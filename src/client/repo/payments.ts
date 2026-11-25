@@ -12,7 +12,7 @@ import type { Doc, Payment } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { todayIST } from "@/domain/dates";
 import { RepoError } from "./context";
-import { newId, saveDocs, type DocDraft, type DraftOf } from "./docs";
+import { newId, saveDocs, type DocDraft, type DraftOf, type SaveItem } from "./docs";
 
 export type PaymentPart = Pick<
   DraftOf<"PAYMENT">,
@@ -51,18 +51,18 @@ export async function saveBillWithInitialPayment(
   godownId: string,
   bill: DocDraft,
   initial: PaymentPart | null,
-  opts: { id?: string; reason?: string } = {},
+  opts: { id?: string; reason?: string; extra?: SaveItem[] } = {},
 ): Promise<{ bill: Doc; payment?: Doc }> {
   if (opts.id) {
     const [saved] = await saveDocs(
       godownId,
-      [{ draft: bill, id: opts.id }],
+      [{ draft: bill, id: opts.id }, ...(opts.extra ?? [])],
       opts.reason ? { reason: opts.reason } : {},
     );
     return { bill: saved! };
   }
   const id = bill._id ?? newId();
-  const items = [{ draft: { ...bill, _id: id } as DocDraft }];
+  const items: SaveItem[] = [{ draft: { ...bill, _id: id } as DocDraft }];
   if (initial && BigInt(initial.amountPaise || "0") > 0n) {
     const probe = billsOf({ ...(bill as object), _id: id, status: "active" } as unknown as Doc)[0];
     if (!probe) throw new RepoError("SOURCE_MISMATCH");
@@ -77,8 +77,72 @@ export async function saveBillWithInitialPayment(
       } as DocDraft,
     });
   }
+  const hasPayment = items.length > 1;
+  items.push(...(opts.extra ?? []));
   const saved = await saveDocs(godownId, items);
-  return { bill: saved[0]!, ...(saved[1] ? { payment: saved[1] } : {}) };
+  return { bill: saved[0]!, ...(hasPayment && saved[1] ? { payment: saved[1] } : {}) };
+}
+
+export interface BillAllocation {
+  /** The document whose bill is paid. */
+  source: Doc;
+  /** The bill's source id (VEHICLE_COST: `trip:cost`; OPENING_DUE: `opening:party`). */
+  sourceId: string;
+  amountPaise: bigint;
+}
+
+/**
+ * Pay (or collect) one amount from a party across several bills (Due & Advance, §12.6): one
+ * payment per bill and the rest as a party advance, all under one groupId (§7.2). Each part is
+ * checked against its bill's current due; nothing is allocated silently.
+ */
+export async function payParty(
+  godownId: string,
+  partyId: string,
+  direction: "IN" | "OUT",
+  part: PaymentPart,
+  allocations: readonly BillAllocation[],
+): Promise<Doc[]> {
+  const total = BigInt(part.amountPaise);
+  const items: SaveItem[] = [];
+  let used = 0n;
+  for (const a of allocations) {
+    if (a.amountPaise <= 0n) continue;
+    const bill = billsOf(a.source).find((b) => b.sourceId === a.sourceId);
+    if (!bill || bill.partyId !== partyId || bill.direction !== direction) {
+      throw new RepoError("SOURCE_MISMATCH", a.sourceId);
+    }
+    const due = billState(bill, await activePaymentsOf(a.source._id), todayIST()).duePaise;
+    if (a.amountPaise > due) throw new RepoError("OVERPAYMENT", (a.amountPaise - due).toString());
+    used += a.amountPaise;
+    items.push({
+      draft: {
+        ...part,
+        amountPaise: a.amountPaise.toString(),
+        type: "PAYMENT",
+        direction,
+        partyId,
+        source: { type: bill.sourceType, id: bill.sourceId },
+        isInitial: false,
+      } as DocDraft,
+    });
+  }
+  if (used > total) throw new DomainError("VALIDATION_FAILED", "allocations");
+  if (total - used > 0n) {
+    items.push({
+      draft: {
+        ...part,
+        amountPaise: (total - used).toString(),
+        type: "PAYMENT",
+        direction,
+        partyId,
+        source: { type: "PARTY_ADVANCE", id: null },
+        isInitial: false,
+      } as DocDraft,
+    });
+  }
+  if (items.length === 0) throw new DomainError("VALIDATION_FAILED", "amount");
+  return saveDocs(godownId, items, items.length > 1 ? { groupId: uuidv7() } : {});
 }
 
 /**

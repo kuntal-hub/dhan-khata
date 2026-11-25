@@ -99,6 +99,11 @@ Keep this list up to date.
 - Mill: `repo/mill.ts` (`saveMillReturn`, `findDuplicateReturn`, `settleConsignment` / `voidSettlement`); dispatches and second-party entries use `saveBillWithInitialPayment`, conversions `saveDoc`. Reads in `queries/mill.ts` (dispatch-wise balance via `dispatchBalance`). UI in `components/mill/*` (forms, `MillTabs`, `common.tsx` with `ReverseButton` / `HistoryPanel`), routes under `/mill/*`.
 - On-account second-party money: `payAdvance(..., "SECOND_PARTY")` / `AdvanceSheet sourceType`. A CONSIGNMENT dispatch's expected value is never a receivable (DECISIONS D39).
 
+## Key building blocks (v2 Phase 10)
+- Loads: `repo/loads.ts` (link both sides in one op group; `linkFromLoadItem` + `saveBillWithInitialPayment(..., { extra })` for create-from-load), `queries/loads.ts`, `components/loads/*`.
+- Dues: `queries/dues.ts` (`partyDues`: remaining = ledger balance; use `dueBillsOf`, never `billsOf`, for anything "owed"), `payParty` (FIFO across bills), `components/dues/{DueTabs,PayAcross}`.
+- Vehicles: `repo/trips.ts` (`saveTrip`), `queries/vehicles.ts`, `components/vehicles/*` (`VehiclePicker`, `TripForm`, `VehicleTabs`). i18n namespaces `ld`, `dues`, `veh` (the v1 `due` namespace still exists and would shadow a v2 `due`).
+
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**
 - The project folder is **inside OneDrive** (the user chose to keep it there). `pnpm-workspace.yaml` sets `nodeLinker: hoisted` to avoid symlink problems. If `pnpm install` or a build fails with EPERM / EBUSY / file-locked errors, ask the user to **pause OneDrive sync** and retry.

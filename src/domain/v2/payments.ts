@@ -105,6 +105,16 @@ export function billsOf(d: Doc): Bill[] {
   }
 }
 
+/**
+ * Bills that are real money owed (dues, reminders, Due & Advance). A CONSIGNMENT dispatch's
+ * "expected value" bill only holds the mill's advances: it is never owed (DECISIONS D39).
+ */
+export function dueBillsOf(d: Doc): Bill[] {
+  if (d.type === "MILL_DISPATCH" && d.dispatchType === "CONSIGNMENT") return [];
+  if (d.type === "SALE" && d.saleStatus === "ORDER") return [];
+  return billsOf(d);
+}
+
 function bill(
   sourceType: PaymentSourceType,
   sourceId: string,

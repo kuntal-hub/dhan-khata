@@ -20,10 +20,10 @@ import { db } from "@/client/db/dexie";
 import { errorKey } from "@/client/errors";
 import { useBusiness, useGodownSettings } from "@/client/hooks";
 import { openTransitPurchases, stockAvailable } from "@/client/queries/sales";
-import { newId, saveBillWithInitialPayment, type DraftOf } from "@/client/repo";
+import { linkFromLoadItem, newId, saveBillWithInitialPayment, type DraftOf } from "@/client/repo";
 import { paiseToInput, parseAmountField, parseRateField } from "@/client/ui/parse";
 import { todayIST } from "@/domain/dates";
-import { DELIVERY_STATUSES, type Godown, type Sale } from "@/domain/schemas";
+import { DELIVERY_STATUSES, type DocOf, type Godown, type Sale } from "@/domain/schemas";
 import { formatWeightNumber } from "@/domain/units";
 import { computeBill } from "@/domain/v2/weightBlock";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -40,6 +40,7 @@ import {
   type WeightState,
 } from "@/components/entry/WeightBlockInput";
 
+type Load = DocOf<"LOAD">;
 type Source = Sale["source"];
 type Delivery = Sale["deliveryStatus"];
 
@@ -65,7 +66,7 @@ interface State {
   saleStatus: Sale["saleStatus"];
 }
 
-function initial(existing?: Sale): State {
+function initial(existing?: Sale, load?: Load): State {
   if (existing) {
     return {
       partyId: existing.partyId,
@@ -94,15 +95,18 @@ function initial(existing?: Sale): State {
     };
   }
   const today = todayIST();
+  const date = load?.transactionDate ?? today;
   return {
-    date: today,
+    date,
     product: "PADDY",
-    weight: emptyWeight("BAGS"),
-    rate: "",
-    pay: emptyPay(today, "0"),
+    ...(load?.destinationMillId ? { partyId: load.destinationMillId } : {}),
+    ...(load ? { varietyId: load.varietyId } : {}),
+    weight: load ? weightFromBlock(load.weight) : emptyWeight("BAGS"),
+    rate: load && load.ratePaisePerQtl !== "0" ? paiseToInput(load.ratePaisePerQtl) : "",
+    pay: emptyPay(date, "0"),
     dueDate: "",
-    vehicle: "",
-    driver: "",
+    vehicle: load?.vehicleNumber ?? "",
+    driver: load?.driverName ?? "",
     delivery: "PENDING",
     source: "WAREHOUSE",
     loading: "",
@@ -118,14 +122,23 @@ const optionalPaise = (s: string): string | undefined => {
   return r.value && r.value > 0n ? r.value.toString() : undefined;
 };
 
-export function SaleForm({ godown, existing }: { godown: Godown; existing?: Sale }) {
+export function SaleForm({
+  godown,
+  existing,
+  fromLoad,
+}: {
+  godown: Godown;
+  existing?: Sale;
+  /** Create this sale from a load khata entry (prefilled, linked 1:1, §12.5). */
+  fromLoad?: Load;
+}) {
   const { t, money, digits, date } = useI18n();
   const router = useRouter();
   const business = useBusiness();
   const settings = useGodownSettings(godown._id);
   const monKg = business?.monKg ?? 40;
   const deductions = business?.settings.deductionsEnabled ?? false;
-  const [s, setS] = useState<State>(() => initial(existing));
+  const [s, setS] = useState<State>(() => initial(existing, fromLoad));
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -229,9 +242,10 @@ export function SaleForm({ godown, existing }: { godown: Godown; existing?: Sale
           : undefined;
       const deliveryChanged = !existing || existing.deliveryStatus !== s.delivery;
       const log = existing?.deliveryLog ?? [];
+      const saleId = existing?._id ?? newId();
       const draft: DraftOf<"SALE"> = {
         type: "SALE",
-        ...(existing ? {} : { _id: newId() }),
+        ...(existing ? {} : { _id: saleId }),
         transactionDate: s.date,
         partyId: s.partyId,
         product: s.product,
@@ -256,7 +270,9 @@ export function SaleForm({ godown, existing }: { godown: Godown; existing?: Sale
         ...(s.dueDate ? { dueDate: s.dueDate } : {}),
         ...(charges ? { charges } : {}),
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
-        ...(existing?.linkedLoadId ? { linkedLoadId: existing.linkedLoadId } : {}),
+        ...((existing?.linkedLoadId ?? fromLoad?._id)
+          ? { linkedLoadId: existing?.linkedLoadId ?? fromLoad?._id }
+          : {}),
         ...(existing?.consignmentDispatchId
           ? { consignmentDispatchId: existing.consignmentDispatchId }
           : {}),
@@ -265,7 +281,15 @@ export function SaleForm({ godown, existing }: { godown: Godown; existing?: Sale
         godown._id,
         draft,
         payPart.part,
-        existing ? { id: existing._id } : {},
+        existing
+          ? { id: existing._id }
+          : fromLoad
+            ? {
+                extra: [
+                  await linkFromLoadItem(godown._id, fromLoad._id, { type: "SALE", id: saleId }),
+                ],
+              }
+            : {},
       );
       setDirty(false);
       if (existing) router.replace(`/sales/view?id=${existing._id}`);

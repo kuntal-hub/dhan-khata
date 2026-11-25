@@ -14,6 +14,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { CheckCircle2, Plus } from "lucide-react";
 import { FormShell } from "@/components/forms/FormShell";
+import { VehiclePicker } from "@/components/vehicles/VehiclePicker";
 import { AmountInput } from "@/components/money/inputs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -51,6 +52,8 @@ interface State {
   pay: PayState;
   dueDate: string;
   notes: string;
+  /** Optional: the vehicle this expense is for (shown with that vehicle's costs). */
+  vehicleId?: string;
   // Farmer-payment flow
   farmerId?: string;
   billId?: string | "ADVANCE";
@@ -69,6 +72,7 @@ function initial(existing?: Expense): State {
       pay: emptyPay(existing.expenseDate),
       dueDate: existing.dueDate ?? "",
       notes: existing.notes ?? "",
+      ...(existing.vehicleId ? { vehicleId: existing.vehicleId } : {}),
     };
   }
   const today = todayIST();
@@ -151,7 +155,7 @@ export function ExpenseForm({
         expenseDate: s.expenseDate,
         ...(s.dueDate ? { dueDate: s.dueDate } : {}),
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
-        ...(existing?.vehicleId ? { vehicleId: existing.vehicleId } : {}),
+        ...(s.vehicleId ? { vehicleId: s.vehicleId } : {}),
         ...(existing?.linkedTripId ? { linkedTripId: existing.linkedTripId } : {}),
       };
       const r = await saveBillWithInitialPayment(
@@ -504,6 +508,12 @@ export function ExpenseForm({
                 onChange={(e) => set({ notes: e.target.value })}
               />
             </FieldBox>
+            <VehiclePicker
+              godownId={godown._id}
+              value={s.vehicleId}
+              onChange={(vehicleId) => set({ vehicleId })}
+              testId="expense-vehicle"
+            />
           </>
         )}
         {error ? (

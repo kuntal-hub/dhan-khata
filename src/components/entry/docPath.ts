@@ -13,6 +13,8 @@ const VIEW: Partial<Record<Doc["type"], string>> = {
   MILL_RETURN: "/mill/return/view",
   CONVERSION: "/mill/conversion/view",
   SECOND_PARTY: "/mill/entry/view",
+  LOAD: "/loads/view",
+  TRIP: "/vehicles/trip/view",
 };
 
 const SOURCE_VIEW: Partial<Record<string, string>> = {
@@ -22,6 +24,8 @@ const SOURCE_VIEW: Partial<Record<string, string>> = {
   MILL_DISPATCH: "/mill/dispatch/view",
   MILL_RETURN: "/mill/return/view",
   SECOND_PARTY: "/mill/entry/view",
+  VEHICLE_TRIP: "/vehicles/trip/view",
+  VEHICLE_COST: "/vehicles/trip/view",
 };
 
 export function docPath(d: Doc): string | undefined {

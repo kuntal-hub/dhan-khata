@@ -117,5 +117,17 @@ A CONSIGNMENT dispatch posts no party line (only stock moves); its "expected val
 ### D40: Possible duplicate mill return
 Before saving, the form looks for an active return of the same dispatch with the same date, product and quantity created in the last 10 minutes and asks "একই ফেরত আগে সেভ হয়েছে?". The record id is fixed when the form opens, so a double tap can't create two returns. Returned paddy beyond what is left at the mill for that dispatch, a conversion consuming more than is left, and a settlement above the mill stock each need an explicit "তবুও সেভ করুন".
 
+### D41: Due & Advance categories
+A party's tab follows its ledger balance and roles: balance > 0 → ক্রেতার পাওনা for customer / mill / vehicle-customer / Gola parties, অগ্রিম for farmers / suppliers (advance given), else অন্যান্য; balance < 0 → মিলের দেনা for mills, দেনা for farmers / suppliers, অগ্রিম for customers (advance received), else অন্যান্য. "Remaining" is always the ledger balance, so the Due totals equal the ledger by construction; bill totals / paid / due dates come from the open bills (`dueBillsOf`, which leaves out consignment expected values and orders).
+
+### D42: Load links live on both sides and change together
+`load.link` and `record.linkedLoadId` are written in the same op group (link, unlink, create-from-load). The client checks 1:1 like the server (`ALREADY_LINKED`). A link to a voided record counts as "যুক্ত নয়". Editing a linked load offers "update the linked record too" (weight; for a sale also the rate), saved in the same op group, so stock still moves once. Reversing a load unlinks it first; a load never has money or stock of its own.
+
+### D43: Paying a party across bills
+"পেমেন্ট দিলাম / টাকা পেলাম" (Due & Advance, quick actions) proposes oldest-first allocation (`allocateFifo`); each bill's part is editable and can't exceed that bill's due. One payment per bill plus the rest as a party advance, all with one groupId. Nothing is allocated silently.
+
+### D44: Vehicle costs vs. daily expenses linked to a vehicle
+Net profit per trip = income − the trip's own costs (§12.7). A Daily Expense can name a vehicle (optional); it is shown in the vehicle and month views as a separate "দৈনিক খরচে লেখা" column and is not added into the trip net profit, so the same money is never counted twice.
+
 ### D36: Day close and reopen
 Closing writes a DAY_CLOSE with the expected cash at that moment, the counted cash and the difference (note required when ≠ 0; denomination counts kept). The difference posts to CASH_DIFF, so the next day's opening equals the counted cash. Only the owner reopens (the close is voided with a reason). An entry dated on a closed day shows "পরে এন্ট্রি হয়েছে — আবার মেলান"; "আবার মেলান" reopens the day so it can be counted again.

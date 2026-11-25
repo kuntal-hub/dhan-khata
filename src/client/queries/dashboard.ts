@@ -6,7 +6,7 @@
  */
 import { addDays, todayIST } from "@/domain/dates";
 import { cashEffects, cashbookDayFromEffects, type CashbookDay } from "@/domain/v2/cashbook";
-import { billState, billsOf, type Direction } from "@/domain/v2/payments";
+import { billState, dueBillsOf, type Direction } from "@/domain/v2/payments";
 import { businessDate, type Doc, type Party, type Payment } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { getGodownSettings } from "../db/meta";
@@ -345,7 +345,7 @@ export async function dueAlerts(godownId: string, withinDays = 3): Promise<DueAl
   );
   const out: DueAlert[] = [];
   for (const doc of docs) {
-    for (const b of billsOf(doc)) {
+    for (const b of dueBillsOf(doc)) {
       if (!b.dueDate || b.dueDate > limit) continue;
       const st = billState(b, bySource.get(b.sourceId) ?? [], today);
       if (st.duePaise <= 0n) continue;

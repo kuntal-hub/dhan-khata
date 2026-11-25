@@ -26,9 +26,21 @@ export {
   saveBillWithInitialPayment,
   payBill,
   payAdvance,
+  payParty,
   dueOf,
+  type BillAllocation,
   type PaymentPart,
 } from "./payments";
+export {
+  saveLoad,
+  linkLoad,
+  unlinkLoad,
+  linkFromLoadItem,
+  activeLinkOf,
+  type LoadLink,
+  type LoadLinkType,
+} from "./loads";
+export { saveTrip, type TripPayments } from "./trips";
 export { mergeVarieties } from "./varieties";
 export {
   findDuplicateReturn,

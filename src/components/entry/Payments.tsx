@@ -344,6 +344,7 @@ export function AddPaymentSheet({
   source,
   duePaise,
   direction,
+  sourceId,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -351,6 +352,8 @@ export function AddPaymentSheet({
   source: Doc;
   duePaise: bigint;
   direction: "IN" | "OUT";
+  /** Which bill of the source (a trip cost: `trip:cost`); default the source's main bill. */
+  sourceId?: string;
 }) {
   const { t, money } = useI18n();
   const [s, setS] = useState<PayState>(
@@ -365,7 +368,10 @@ export function AddPaymentSheet({
     if (r.error || !r.part) return setError(t(r.error ?? "errors.validation.required"));
     setBusy(true);
     try {
-      await payBill(godownId, source, r.part, { extraAsAdvance });
+      await payBill(godownId, source, r.part, {
+        extraAsAdvance,
+        ...(sourceId ? { sourceId } : {}),
+      });
       lazyToast(t("pay.saved"), "success");
       setOver(null);
       onOpenChange(false);

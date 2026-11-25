@@ -101,7 +101,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 10 | BaseDoc incl. `businessId`, `entryDate` | done | `schemas/common.ts` | Add fields | 1–2 |
 | 10 | Party roles v2 (FARMER, SUPPLIER, CUSTOMER, MILL, SECOND_PARTY, VEHICLE_CUSTOMER, DRIVER, LABOUR, OTHER), mobile, address, opening balance | done (schema) | `schemas/masters.ts` (lowercase roles) | New role enum + migration mapping | 1–2 |
 | 10 | Variety: company, product, normalizedKey, verified, lastUsedAt | done | `VarietySchema` | Extend + dedupe | 1, 5 |
-| 10 | Vehicle (OWN/EXTERNAL, driver) | partial | `VehicleSchema` | Keep shape, add driver fields | 10 |
+| 10 | Vehicle (OWN/EXTERNAL, driver) | done | `VehicleSchema`, `VehicleForm` | Keep shape, add driver fields | 10 |
 | 10 | Purchase/Sale/Expense/Load/MillDispatch/MillReturn/Conversion/ConsignmentSettlement/Trip/SecondParty/StockCount/DayClose/Contra/Reminder/AuditLog | done (schemas; D5 settlement = sale, StockCount = STOCK_ADJUST lines) | `schemas/vouchers.ts` | v2 document union (see DECISIONS D1) | 1 |
 | 10 | Indexes prefixed `businessId, godownId` | done | `server/db.ts` (godownId only) | Add businessId to compound indexes | 2 |
 
@@ -126,9 +126,9 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 12.3 | Inter-Gola transfer action | done | `/sales/transfer` | Inside Sales | 6 |
 | 12.4 | Expense categories incl. Farmer payment special flow | done | `components/expenses/ExpenseForm.tsx`, `category.tsx` | Rebuild | 7 |
 | 12.4 | Incurred vs paid, backdated payments, unpaid list | done | `queries/expenses.ts`, `ExpenseTabs.tsx`, `/expenses/view` | New flow | 7 |
-| 12.5 | Load khata = register, link/create sale or dispatch, slip | conflicts | `LoadForm.tsx`, `calc/load.ts` | Rebuild | 10 |
-| 12.6 | Due & Advance unified view, tabs, ledger, FIFO allocation, aging, reminders, WhatsApp | partial | `/due`, `/reminders`, `queries/parties.ts` | Rebuild over payments | 10 |
-| 12.7 | Vehicle trips with multiple collections, driver/diesel/other costs with payments, net profit, daily/monthly | partial | `TripForm.tsx`, `/vehicle` | Rebuild | 10 |
+| 12.5 | Load khata = register, link/create sale or dispatch, slip | done | `components/loads/*`, `repo/loads.ts`, `/print/load` (D42) | Rebuild | 10 |
+| 12.6 | Due & Advance unified view, tabs, ledger, FIFO allocation, aging, reminders, WhatsApp | done | `components/dues/*`, `queries/dues.ts`, `payParty` (D41, D43; web-push digest: Phase 12 check) | Rebuild over payments | 10 |
+| 12.7 | Vehicle trips with multiple collections, driver/diesel/other costs with payments, net profit, daily/monthly | done (income chart + trip receipt: Phase 11) | `components/vehicles/*`, `repo/trips.ts`, `queries/vehicles.ts` (D44) | Rebuild | 10 |
 | 12.8A | Second Party ledger | done | `components/mill/*`, `/mill/party`, `/mill/entry/*`, `queries/mill.ts` (statement print: Phase 11) | New | 9 |
 | 12.8B | Mill Dispatch (MILLING / CONSIGNMENT) | done | `DispatchForm`, `/mill/dispatch/*` (dispatch-wise balance) | New | 9 |
 | 12.8C | Mill Return (paddy/rice/other, bag weights, duplicate check) | done | `ReturnForm`, `repo/mill.ts` (D37, D40) | New | 9 |

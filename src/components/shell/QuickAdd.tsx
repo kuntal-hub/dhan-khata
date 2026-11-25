@@ -44,16 +44,16 @@ export const QUICK_ACTIONS: QuickAction[] = [
     label: "quick.paid",
     href: "/dues/pay?direction=OUT",
     icon: ArrowUpRight,
-    ready: false,
+    ready: true,
   },
   {
     key: "received",
     label: "quick.received",
     href: "/dues/pay?direction=IN",
     icon: ArrowDownLeft,
-    ready: false,
+    ready: true,
   },
-  { key: "load", label: "quick.load", href: "/loads/new", icon: ClipboardList, ready: false },
+  { key: "load", label: "quick.load", href: "/loads/new", icon: ClipboardList, ready: true },
   {
     key: "dispatch",
     label: "quick.dispatch",
@@ -61,7 +61,7 @@ export const QUICK_ACTIONS: QuickAction[] = [
     icon: Factory,
     ready: true,
   },
-  { key: "trip", label: "quick.trip", href: "/vehicles/trip/new", icon: Truck, ready: false },
+  { key: "trip", label: "quick.trip", href: "/vehicles/trip/new", icon: Truck, ready: true },
 ];
 
 export function QuickAddFab() {

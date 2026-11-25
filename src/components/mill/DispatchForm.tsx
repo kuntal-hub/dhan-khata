@@ -28,7 +28,7 @@ import { Input } from "@/components/ui/input";
 import { errorKey } from "@/client/errors";
 import { useBusiness } from "@/client/hooks";
 import { stockAvailable } from "@/client/queries/sales";
-import { newId, saveBillWithInitialPayment, type DraftOf } from "@/client/repo";
+import { linkFromLoadItem, newId, saveBillWithInitialPayment, type DraftOf } from "@/client/repo";
 import { paiseToInput, parseRateField } from "@/client/ui/parse";
 import { todayIST } from "@/domain/dates";
 import { amountForWeight } from "@/domain/money";
@@ -54,7 +54,7 @@ interface State {
   notes: string;
 }
 
-function initial(existing?: Dispatch, preset?: Partial<State>): State {
+function initial(existing?: Dispatch, load?: DocOf<"LOAD">): State {
   if (existing) {
     return {
       type: existing.dispatchType,
@@ -70,39 +70,38 @@ function initial(existing?: Dispatch, preset?: Partial<State>): State {
       notes: existing.notes ?? "",
     };
   }
-  const today = todayIST();
+  const date = load?.transactionDate ?? todayIST();
   return {
     type: "MILLING",
-    date: today,
-    weight: emptyWeight("BAGS"),
+    date,
+    ...(load?.destinationMillId ? { millId: load.destinationMillId } : {}),
+    ...(load ? { varietyId: load.varietyId } : {}),
+    weight: load ? weightFromBlock(load.weight) : emptyWeight("BAGS"),
     rate: "",
-    pay: emptyPay(today, "0"),
+    pay: emptyPay(date, "0"),
     dueDate: "",
-    vehicle: "",
-    driver: "",
+    vehicle: load?.vehicleNumber ?? "",
+    driver: load?.driverName ?? "",
     notes: "",
-    ...preset,
   };
 }
 
 export function DispatchForm({
   godown,
   existing,
-  preset,
-  linkedLoadId,
+  fromLoad,
 }: {
   godown: Godown;
   existing?: Dispatch;
-  /** Prefill (e.g. created from a load entry). */
-  preset?: Partial<State>;
-  linkedLoadId?: string;
+  /** Create this dispatch from a load khata entry (prefilled, linked 1:1, §12.5). */
+  fromLoad?: DocOf<"LOAD">;
 }) {
   const { t, money, digits } = useI18n();
   const router = useRouter();
   const business = useBusiness();
   const monKg = business?.monKg ?? 40;
   const deductions = business?.settings.deductionsEnabled ?? false;
-  const [s, setS] = useState<State>(() => initial(existing, preset));
+  const [s, setS] = useState<State>(() => initial(existing, fromLoad));
   const [id] = useState(() => existing?._id ?? newId());
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -170,15 +169,26 @@ export function DispatchForm({
         ...(s.driver.trim() ? { driverName: s.driver.trim() } : {}),
         ...(s.dueDate ? { dueDate: s.dueDate } : {}),
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
-        ...((existing?.linkedLoadId ?? linkedLoadId)
-          ? { linkedLoadId: existing?.linkedLoadId ?? linkedLoadId }
+        ...((existing?.linkedLoadId ?? fromLoad?._id)
+          ? { linkedLoadId: existing?.linkedLoadId ?? fromLoad?._id }
           : {}),
       };
       const r = await saveBillWithInitialPayment(
         godown._id,
         draft,
         payPart.part,
-        existing ? { id: existing._id } : {},
+        existing
+          ? { id: existing._id }
+          : fromLoad
+            ? {
+                extra: [
+                  await linkFromLoadItem(godown._id, fromLoad._id, {
+                    type: "MILL_DISPATCH",
+                    id,
+                  }),
+                ],
+              }
+            : {},
       );
       setDirty(false);
       if (existing) router.replace(`/mill/dispatch/view?id=${existing._id}`);
