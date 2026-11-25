@@ -301,6 +301,8 @@ export const en = {
       TOKEN_EXPIRED: "Please log in again",
       DEVICE_REVOKED: "This phone's access has been revoked",
       USER_INACTIVE: "This user is switched off",
+      DATA_NOT_MIGRATED:
+        "The server data is still in the old version — sync stays off until it is migrated (migrate:v2)",
       BAD_CREDENTIALS: "Wrong mobile number or password",
       RATE_LIMITED: "Too many attempts — try again in 15 minutes",
       BAD_REQUEST: "Invalid information",

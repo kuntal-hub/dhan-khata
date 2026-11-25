@@ -16,7 +16,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 5 | Purchase + Variety | Test 1 e2e | ✅ |
 | 6 | Sales | Test 6 e2e | ✅ |
 | 7 | Daily Expenses | Test 5 e2e | ✅ |
-| 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ⬜ |
+| 8 | Dashboard (overview, cashbook, stock, daily overview, reports) | Tests 2, 4 e2e | ✅ |
 | 9 | Mill & Second Party | Tests 2, 3 e2e | ⬜ |
 | 10 | Load Khata, Due & Advance, Vehicle | linked load never double-deducts; Due totals == ledger | ⬜ |
 | 11 | Reports, print, export, voice, WhatsApp | reports reconcile with dashboard | ⬜ |

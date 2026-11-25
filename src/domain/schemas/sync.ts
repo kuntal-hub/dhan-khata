@@ -142,6 +142,7 @@ export type ApiErrorCode =
   | "TOKEN_EXPIRED"
   | "DEVICE_REVOKED"
   | "USER_INACTIVE"
+  | "DATA_NOT_MIGRATED"
   | "BAD_CREDENTIALS"
   | "RATE_LIMITED"
   | "BAD_REQUEST"

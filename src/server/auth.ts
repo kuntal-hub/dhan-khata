@@ -98,7 +98,16 @@ export async function authenticate(db: Db, request: Request): Promise<AuthContex
   if (!device || device.userId !== user._id) throw new ApiError(401, "UNAUTHORIZED");
   if (device.revokedAt) throw new ApiError(401, "DEVICE_REVOKED");
   if (!user.active) throw new ApiError(403, "USER_INACTIVE");
+  assertMigrated(user);
   return { user, device };
+}
+
+/**
+ * A v1 database (not yet run through `pnpm migrate:v2 --apply`) has users without a business.
+ * v2 clients must never sync from it: its documents have the old shape (docs/MIGRATION_V2.md).
+ */
+export function assertMigrated(user: { businessId?: string }): void {
+  if (!user.businessId) throw new ApiError(503, "DATA_NOT_MIGRATED");
 }
 
 /** The user as sent to clients (never the password or recovery-code hash). */

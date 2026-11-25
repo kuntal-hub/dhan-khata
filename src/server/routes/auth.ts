@@ -4,6 +4,7 @@ import { normalizePhone } from "@/domain/phone";
 import { LoginRequestSchema } from "@/domain/schemas";
 import {
   assertLoginAllowed,
+  assertMigrated,
   clearLoginFailures,
   clearRefreshCookie,
   dummyPasswordHash,
@@ -39,6 +40,7 @@ export function login(request: Request): Promise<Response> {
       throw new ApiError(401, "BAD_CREDENTIALS");
     }
     if (!user.active) throw new ApiError(403, "USER_INACTIVE");
+    assertMigrated(user);
     await clearLoginFailures(db, phone);
     const device = await registerDevice(
       db,
