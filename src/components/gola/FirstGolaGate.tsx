@@ -11,7 +11,10 @@ import { Splash } from "@/components/system/Splash";
 import { useAccessibleGodowns, useActiveGodown } from "@/client/hooks";
 import { useI18n } from "@/i18n/I18nProvider";
 import { useAppSelector } from "@/store";
-import { GolaForm } from "./GolaForm";
+import dynamic from "next/dynamic";
+
+// Needed only by a brand-new owner: kept out of the start-up JS (it pulls in sync + repo code).
+const GolaForm = dynamic(() => import("./GolaForm").then((m) => m.GolaForm), { ssr: false });
 
 export function FirstGolaGate({ children }: { children: ReactNode }) {
   const { t } = useI18n();

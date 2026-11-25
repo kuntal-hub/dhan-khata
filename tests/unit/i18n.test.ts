@@ -37,7 +37,7 @@ describe("dictionaries", () => {
     expect(translate("bn", "sync.pendingCount", { count: 5, countDisplay: "৫" })).toBe(
       "৫টি অপেক্ষায়",
     );
-    expect(translate("bn", "godown.switcher", { name: "রামপুর" })).toBe("গোডাউন: রামপুর");
+    expect(translate("bn", "godown.switcher", { name: "রামপুর" })).toBe("গোলা: রামপুর");
   });
 
   it("unknown keys return the key (never throw)", () => {

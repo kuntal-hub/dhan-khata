@@ -47,7 +47,7 @@ const LINKS: Array<{
  * logged-in phones, sync, language, logout. Loaded on the first tap.
  */
 export function UserMenu({ open, onOpenChange }: LazyMenuProps) {
-  const { t, lang, setLang } = useI18n();
+  const { t, lang, setLang, setDigits } = useI18n();
   const router = useRouter();
   const dispatch = useAppDispatch();
   const userName = useAppSelector((s) => s.session.userName);
@@ -87,7 +87,12 @@ export function UserMenu({ open, onOpenChange }: LazyMenuProps) {
         <DropdownMenuItem
           className="min-h-12 text-base"
           data-testid="toggle-language"
-          onSelect={() => setLang(lang === "bn" ? "en" : "bn")}
+          onSelect={() => {
+            // Digits follow the language by default (Profile can set them separately).
+            const next = lang === "bn" ? "en" : "bn";
+            setLang(next);
+            setDigits(next);
+          }}
         >
           <Languages className="size-5" aria-hidden />
           {lang === "bn" ? t("lang.en") : t("lang.bn")}

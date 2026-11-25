@@ -54,5 +54,11 @@ A recovery-code reset (or the CLI reset) deletes all refresh tokens of the user.
 ### D18: A Gola can be deleted only while it has no transactions
 `POST /api/godowns/delete` refuses with `HAS_TRANSACTIONS` once any document exists. Otherwise the Gola is archived (read-only), which keeps every book intact (§2.2).
 
+### D19: Animations with CSS keyframes, not the `motion` package
+`motion` (LazyMotion) was installed and measured: Turbopack put 47 KB gzipped of it on the start-up path, which pushed Home JS to 291 KB against the 250 KB budget. The §15.3 animations (page, tab and Gola fade + 8 px slide in 200 ms, 35 ms stagger, count-up 700 ms with exact bigint end values, press scale 0.97, skeleton shimmer, tab and nav colour transitions) are now done with tw-animate-css keyframes and `requestAnimationFrame` in `components/motion/Motion.tsx`. Reduced motion → instant. Home JS is 238 KB. A heavier animation (e.g. charts) can still load `motion` lazily inside its own chunk.
+
+### D20: Transitional "being built" tabs
+During v2 Phases 4–11 the 8 sections and their tabs exist (navigation, offline precache, tests). Tabs whose screens arrive in a later phase show `NotBuiltYet`, and the quick-add button offers only actions whose screen exists (`QUICK_ACTIONS[].ready`). Phase 12 checks that no `NotBuiltYet` and no unready quick action remain.
+
 ### D9: Payment modes CASH / BANK / UPI only
 v1 modes CHEQUE, DD, BANK_TRANSFER and OTHER are migrated to BANK, with the bank account kept. The `CHEQUE_IN_HAND` stage disappears. This is an intentional v2 semantic change, listed in the migration report.

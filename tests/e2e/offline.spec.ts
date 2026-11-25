@@ -24,6 +24,14 @@ const ROUTES = [
   "/golas/new",
   "/golas/edit?id=x",
   "/sessions",
+  "/?tab=cashbook",
+  "/purchase",
+  "/sales",
+  "/expenses",
+  "/loads",
+  "/dues",
+  "/vehicles",
+  "/mill?tab=dispatch",
 ];
 
 test("cold offline start: every route works from the device", async () => {

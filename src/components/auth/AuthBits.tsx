@@ -13,7 +13,7 @@ import { Label } from "@/components/ui/label";
 import { useI18n } from "@/i18n/I18nProvider";
 
 export function AuthHeader() {
-  const { t, lang, setLang } = useI18n();
+  const { t, lang, setLang, setDigits } = useI18n();
   return (
     <div className="flex items-start justify-between gap-3">
       <Logo name={t("common.appName")} tagline={t("acct.tagline")} size="lg" />
@@ -25,7 +25,10 @@ export function AuthHeader() {
             variant={lang === l ? "default" : "outline"}
             className="h-11 px-3"
             aria-pressed={lang === l}
-            onClick={() => setLang(l)}
+            onClick={() => {
+              setLang(l);
+              setDigits(l);
+            }}
             data-testid={`lang-${l}`}
           >
             {t(l === "bn" ? "lang.bn" : "lang.en")}

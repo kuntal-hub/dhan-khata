@@ -18,11 +18,11 @@ const latin = Inter({
   display: "swap",
 });
 
-const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "ধান খাতা";
+const APP_NAME = process.env.NEXT_PUBLIC_APP_NAME ?? "Dhan Gola";
 
 export const metadata: Metadata = {
   title: { default: APP_NAME, template: `%s · ${APP_NAME}` },
-  description: "Dhan Khata – ধান খাতা",
+  description: "Dhan Gola – ধান গোলা · ধানের ব্যবসার সম্পূর্ণ হিসাব",
   applicationName: APP_NAME,
   appleWebApp: { capable: true, title: APP_NAME, statusBarStyle: "default" },
   icons: {
@@ -33,7 +33,7 @@ export const metadata: Metadata = {
 };
 
 export const viewport: Viewport = {
-  themeColor: "#2F7D32",
+  themeColor: "#1E4D3A",
   width: "device-width",
   initialScale: 1,
   viewportFit: "cover",

@@ -1,21 +1,20 @@
 "use client";
 
+import { Overview } from "@/components/dashboard/Overview";
 import { InstallButton } from "@/components/pwa/InstallButton";
-import { useActiveGodown } from "@/client/hooks";
-import { useI18n } from "@/i18n/I18nProvider";
+import { NotBuiltYet, SectionPage } from "@/components/shell/SectionPage";
+import { QuickAddFab } from "@/components/shell/QuickAdd";
 
-/**
- * Home. TRANSITIONAL (v2 Phase 2): the v1 dashboard was removed with the v1 data model; the
- * v2 Dashboard section (overview, cashbook, stock, daily overview, reports) replaces this page
- * in v2 Phases 4 and 8.
- */
-export default function HomePage() {
-  const { t } = useI18n();
-  const { godown } = useActiveGodown();
+/** Section 1 — ড্যাশবোর্ড / Dashboard (requirement_v2 §12.1). */
+export default function DashboardPage() {
   return (
-    <div className="flex flex-col gap-3" data-testid="home">
-      <h1 className="text-lg font-semibold">{godown ? godown.name : t("common.loading")}</h1>
+    <div className="flex flex-col gap-4" data-testid="home">
+      <SectionPage
+        sectionKey="dashboard"
+        render={(tab) => (tab === "overview" ? <Overview /> : <NotBuiltYet />)}
+      />
       <InstallButton />
+      <QuickAddFab />
     </div>
   );
 }

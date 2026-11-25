@@ -1,18 +1,17 @@
 import type { MetadataRoute } from "next";
 import { translate } from "@/i18n/translateAll";
 
-const both = (key: Parameters<typeof translate>[1]) =>
-  `${translate("bn", key)} / ${translate("en", key)}`;
-
 /**
- * Web App Manifest (spec §13). Shortcuts open in the last active godown (the app restores it).
- * Purchase and sale open their entry screens; expense opens Home until Phase 4 adds its screen.
+ * Web App Manifest (requirement_v2 §18): "Dhan Gola – ধান গোলা", Deep Forest Green theme,
+ * Warm Ivory background, logo icons (incl. maskable) and the four shortcuts.
+ * Shortcuts open in the last active Gola (the app restores it).
  */
 export default function manifest(): MetadataRoute.Manifest {
+  const bn = (key: Parameters<typeof translate>[1]) => translate("bn", key);
   return {
-    name: "Dhan Khata – ধান খাতা",
-    short_name: "ধান খাতা",
-    description: "Dhan Khata – ধান খাতা",
+    name: "Dhan Gola – ধান গোলা",
+    short_name: "ধান গোলা",
+    description: "ধানের ব্যবসার সম্পূর্ণ হিসাব · Complete accounts for the paddy business",
     lang: "bn",
     dir: "ltr",
     display: "standalone",
@@ -20,8 +19,8 @@ export default function manifest(): MetadataRoute.Manifest {
     start_url: "/?source=pwa",
     scope: "/",
     id: "/",
-    theme_color: "#2F7D32",
-    background_color: "#FFFFFF",
+    theme_color: "#1E4D3A",
+    background_color: "#FAF6EC",
     categories: ["business", "finance", "productivity"],
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png", purpose: "any" },
@@ -30,18 +29,23 @@ export default function manifest(): MetadataRoute.Manifest {
     ],
     shortcuts: [
       {
-        name: both("pwa.shortcutPurchase"),
+        name: bn("quick.purchase"),
         url: "/purchase/new",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },
       {
-        name: both("pwa.shortcutSale"),
-        url: "/sale/new",
+        name: bn("quick.sale"),
+        url: "/sales/new",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },
       {
-        name: both("pwa.shortcutExpense"),
-        url: "/expense/new",
+        name: bn("quick.expense"),
+        url: "/expenses/new",
+        icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
+      },
+      {
+        name: bn("sections.dashboardTabs.cashbook"),
+        url: "/?tab=cashbook",
         icons: [{ src: "/icons/icon-192.png", sizes: "192x192" }],
       },
     ],

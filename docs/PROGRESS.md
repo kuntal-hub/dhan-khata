@@ -12,7 +12,7 @@ Gap analysis: `docs/GAP_ANALYSIS.md`. Decisions: `docs/DECISIONS.md`.
 | 1 | Domain core (units, WeightBlock, Payment, dates, posting v2, stock engine, cashbook classifier, voice number parser) | G1–G8 + property tests; Tests 1–6 as domain tests | ✅ |
 | 2 | Data layer & migration (Dexie v4, repo, server, op groups, businessId, `scripts/migrate-v2.ts`) | sync + isolation tests; migration dry-run reconciles | ✅ |
 | 3 | Auth & Gola management | Tests 7, 8, 9 | ✅ |
-| 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ⬜ |
+| 4 | Design system & shell (8 sections) | visual review 360/768/1280 bn+en; 8 sections | ✅ |
 | 5 | Purchase + Variety | Test 1 e2e | ⬜ |
 | 6 | Sales | Test 6 e2e | ⬜ |
 | 7 | Daily Expenses | Test 5 e2e | ⬜ |
@@ -363,3 +363,16 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 **Known issues / TODO:** the header Gola switcher still uses the v1 look and labels; Phase 4 redesigns it (colour chip, cross-fade, গোলা wording). The bank accounts and settings screens come with the sections that use them (Phases 5 and 8).
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 246 passed, 1 skipped (20 files) · `pnpm build` ✅ · `pnpm test:e2e` ✅ 1/1 (13 routes offline)
+### v2 Phase 4 — Design system & shell — 2026-11-25
+**Built:**
+- Identity: logo mark (`components/brand/Logo.tsx` + `logoGeometry.ts`: a tied paddy sheaf of three stalks with slim grains, in a rounded Paddy Gold square; colour, inverse and mono variants); `pnpm icons` regenerates `public/icons` (192/512, maskable, apple-touch, favicon, logo SVGs). Manifest: "Dhan Gola – ধান গোলা", theme #1E4D3A, background #FAF6EC, shortcuts নতুন কেনা / নতুন বিক্রি / খরচ / ক্যাশবই. Root metadata renamed.
+- Tokens (`globals.css`): Deep Forest Green, Paddy Gold, Warm Ivory, white cards, warm borders, muted money colours, `shadow-card` / `shadow-lift`, dark mode, skeleton shimmer, `.press` (scale 0.97) / `.lift`, reduced motion.
+- Shell: `components/shell/sections.ts` (the EXACTLY 8 sections with their §11 tabs as `?tab=`), `Nav.tsx` (collapsible desktop sidebar ≥ 1024 px; mobile bottom bar with 4 primary sections + the "সব বিভাগ" 2×4 sheet), `SectionPage.tsx` (section heading with Gola chip, pill tabs, tab fade), `QuickAdd.tsx` (quick-add FAB with the 8 §11 actions; only ready ones are shown), new `AppShell` (header: logo, Gola switcher with colour chip, sync badge, avatar initial; content fade on page/Gola change), restyled Gola menu (chips, "সব গোলা একসাথে").
+- Kit (`components/kit/Kit.tsx`): MetricCard (count-up), QtyTriple (tap → kg / qtl / mon using the business mon size), StatusPill, TxnCard, EmptyState, delayed Skeleton, Panel; `components/motion/Motion.tsx` (FadeSlide, CrossFade, StaggerItem, useCountUp); `client/ui/backStack.closeThenNavigate` (a sheet that navigates waits for its history entry to be released).
+- Routes for all 8 sections (`/`, `/purchase`, `/sales`, `/expenses`, `/loads`, `/dues`, `/vehicles`, `/mill`). Dashboard → সারাংশ shows real balance cards (cash, bank, warehouse paddy, rice, mill paddy, receivable, payable) for the active Gola or all Golas combined (`useBusiness` hook).
+- Terminology: গোডাউন → গোলা and godown → Gola in every dictionary value; English bottom-bar label "Dues"; the language toggle also sets matching digits (Profile can choose separately).
+- Tests: `tests/unit/sections.test.ts` (exactly 8 sections, 4 primary, every label in bn + en, quick actions), `tests/e2e/shell.spec.ts` (360 / 768 / 1280 px, bn + en, bottom bar 4 + all, sheet 8, sidebar 8, every section reachable, no horizontal scroll, Gola switch, reduced motion). Screenshots are in `test-results/v2-shell/` and were reviewed.
+
+**Decisions:** D19 (CSS animations instead of `motion`), D20 (transitional tabs).
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 250 passed, 1 skipped (21 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 238 KB (budget 250) · `pnpm test:e2e` ✅ 3/3 · visual review ✅ (bn/en at 360, 768, 1280).

@@ -15,6 +15,11 @@ const stack: Entry[] = [];
 let nextId = 1;
 let ignorePops = 0;
 let installed = false;
+const settled: Array<() => void> = [];
+
+function flushSettled() {
+  while (ignorePops === 0 && settled.length > 0) settled.shift()!();
+}
 
 function install() {
   if (installed || typeof window === "undefined") return;
@@ -22,6 +27,7 @@ function install() {
   window.addEventListener("popstate", () => {
     if (ignorePops > 0) {
       ignorePops--;
+      flushSettled();
       return;
     }
     const top = stack.pop();
@@ -51,4 +57,19 @@ export function releaseBack(id: number): void {
 export function updateBack(id: number, handler: Handler): void {
   const e = stack.find((x) => x.id === id);
   if (e) e.handler = handler;
+}
+
+/**
+ * Run `fn` once every released entry's `history.back()` has landed. A sheet that closes AND
+ * navigates must navigate after this, or the pending back would undo the navigation.
+ */
+export function whenBackSettled(fn: () => void): void {
+  settled.push(fn);
+  flushSettled();
+}
+
+/** Close a sheet, then navigate (after its history entry is released). */
+export function closeThenNavigate(close: () => void, navigate: () => void): void {
+  close();
+  window.setTimeout(() => whenBackSettled(navigate), 0);
 }

@@ -1,20 +1,12 @@
 /**
- * Dhan Gola logo (requirement_v2 §15.1): a paddy sheaf — five grain heads curving upward on one
- * stalk, with two leaves — inside a rounded golden square. Variants: full colour (gold square,
+ * Dhan Gola logo (requirement_v2 §15.1): a paddy sheaf — three stalks curving upward from one tie,
+ * each with a head of slim grains — inside a rounded golden square. Variants: full colour (gold square,
  * deep-green emblem), ivory emblem on green, monochrome (currentColor).
  */
 import { cn } from "@/lib/utils";
+import { GRAINS, STALKS, stalkPath } from "./logoGeometry";
 
 export type LogoVariant = "color" | "inverse" | "mono";
-
-const GRAINS: Array<[number, number, number]> = [
-  // cx, cy, rotation (deg)
-  [35.6, 12.6, 18],
-  [29.2, 19.4, -38],
-  [38.6, 22.4, 42],
-  [28.4, 28.6, -42],
-  [37.4, 31.8, 46],
-];
 
 export function LogoMark({
   variant = "color",
@@ -46,26 +38,28 @@ export function LogoMark({
         stroke={variant === "mono" ? "currentColor" : "none"}
         strokeWidth={variant === "mono" ? 3 : 0}
       />
-      <path
-        d="M32.5 55 C32 44 31.6 33 34.6 15"
-        fill="none"
-        stroke={ink}
-        strokeWidth="2.6"
-        strokeLinecap="round"
-      />
-      <path d="M32.4 54 C28 49 22.6 46 17.5 45.5 C22 43.5 27.8 45 32.2 49.5" fill={ink} />
-      <path d="M32.6 51.5 C36.6 46.5 41.8 43.8 47 43.6 C42.6 41.2 36.8 43 32.8 47.4" fill={ink} />
-      {GRAINS.map(([cx, cy, r]) => (
+      {STALKS.map((st, i) => (
+        <path
+          key={i}
+          d={stalkPath(st)}
+          fill="none"
+          stroke={ink}
+          strokeWidth="2.2"
+          strokeLinecap="round"
+        />
+      ))}
+      {GRAINS.map(([cx, cy, r], i) => (
         <ellipse
-          key={`${cx}-${cy}`}
+          key={i}
           cx={cx}
           cy={cy}
-          rx="3.1"
-          ry="5.6"
+          rx="1.55"
+          ry="3.7"
           transform={`rotate(${r} ${cx} ${cy})`}
           fill={ink}
         />
       ))}
+      <rect x="27.6" y="45.6" width="9" height="3.2" rx="1.6" fill={ink} />{" "}
     </svg>
   );
 }

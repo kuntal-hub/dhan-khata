@@ -36,12 +36,12 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 0.2 | Strict Gola separation | done | `domain/scope.ts`, server `applyOp` | Keep; add `businessId` checks | 2 |
 | 0.2 | Credit purchase/sale doesn't move cash | done | `posting/post.ts` | Keep in v2 posting | 1 |
 | 0.2 | Paddy/rice/other never combined | done (engine) | — | `product` dimension | 1 |
-| 0.2 | Exactly 8 navigation sections | conflicts | `components/layout/nav.tsx`, `(app)/more` | New shell | 4 |
+| 0.2 | Exactly 8 navigation sections | done | `components/layout/nav.tsx`, `(app)/more` | New shell | 4 |
 | 0.2 | No dummy buttons / hard-coded data | partial | Home stubs, "coming soon" badges in `more/page.tsx` | Remove during section rebuilds | 4–12 |
 | 0.2 | Bengali default + full English | done | `src/i18n/*` | New keys for every new screen | all |
 | 0.2 | Offline-first | done | Dexie, outbox, Serwist | Keep; cold-offline test for 8 sections | 12 |
-| 1.1 | App name "Dhan Gola / ধান গোলা" | conflicts | `manifest.ts`, `layout.tsx`, i18n `app.name`, `.env*`, receipts | Rename everywhere | 4 |
-| 1.2 | Glossary / Gola terminology | conflicts | `bn.ts` uses "গোডাউন" | Replace with "গোলা" in UI strings | 4 |
+| 1.1 | App name "Dhan Gola / ধান গোলা" | done | `manifest.ts`, `layout.tsx`, i18n `app.name`, `.env*`, receipts | Rename everywhere | 4 |
+| 1.2 | Glossary / Gola terminology | done (dictionary pass; native review Phase 12) | `bn.ts` uses "গোডাউন" | Replace with "গোলা" in UI strings | 4 |
 | 1.3 | IST dates, FY, season tag | done | `domain/dates.ts` | Keep | — |
 
 ### §2 Accounts, auth, Golas
@@ -58,7 +58,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 2.2 | Business profile + logo upload | done | godown letterhead only | Business profile screen + small logo asset | 3 |
 | 2.2 | Gola create/edit/archive (+ colour, low stock, delete only when empty) | done | `GodownWizard`, `/godowns`, `godownService.ts` | Move into avatar menu; colour; low-stock thresholds; delete blocked | 3 |
 | 2.2 | Staff logins out of scope | done (staff UI removed; roles internal, D14) | roles UI, `/settings/users`, entry-role gates | Hide staff UI; keep roles internally | 3 |
-| 2.3 | Gola switcher in header + Dashboard, colour chip, cross-fade ≤250 ms | partial | `GodownSwitcher*` | Colour chip, motion cross-fade | 4 |
+| 2.3 | Gola switcher in header + Dashboard, colour chip, cross-fade ≤250 ms | done | `GodownSwitcher*` | Colour chip, motion cross-fade | 4 |
 | 2.3 | Form title shows Gola; switching with dirty form asks | partial | `FormShell` shows godown | Confirm on switch with dirty form | 4 |
 | 2.3 | Combined (all Golas) read-only view | done | `queries/consolidated` | Rebuild as side-by-side + total in Dashboard & reports | 8 |
 | 2.3 | Parties per Gola + "copy from other Gola" | done | `PartyForm` | Keep | — |
@@ -108,7 +108,7 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 ### §11 Navigation & §12 Sections
 | § | Requirement | Status | Files | Planned change | Phase |
 |---|---|---|---|---|---|
-| 11 | 8 sections, desktop sidebar, mobile bottom bar (4) + "All sections" sheet | conflicts | `nav.tsx`, `AppShell.tsx` | New shell | 4 |
+| 11 | 8 sections, desktop sidebar, mobile bottom bar (4) + "All sections" sheet | done | `nav.tsx`, `AppShell.tsx` | New shell | 4 |
 | 11 | Header: switcher, sync badge, search, bell; avatar menu (profile, business, Golas, banks, settings, language, logout) | partial | `UserMenu`, `GodownMenu`, `SyncBadge`, `ReminderBadge` | Restructure avatar menu | 4 |
 | 11 | Floating quick-add (8 actions) | partial | Home FAB sheet | New FAB with v2 actions | 4 |
 | 12.1A | Overview cards (14), charts, recent, due & low-stock alerts, quick actions, date filters, combined | partial | `Dashboard.tsx` (10 cards, one day) | Rebuild with range filters + charts | 8 |
@@ -141,14 +141,14 @@ The configured Atlas database (`MONGODB_DB=dhankhata`) holds **demo-seed data on
 | 13 | Reports per section, header with business/logo/Gola, print A4 + 80 mm, xlsx + csv, image share | partial | `client/reports/*`, `(print)/*` | `ReportShell`; reports moved into sections; CSV | 11 |
 | 14.1 | Voice input + Bengali/English number parser | missing | — | `domain/voiceNumber.ts` (Phase 1), `VoiceButton` (Phase 11) | 1, 11 |
 | 14.2 | WhatsApp click-to-chat templates everywhere specified | partial | `PartyProfile` তাগাদা | `WhatsAppButton` + templates | 10–11 |
-| 15.1 | Logo SVG, icons, palette tokens, fonts | conflicts | `globals.css`, `public/icons` | New tokens/logo | 4 |
-| 15.2–15.3 | Premium components, `motion` animations, reduced motion | missing | — | `motion` LazyMotion | 4 |
+| 15.1 | Logo SVG, icons, palette tokens, fonts | done | `globals.css`, `public/icons` | New tokens/logo | 4 |
+| 15.2–15.3 | Premium components, animations, reduced motion | done (kit + CSS motion, D19; charts Phase 8) | — | `motion` LazyMotion | 4 |
 | 15.4 | Non-technical UX: 48 px buttons, confirmations stating effect, calc on tap, undo | partial | `Computed` | `ConfirmDialog`, undo toast | 4+ |
-| 15.5 | Responsive 360/768/1280 | partial | mobile-first only | Sidebar + grids | 4 |
+| 15.5 | Responsive 360/768/1280 | done (shell) | mobile-first only | Sidebar + grids | 4 |
 | 15.6 | Reusable components list | partial | `forms/*`, `money/*` | Build missing ones | 4–11 |
 | 16 | Bengali default, toggle on login + avatar, natural WB terms, digits, key parity CI | partial | i18n | Terminology pass (গোলা, মণ, বস্তা…) | 4, 12 |
 | 17 | Offline-first sync, conflicts never merged for money, **op groups** | done | `client/sync/*`, `applyOp.ts` (one op per tx) | Op groups applied in one Mongo transaction | 2 |
-| 18 | Manifest name, shortcuts (নতুন কেনা, নতুন বিক্রি, খরচ, ক্যাশবই), icons | partial | `manifest.ts` | Update | 4 |
+| 18 | Manifest name, shortcuts (নতুন কেনা, নতুন বিক্রি, খরচ, ক্যাশবই), icons | done | `manifest.ts` | Update | 4 |
 | 19 | Security (argon2id, rate limits, recovery rate limit, audit incl. password reset/export) | partial | `server/auth.ts` | Recovery rate limit + audit actions | 3 |
 | 20 | Ops: env `ALLOW_REGISTRATION`, `NEXT_PUBLIC_APP_NAME=Dhan Gola` | done | `.env.example` | Add | 3–4 |
 

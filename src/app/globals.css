@@ -41,6 +41,18 @@
   --color-money-in: var(--money-in);
   --color-money-out: var(--money-out);
   --color-pending: var(--pending);
+  --color-gold: var(--gold);
+  --color-gold-600: var(--gold-600);
+  --color-gold-300: var(--gold-300);
+  --color-gold-100: var(--gold-100);
+  --color-forest: var(--forest);
+  --color-forest-900: var(--forest-900);
+  --color-forest-700: var(--forest-700);
+  --color-forest-500: var(--forest-500);
+  --color-forest-100: var(--forest-100);
+  --color-ivory: var(--ivory);
+  --shadow-card: var(--dg-shadow-card);
+  --shadow-lift: var(--dg-shadow-lift);
   --radius-sm: calc(var(--radius) * 0.6);
   --radius-md: calc(var(--radius) * 0.8);
   --radius-lg: var(--radius);
@@ -50,82 +62,101 @@
   --radius-4xl: calc(var(--radius) * 2.6);
 }
 
+/*
+ * Dhan Gola design tokens (requirement_v2 §15.1). Deep Forest Green #1E4D3A (900 #123326,
+ * 700 #245E47, 500 #2F7A5B, 100 #E3F0EA) · Paddy Gold #C9A227 (600 #B08A1C, 300 #E5C766,
+ * 100 #F7EDCC) · Warm Ivory #FAF6EC background · white cards · warm-neutral borders.
+ * Money colours are muted (never neon) and always paired with text/icons.
+ */
 :root {
-  --radius: 0.625rem;
-  --background: oklch(1 0 0);
-  --foreground: oklch(0.2 0.01 145);
-  --card: oklch(1 0 0);
-  --card-foreground: oklch(0.2 0.01 145);
-  --popover: oklch(1 0 0);
-  --popover-foreground: oklch(0.2 0.01 145);
-  /* Paddy green ≈ #2F7D32 */
-  --primary: oklch(0.53 0.13 145);
-  --primary-foreground: oklch(0.985 0 0);
-  --secondary: oklch(0.96 0.01 145);
-  --secondary-foreground: oklch(0.3 0.06 145);
-  --muted: oklch(0.97 0.005 145);
-  --muted-foreground: oklch(0.5 0.01 145);
-  --accent: oklch(0.95 0.03 145);
-  --accent-foreground: oklch(0.3 0.06 145);
-  --destructive: oklch(0.577 0.245 27.325);
-  --border: oklch(0.91 0.01 145);
-  --input: oklch(0.91 0.01 145);
-  --ring: oklch(0.53 0.13 145);
-  --money-in: oklch(0.5 0.14 145);
-  --money-out: oklch(0.55 0.21 27);
-  --pending: oklch(0.7 0.16 70);
-  --chart-1: oklch(0.53 0.13 145);
-  --chart-2: oklch(0.6 0.12 200);
-  --chart-3: oklch(0.7 0.16 70);
-  --chart-4: oklch(0.55 0.21 27);
-  --chart-5: oklch(0.45 0.05 250);
-  --sidebar: oklch(0.985 0.005 145);
-  --sidebar-foreground: oklch(0.2 0.01 145);
-  --sidebar-primary: oklch(0.53 0.13 145);
-  --sidebar-primary-foreground: oklch(0.985 0 0);
-  --sidebar-accent: oklch(0.95 0.03 145);
-  --sidebar-accent-foreground: oklch(0.3 0.06 145);
-  --sidebar-border: oklch(0.91 0.01 145);
-  --sidebar-ring: oklch(0.53 0.13 145);
+  --radius: 0.75rem;
+  --forest-900: #123326;
+  --forest: #1e4d3a;
+  --forest-700: #245e47;
+  --forest-500: #2f7a5b;
+  --forest-100: #e3f0ea;
+  --gold-600: #b08a1c;
+  --gold: #c9a227;
+  --gold-300: #e5c766;
+  --gold-100: #f7edcc;
+  --ivory: #faf6ec;
+
+  --background: var(--ivory);
+  --foreground: #1c2a23;
+  --card: #ffffff;
+  --card-foreground: #1c2a23;
+  --popover: #ffffff;
+  --popover-foreground: #1c2a23;
+  --primary: var(--forest);
+  --primary-foreground: #fdfbf5;
+  --secondary: var(--forest-100);
+  --secondary-foreground: var(--forest-900);
+  --muted: #f3eee2;
+  --muted-foreground: #5f655c;
+  --accent: var(--gold-100);
+  --accent-foreground: #5a4610;
+  --destructive: #c0392b;
+  --border: #e6dfcf;
+  --input: #ddd5c2;
+  --ring: var(--forest-500);
+  --money-in: #15803d;
+  --money-out: #b42318;
+  --pending: #b45309;
+  --chart-1: var(--forest-500);
+  --chart-2: var(--gold);
+  --chart-3: #3f8f86;
+  --chart-4: #b5654a;
+  --chart-5: #7c8a5b;
+  --sidebar: #ffffff;
+  --sidebar-foreground: #1c2a23;
+  --sidebar-primary: var(--forest);
+  --sidebar-primary-foreground: #fdfbf5;
+  --sidebar-accent: var(--forest-100);
+  --sidebar-accent-foreground: var(--forest-900);
+  --sidebar-border: #e6dfcf;
+  --sidebar-ring: var(--forest-500);
+  --dg-shadow-card: 0 1px 2px rgb(30 45 35 / 0.05), 0 1px 3px rgb(30 45 35 / 0.06);
+  --dg-shadow-lift: 0 4px 10px rgb(30 45 35 / 0.08), 0 2px 4px rgb(30 45 35 / 0.06);
 }
 
 .dark {
-  --background: oklch(0.17 0.01 145);
-  --foreground: oklch(0.96 0.005 145);
-  --card: oklch(0.22 0.01 145);
-  --card-foreground: oklch(0.96 0.005 145);
-  --popover: oklch(0.22 0.01 145);
-  --popover-foreground: oklch(0.96 0.005 145);
-  --primary: oklch(0.72 0.15 145);
-  --primary-foreground: oklch(0.18 0.02 145);
-  --secondary: oklch(0.28 0.02 145);
-  --secondary-foreground: oklch(0.96 0.005 145);
-  --muted: oklch(0.28 0.01 145);
-  --muted-foreground: oklch(0.72 0.01 145);
-  --accent: oklch(0.3 0.03 145);
-  --accent-foreground: oklch(0.96 0.005 145);
-  --destructive: oklch(0.704 0.191 22.216);
-  --border: oklch(1 0 0 / 10%);
-  --input: oklch(1 0 0 / 15%);
-  --ring: oklch(0.72 0.15 145);
-  --money-in: oklch(0.75 0.15 145);
-  --money-out: oklch(0.72 0.17 25);
-  --pending: oklch(0.8 0.15 75);
-  --chart-1: oklch(0.72 0.15 145);
-  --chart-2: oklch(0.7 0.12 200);
-  --chart-3: oklch(0.8 0.15 75);
-  --chart-4: oklch(0.72 0.17 25);
-  --chart-5: oklch(0.65 0.05 250);
-  --sidebar: oklch(0.22 0.01 145);
-  --sidebar-foreground: oklch(0.96 0.005 145);
-  --sidebar-primary: oklch(0.72 0.15 145);
-  --sidebar-primary-foreground: oklch(0.18 0.02 145);
-  --sidebar-accent: oklch(0.3 0.03 145);
-  --sidebar-accent-foreground: oklch(0.96 0.005 145);
-  --sidebar-border: oklch(1 0 0 / 10%);
-  --sidebar-ring: oklch(0.72 0.15 145);
+  --background: #0f1c16;
+  --foreground: #ece7da;
+  --card: #16261e;
+  --card-foreground: #ece7da;
+  --popover: #16261e;
+  --popover-foreground: #ece7da;
+  --primary: #3d9a72;
+  --primary-foreground: #0b1510;
+  --secondary: #1e3529;
+  --secondary-foreground: #e3f0ea;
+  --muted: #1b2c23;
+  --muted-foreground: #a9b0a3;
+  --accent: #3a3112;
+  --accent-foreground: #f2dc8f;
+  --destructive: #e26a5c;
+  --border: #26392f;
+  --input: #2d4337;
+  --ring: var(--gold-300);
+  --money-in: #4cc38a;
+  --money-out: #f08474;
+  --pending: #f0b04e;
+  --chart-1: #4cc38a;
+  --chart-2: var(--gold-300);
+  --chart-3: #5fb3a8;
+  --chart-4: #d98d70;
+  --chart-5: #a9b37f;
+  --sidebar: #13211a;
+  --sidebar-foreground: #ece7da;
+  --sidebar-primary: #3d9a72;
+  --sidebar-primary-foreground: #0b1510;
+  --sidebar-accent: #1e3529;
+  --sidebar-accent-foreground: #e3f0ea;
+  --sidebar-border: #26392f;
+  --sidebar-ring: var(--gold-300);
+  --dg-shadow-card: 0 1px 2px rgb(0 0 0 / 0.3);
+  --dg-shadow-lift: 0 6px 16px rgb(0 0 0 / 0.35);
 }
-
 /* Font stack chosen per active language (spec §11.4). */
 html[lang="bn"] {
   --font-app-stack: var(--font-bengali), var(--font-latin), system-ui, sans-serif;
@@ -169,11 +200,50 @@ html[lang="en"] {
   }
 }
 
+/* Skeleton shimmer (shown only when a query takes > 150 ms). */
+@keyframes dg-shimmer {
+  0% {
+    background-position: -200% 0;
+  }
+  100% {
+    background-position: 200% 0;
+  }
+}
+@layer utilities {
+  .skeleton {
+    background: linear-gradient(90deg, var(--muted) 25%, #ffffff 50%, var(--muted) 75%);
+    background-size: 200% 100%;
+    animation: dg-shimmer 1.4s ease-in-out infinite;
+  }
+  .dark .skeleton {
+    background: linear-gradient(90deg, var(--muted) 25%, var(--secondary) 50%, var(--muted) 75%);
+    background-size: 200% 100%;
+  }
+  /* Press feedback for every button-like control (scale 0.97, never on reduced motion). */
+  .press {
+    transition:
+      transform 120ms ease-out,
+      box-shadow 160ms ease-out,
+      background-color 160ms;
+  }
+  .press:active {
+    transform: scale(0.97);
+  }
+  .lift:hover {
+    box-shadow: var(--dg-shadow-lift);
+  }
+}
+
+/* Reduced motion: instant / opacity only (requirement_v2 §15.3). */
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
   *::after {
     animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
+  }
+  .press:active {
+    transform: none;
   }
 }

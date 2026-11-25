@@ -6,7 +6,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback } from "react";
 import { canConsolidate, roleIn, type EffectiveRole } from "@/domain/rbac";
 import { defaultGodownSettings } from "@/domain/godownSettings";
-import type { Godown, GodownSettings } from "@/domain/schemas";
+import type { Business, Godown, GodownSettings } from "@/domain/schemas";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
 import { db } from "./db/dexie";
 import { META, getGodownSettings, getMeta, getSession } from "./db/meta";
@@ -105,4 +105,9 @@ export function useGodownSettings(godownId: string | null): GodownSettings | und
         : undefined,
     [godownId],
   );
+}
+
+/** The owner's business profile (name, logo, mon size, deductions switch), pulled from the server. */
+export function useBusiness(): Business | undefined {
+  return useLiveQuery(() => getMeta<Business>(META.business), []);
 }

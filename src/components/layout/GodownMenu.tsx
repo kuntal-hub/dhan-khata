@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { Check, Layers } from "lucide-react";
+import { golaColourClass } from "@/components/gola/colours";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -53,14 +54,11 @@ export function GodownMenu({ open, onOpenChange }: LazyMenuProps) {
           <GodownSwitcherButton />
         </DropdownMenuTrigger>
         <DropdownMenuContent align="start" className="min-w-64">
-          <DropdownMenuLabel>{t("godown.choose")}</DropdownMenuLabel>
-          {(godowns ?? []).length === 0 ? (
-            <p className="text-muted-foreground px-2 py-3 text-sm">{t("godown.none")}</p>
-          ) : null}
+          <DropdownMenuLabel>{t("gola.list")}</DropdownMenuLabel>
           {(godowns ?? []).map((g) => (
             <DropdownMenuItem
               key={g._id}
-              className="min-h-11"
+              className="min-h-12 text-base"
               onSelect={() => choose(g._id)}
               data-testid={`godown-item-${g.code}`}
             >
@@ -68,10 +66,14 @@ export function GodownMenu({ open, onOpenChange }: LazyMenuProps) {
                 className={g._id === godownId && !consolidated ? "size-4" : "size-4 opacity-0"}
                 aria-hidden
               />
+              <span
+                className={`size-3 shrink-0 rounded-full ${golaColourClass(g.colour)}`}
+                aria-hidden
+              />
               <span className="flex min-w-0 flex-col">
                 <span className="truncate">{g.name}</span>
                 {g.status === "archived" ? (
-                  <span className="text-muted-foreground text-xs">{t("godown.archived")}</span>
+                  <span className="text-muted-foreground text-xs">{t("gola.archived")}</span>
                 ) : null}
               </span>
             </DropdownMenuItem>
@@ -80,12 +82,12 @@ export function GodownMenu({ open, onOpenChange }: LazyMenuProps) {
             <>
               <DropdownMenuSeparator />
               <DropdownMenuItem
-                className="min-h-11"
+                className="min-h-12 text-base"
                 onSelect={() => choose("ALL")}
                 data-testid="godown-item-ALL"
               >
                 <Layers className="size-4" aria-hidden />
-                {t("godown.readOnlyAll")}
+                {t("gola.all")}
               </DropdownMenuItem>
             </>
           ) : null}
@@ -95,19 +97,15 @@ export function GodownMenu({ open, onOpenChange }: LazyMenuProps) {
       <Dialog open={pending !== null} onOpenChange={(o) => !o && setPending(null)}>
         <DialogContent closeLabel={t("common.close")}>
           <DialogHeader>
-            <DialogTitle>{t("godown.confirmSwitchTitle")}</DialogTitle>
-            <DialogDescription>{t("godown.confirmSwitchBody")}</DialogDescription>
+            <DialogTitle>{t("gola.word")}</DialogTitle>
+            <DialogDescription className="text-base">{t("gola.switchDirty")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" className="h-11" onClick={() => setPending(null)}>
+            <Button variant="outline" className="h-12" onClick={() => setPending(null)}>
               {t("common.cancel")}
             </Button>
-            <Button
-              variant="destructive"
-              className="h-11"
-              onClick={() => pending !== null && apply(pending)}
-            >
-              {t("godown.switchAnyway")}
+            <Button className="h-12" onClick={() => pending !== null && apply(pending)}>
+              {t("acct.continue")}
             </Button>
           </DialogFooter>
         </DialogContent>

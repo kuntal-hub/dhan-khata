@@ -7,8 +7,6 @@ import { chromium, devices, expect, type BrowserContext, type Page } from "@play
 export const PORT = Number(process.env.E2E_PORT ?? 3100);
 export const BASE = `http://localhost:${PORT}`;
 export const OWNER = { phone: "9830012345", password: "e2e-owner-pass" };
-/** Seeded by tests/e2e/server.ts: `entry` role in Rampur (RP) only. */
-export const ENTRY = { phone: "9830054321", password: "e2e-entry-pass" };
 export const PIN = "1234";
 
 export async function openBrowser(dir = mkdtempSync(path.join(tmpdir(), "dk-e2e-"))): Promise<{
@@ -77,9 +75,7 @@ export async function switchToEnglish(page: Page) {
   await vis(page, "user-menu").click();
   await vis(page, "toggle-language").click();
   await expect(page.getByTestId("toggle-language")).toHaveCount(0);
-  await vis(page, "user-menu").click();
-  await vis(page, "toggle-digits").click();
-  await expect(vis(page, "tab-home")).toContainText("Home");
+  await expect(page.getByTestId("user-menu")).toHaveAttribute("aria-label", "My menu");
 }
 
 /** Pick a godown (by code) or "ALL" in the header switcher. */
