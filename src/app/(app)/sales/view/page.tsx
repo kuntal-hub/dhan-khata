@@ -40,7 +40,6 @@ import {
   setDeliveryStatus,
   voidDoc,
   voidInterGolaTransfer,
-  voidSettlement,
   type DeliveryStatus,
 } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
@@ -126,7 +125,7 @@ function Detail() {
           data-testid="sale-settlement-badge"
         >
           <Factory className="size-4" aria-hidden />
-          {t("mill.settlementBadge")}
+          {t("mill.legacySalesTitle")}
         </Link>
       ) : null}
       <Panel>
@@ -346,7 +345,7 @@ function Detail() {
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {doc.interGola || doc.consignmentDispatchId ? (
             <p className="text-muted-foreground col-span-2 self-center text-sm">
-              {doc.interGola ? t("sl.transferNoEdit") : t("mill.settleReverseBody")}
+              {doc.interGola ? t("sl.transferNoEdit") : t("mill.legacySalesTitle")}
             </p>
           ) : (
             <Button asChild variant="outline" className="h-12">
@@ -365,19 +364,19 @@ function Detail() {
           {doc.interGola ? null : (
             <WhatsAppButton phone={party?.phone} text={waText} className="h-12" />
           )}
-          <Button
-            variant="outline"
-            className="text-destructive h-12"
-            onClick={() => setReversing(true)}
-            data-testid="sale-reverse"
-          >
-            <Undo2 className="size-5" aria-hidden />
-            {doc.interGola
-              ? t("sl.transferReverse")
-              : doc.consignmentDispatchId
-                ? t("mill.settleReverse")
-                : t("sl.reverse")}
-          </Button>
+          {/* A legacy (v2.0) consignment sale is converted by the mill-direction data fix; it is
+              never reversed here, so the money the mill really paid can't be voided by mistake. */}
+          {doc.consignmentDispatchId ? null : (
+            <Button
+              variant="outline"
+              className="text-destructive h-12"
+              onClick={() => setReversing(true)}
+              data-testid="sale-reverse"
+            >
+              <Undo2 className="size-5" aria-hidden />
+              {doc.interGola ? t("sl.transferReverse") : t("sl.reverse")}
+            </Button>
+          )}
         </div>
       ) : null}
 
@@ -429,33 +428,17 @@ function Detail() {
       <ConfirmDialog
         open={reversing}
         onOpenChange={setReversing}
-        title={
-          doc.interGola
-            ? t("sl.transferReverse")
-            : doc.consignmentDispatchId
-              ? t("mill.settleReverse")
-              : t("sl.reverse")
-        }
+        title={doc.interGola ? t("sl.transferReverse") : t("sl.reverse")}
         body={
           doc.interGola
             ? t("sl.transferReverseBody", { qty, amount: money(BigInt(doc.totalPaise)) })
-            : doc.consignmentDispatchId
-              ? t("mill.settleReverseBody")
-              : `${t("sl.reverseConfirm", { qty, amount: money(BigInt(doc.totalPaise)) })}${active.length ? ` ${t("sl.reverseWithPayments", { count: count(active.length) })}` : ""}`
+            : `${t("sl.reverseConfirm", { qty, amount: money(BigInt(doc.totalPaise)) })}${active.length ? ` ${t("sl.reverseWithPayments", { count: count(active.length) })}` : ""}`
         }
-        confirmLabel={
-          doc.interGola
-            ? t("sl.transferReverse")
-            : doc.consignmentDispatchId
-              ? t("mill.settleReverse")
-              : t("sl.reverse")
-        }
+        confirmLabel={doc.interGola ? t("sl.transferReverse") : t("sl.reverse")}
         onConfirm={async () => {
           if (!reason.trim()) return lazyToast(t("pay.reasonRequired"), "error");
           try {
             if (doc.interGola) await voidInterGolaTransfer(godown._id, doc._id, reason.trim());
-            else if (doc.consignmentDispatchId)
-              await voidSettlement(godown._id, doc._id, reason.trim());
             else await voidDoc(godown._id, doc._id, reason.trim(), { withPayments: true });
             lazyToast(t("sl.reversed"), "success");
             setReversing(false);

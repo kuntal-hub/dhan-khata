@@ -37,6 +37,7 @@ import { useActiveGodown, useBusiness } from "@/client/hooks";
 import {
   DUE_CATEGORIES,
   dueSummary,
+  isMillRefundDue,
   partyDues,
   reminderRows,
   reminderWhen,
@@ -89,7 +90,9 @@ function DueRow({ r, index }: { r: PartyDue; index: number }) {
             ? r.overdueDays > 0
               ? t("dues.overdueDays", { days: count(r.overdueDays) })
               : t("dues.dueOn", { date: date(r.earliestDue, "short") })
-            : t(`dues.cat.${r.category}` as TKey)
+            : isMillRefundDue(r.party.roles, r.balancePaise)
+              ? t("mill.refundDue")
+              : t(`dues.cat.${r.category}` as TKey)
         }
         {...(r.lastDate ? { date: t("mill.last", { date: date(r.lastDate, "short") }) } : {})}
         amountPaise={abs(r.balancePaise)}
@@ -200,7 +203,8 @@ const CAT_ICON = {
 const CAT_TONE = {
   receivable: "in",
   payable: "out",
-  mill: "warn",
+  // Mills owe us (v2.1): an incoming (green) tone.
+  mill: "in",
   advance: "blue",
   other: "violet",
 } as const;

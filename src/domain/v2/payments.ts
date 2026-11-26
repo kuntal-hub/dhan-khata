@@ -6,6 +6,7 @@
  */
 import { divRoundHalfUp, minBig, sumBig } from "../rounding";
 import { compareYmd, diffDays } from "../dates";
+import { directionFor } from "./direction";
 import type { Doc, Payment, PaymentSourceType, Trip } from "./schemas";
 
 export type Direction = "IN" | "OUT";
@@ -37,11 +38,12 @@ export function billsOf(d: Doc): Bill[] {
     case "EXPENSE":
       return [bill("EXPENSE", d._id, "OUT", d.amountPaise, d.expenseDate, d.partyId, d.dueDate)];
     case "MILL_DISPATCH":
+      // The mill pays us for the paddy (v2.1): always a collection, whatever the old type was.
       return [
         bill(
           "MILL_DISPATCH",
           d._id,
-          d.dispatchType === "MILLING" ? "OUT" : "IN",
+          directionFor("MILL_DISPATCH")!,
           d.totalValuePaise,
           d.dispatchDate,
           d.millPartyId,
@@ -106,13 +108,32 @@ export function billsOf(d: Doc): Bill[] {
 }
 
 /**
- * Bills that are real money owed (dues, reminders, Due & Advance). A CONSIGNMENT dispatch's
- * "expected value" bill only holds the mill's advances: it is never owed (DECISIONS D39).
+ * Bills that are real money owed (dues, reminders, Due & Advance). An ORDER is not owed (D3).
+ * A mill dispatch's bill is netted by `millCredits` (paddy returned + final-settlement
+ * adjustment), so "remaining" never counts paddy the mill gave back or did not accept.
  */
-export function dueBillsOf(d: Doc): Bill[] {
-  if (d.type === "MILL_DISPATCH" && d.dispatchType === "CONSIGNMENT") return [];
+export function dueBillsOf(d: Doc, millCredits?: ReadonlyMap<string, bigint>): Bill[] {
   if (d.type === "SALE" && d.saleStatus === "ORDER") return [];
-  return billsOf(d);
+  const bills = billsOf(d);
+  if (d.type !== "MILL_DISPATCH" || !millCredits) return bills;
+  const credit = millCredits.get(d._id) ?? 0n;
+  return bills.map((b) => ({ ...b, totalPaise: b.totalPaise - credit }));
+}
+
+/**
+ * What reduces each dispatch's receivable (v2.1): the credit of every active paddy return and
+ * the adjustment of the active final settlement (signed: a cut is positive). Keyed by dispatch.
+ */
+export function millCredits(docs: Iterable<Doc>): Map<string, bigint> {
+  const out = new Map<string, bigint>();
+  const add = (id: string, v: bigint) => out.set(id, (out.get(id) ?? 0n) + v);
+  for (const d of docs) {
+    if (d.status !== "active") continue;
+    if (d.type === "MILL_RETURN" && d.product === "PADDY")
+      add(d.dispatchId, BigInt(d.totalValuePaise ?? "0"));
+    if (d.type === "MILL_SETTLEMENT") add(d.dispatchId, BigInt(d.adjustmentPaise));
+  }
+  return out;
 }
 
 function bill(

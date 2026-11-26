@@ -82,7 +82,8 @@ describe("login + bootstrap", () => {
     expect((await getSession())?.deviceCode).toBe("A");
     expect(await db().godowns.count()).toBe(2);
     expect(await db().varieties.count()).toBe(12);
-    expect(await db().expenseCategories.count()).toBe(16);
+    // 9 seeded categories per Gola (v2.1 added "মিলের খরচ / Mill charges").
+    expect(await db().expenseCategories.count()).toBe(18);
     expect(await getMeta(META.business)).toMatchObject({ name: "Test Business", monKg: 40 });
     expect(await getMeta(`godownSettings:${GA}`)).toBeDefined();
     expect(await getMeta(META.cursor)).toBeGreaterThan(0);

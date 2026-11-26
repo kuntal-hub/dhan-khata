@@ -3,7 +3,7 @@
  * Paddy, rice and other products are separate figures and are never added together.
  *
  *   Closing paddy = Opening + Purchases + Returned paddy − Confirmed sales − Mill dispatches ± Adjustments
- *   Closing mill  = Opening mill + Dispatches − Returns − Consumed in milling − Settled to sale ± Adjustments
+ *   Closing mill  = Opening mill + Dispatches − Returns − Consumed in milling − Final settlements ± Adjustments
  */
 import { sumBig } from "../rounding";
 import type { Doc, DocOf, Location, Product, StockMoveV2 } from "./schemas";
@@ -113,7 +113,8 @@ export function millDay(
   const dispatched = sumQty(by("MILL_DISPATCH"));
   const returned = abs(sumQty(by("MILL_RETURN")));
   const consumed = abs(sumQty(by("CONVERSION")));
-  const settled = abs(sumQty(by("SALE")));
+  // Final settlements (accepted + shortfall); legacy consignment sales took mill stock too.
+  const settled = abs(sumQty([...by("MILL_SETTLEMENT"), ...by("SALE")]));
   const adjustments = sumQty([...by("STOCK_ADJUST"), ...by("OPENING")]);
   return {
     openingG: opening,
@@ -171,12 +172,18 @@ export interface DispatchBalance {
   sentG: bigint;
   returnedPaddyG: bigint;
   consumedG: bigint;
-  settledG: bigint;
+  /** Accepted by the mill in the final settlement (+ legacy consignment sales). */
+  acceptedG: bigint;
+  /** Weight the mill did not account for (final settlement, reasoned loss). */
+  shortfallG: bigint;
   /** Paddy of this dispatch still at the mill. */
   remainingG: bigint;
 }
 
-/** Dispatch-wise history (§12.8B): sent, returned, consumed, settled, remaining at mill. */
+/**
+ * Dispatch-wise history (§12.8B): sent, returned, consumed, accepted, shortfall, still at mill.
+ * `docs` = the dispatch's returns, conversions and settlement (any status; void ones ignored).
+ */
 export function dispatchBalance(
   dispatch: DocOf<"MILL_DISPATCH">,
   docs: readonly Doc[],
@@ -198,7 +205,11 @@ export function dispatchBalance(
       )
       .map((d) => BigInt(d.paddyConsumedG)),
   );
-  const settled = sumBig(
+  const settlements = active.filter(
+    (d): d is DocOf<"MILL_SETTLEMENT"> =>
+      d.type === "MILL_SETTLEMENT" && d.dispatchId === dispatch._id,
+  );
+  const legacySales = sumBig(
     active
       .filter(
         (d): d is DocOf<"SALE"> =>
@@ -208,11 +219,14 @@ export function dispatchBalance(
       )
       .map((d) => BigInt(d.weight.netG)),
   );
+  const accepted = sumBig(settlements.map((s) => BigInt(s.acceptedG))) + legacySales;
+  const shortfall = sumBig(settlements.map((s) => BigInt(s.shortfallG)));
   return {
     sentG: sent,
     returnedPaddyG: returnedPaddy,
     consumedG: consumed,
-    settledG: settled,
-    remainingG: sent - returnedPaddy - consumed - settled,
+    acceptedG: accepted,
+    shortfallG: shortfall,
+    remainingG: sent - returnedPaddy - consumed - accepted - shortfall,
   };
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { SettleForm } from "@/components/mill/SettleForm";
+import { FinalSettlementForm } from "@/components/mill/SettleForm";
 import {
   Fresh,
   PageSuspense,
@@ -15,7 +15,7 @@ function Settle() {
   if (readOnly || !godown) return <ReadOnlyNotice reason={readOnly ?? "noGodown"} />;
   return (
     <Fresh>
-      <SettleForm godown={godown} {...(dispatch ? { dispatchId: dispatch } : {})} />
+      <FinalSettlementForm godown={godown} {...(dispatch ? { dispatchId: dispatch } : {})} />
     </Fresh>
   );
 }

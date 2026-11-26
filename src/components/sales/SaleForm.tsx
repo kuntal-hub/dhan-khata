@@ -536,10 +536,14 @@ export function SaleForm({
                 <Segmented
                   label={t("sl.source")}
                   value={s.source}
+                  // v2.1: paddy at a mill is the mill's to pay for (settled on its dispatch), so a
+                  // new sale can't come "from the mill"; an old record keeps showing its source.
                   options={[
                     ["WAREHOUSE", t("sl.srcWAREHOUSE")],
                     ["TRANSIT", t("sl.srcTRANSIT")],
-                    ["MILL", t("sl.srcMILL")],
+                    ...(existing?.source === "MILL"
+                      ? [["MILL", t("sl.srcMILL")] as ["MILL", string]]
+                      : []),
                   ]}
                   onChange={(src) => set({ source: src })}
                   testId="sale-source"

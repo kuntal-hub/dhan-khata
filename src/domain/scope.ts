@@ -71,6 +71,11 @@ export function collectRefs(d: Doc): Ref[] {
       add("party", d.millPartyId);
       add("variety", d.varietyId);
       break;
+    case "MILL_SETTLEMENT":
+      add("voucher", d.dispatchId);
+      add("party", d.millPartyId);
+      add("variety", d.varietyId);
+      break;
     case "CONVERSION":
       add("voucher", d.dispatchId);
       add("party", d.millPartyId);

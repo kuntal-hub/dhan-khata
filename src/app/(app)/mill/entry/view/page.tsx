@@ -73,7 +73,7 @@ function Detail() {
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div className="bg-forest-100/60 rounded-xl p-3">
             <span className="text-muted-foreground text-xs">
-              {we ? t("mill.paidMILLING") : t("sl.received")}
+              {we ? t("mill.spPaid") : t("sl.received")}
             </span>
             <p className="tabular text-xl font-semibold" data-testid="detail-paid">
               {money(st.paidPaise)}

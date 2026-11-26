@@ -15,10 +15,10 @@ An ORDER has no stock and no ledger effect (no receivable) until it is confirmed
 ### D4: Sale `charges` are informational
 Loading, freight and vehicle advance on the sale form (optional, collapsed) are recorded on the sale for the invoice and reference only. They change neither the sales total (spec §6.3 "Sales total = Quantity × Rate") nor cash. Actual money paid for them is entered as an expense or a payment, so nothing is counted twice.
 
-### D5: Consignment settlement = the Sale itself
+### D5: Consignment settlement = the Sale itself — SUPERSEDED by D53 (v2.1)
 The created Sale carries `consignmentDispatchId` and `source: MILL`. The accepted quantity and final rate are the sale's weight and rate. No separate settlement document posts anything, so a settlement can never double-post.
 
-### D6: Milling conversion valuation
+### D6: Milling conversion valuation — SUPERSEDED by D53 (v2.1: the conversion is stock-only)
 Rice/by-product returns add quantity at zero value. The conversion moves value: it removes the consumed paddy from MILL stock at average cost and adds that cost to the outputs. If every output has an entered valuation (return `totalValuePaise`), that value is used. Otherwise the cost is split by grams over the outputs and the loss. Either way `MILLING_LOSS` takes the balancing amount. This affects internal stock value only: never cash, dues or quantities.
 
 ### D7: Second-party entries post against `SP_CLEARING`
@@ -27,7 +27,7 @@ Rice/by-product returns add quantity at zero value. The conversion moves value: 
 ### D8: Expense and vehicle-cost payables
 An expense with a party posts Cr PARTY:person, and its payments settle that party. Without a party it posts Cr `EXP_PAYABLE`, and its payments debit `EXP_PAYABLE`. Vehicle trip costs work the same way. Paid/unpaid status is always derived per source from its payments.
 
-### D10: Mill-return value creates no receivable (OPEN: confirm with the client)
+### D10: Mill-return value creates no receivable — SUPERSEDED by D53 (v2.1: a paddy return is a credit to the mill)
 §12.8C lists "rate, total value, amount received, remaining receivable" on a mill return. The paddy, rice or by-product coming back is our own goods, so its value is treated as **valuation only** (used by the conversion, D6). Money actually received from the mill at return time is an IN payment (source `MILL_RETURN`) that credits the mill's party ledger, as §22.9 says ("the mill's outstanding is tracked on the mill's party ledger"). The "remaining" figure on the return screen is informational and is not posted. If the client means that the mill buys part of the return (e.g. keeps the by-products against payment), that will be recorded as a Sale to the mill.
 
 ### D11: Conversion loss is derived
@@ -97,7 +97,7 @@ Built-in categories (§12.4) render through i18n and can be hidden, not renamed.
 The Overview, Cashbook, Stock and Daily Overview tabs are `next/dynamic` chunks (precached by the service worker, so they open offline), and recharts loads only inside the chart. 35 v1 i18n namespaces with no remaining use (old screens removed in Phase 2) were deleted from `bn.ts` / `en.ts`; the Bengali dictionary is on the start-up path. Home JS went from 246.5 KB to 237.9 KB. Partly used v1 namespaces are cleaned in Phase 12 with the i18n-usage test.
 
 ### D33: Dashboard money cards follow the cashbook
-"নগদ পেলাম" / "নগদ দিলাম" use the same classifier as the cashbook (§7.3): received includes bank → cash withdrawals and capital brought in as cash; paid includes farmer and other payments, deposits, drawings and cash expenses. So the card always equals the cashbook total for the same range. Receivables = positive balances of customer / mill / vehicle-customer / Gola parties; farmer payables = negative balances of farmer / supplier parties; mill payable = negative balances of mill parties.
+"নগদ পেলাম" / "নগদ দিলাম" use the same classifier as the cashbook (§7.3): received includes bank → cash withdrawals and capital brought in as cash; paid includes farmer and other payments, deposits, drawings and cash expenses. So the card always equals the cashbook total for the same range. Receivables = positive balances of customer / mill / vehicle-customer / Gola parties; farmer payables = negative balances of farmer / supplier parties; mill payable = negative balances of mill parties. (v2.1, D53: mills have their own card, "receivable from mills" = positive mill balances, with "to refund" for negative ones; customer receivables exclude mills.)
 
 ### D34: Opening cash and opening stock
 "শুরুর নগদ বসান" writes one OPENING (CASH) document for the Gola, once. Later corrections are cash moves or day-close differences. Opening stock is entered per variety (qty + value per quintal) from the Stock tab as OPENING (STOCK) documents, dated the viewed day.
@@ -105,20 +105,20 @@ The Overview, Cashbook, Stock and Daily Overview tabs are `next/dynamic` chunks 
 ### D35: Correcting a cashbook line
 Lines from a purchase, sale, expense or payment open their detail page (edit / reverse there, audited). Cash ↔ bank, capital and drawings have no detail page: "সংশোধন" voids the entry with a reason and the user enters the right one. Every following day recalculates either way.
 
-### D37: Money received with a mill return
+### D37: Money received with a mill return — SUPERSEDED by D53 (v2.1: no payment may point at a return)
 "মিল থেকে এখন টাকা পেলেন" on the return form (and "+ টাকা পেলাম" on its detail page) is an IN payment with source `MILL_RETURN` = that return, party = the return's mill. A return creates no bill (D10), so the link rule is special: the source must be an active return, the payment IN and from its mill (`validateLinks`, shared with the server). The money credits the mill's party ledger. Voiding the return needs its payments voided too (same as any bill).
 
-### D38: Consignment settlement moves the advances onto the sale
+### D38: Consignment settlement moves the advances onto the sale — SUPERSEDED by D53 (v2.1)
 Settling creates one CONFIRMED sale to the mill (D5). Advances received against the dispatch (IN payments) are re-pointed to the sale, oldest first, while they fit in the sale total; a larger advance stays on the dispatch. Re-pointing is an audited payment edit: same amount, date, mode and party, so no ledger line or cashbook figure changes, only which bill shows it as received. "নিষ্পত্তি বাতিল করুন" moves them back to the dispatch and voids the sale (one op group); the money is never voided. A settlement sale can't be edited (reverse and settle again).
 
-### D39: A consignment's expected value is not a receivable
+### D39: A consignment's expected value is not a receivable — SUPERSEDED by D53 (v2.1: every dispatch is a receivable)
 A CONSIGNMENT dispatch posts no party line (only stock moves); its "expected value" bill exists only to hold the mill's advances. Due & Advance (Phase 10) and due alerts must not count it as money owed by the mill. The mill's real position is its party ledger (advances received = we owe them until the settlement sale).
 
 ### D40: Possible duplicate mill return
 Before saving, the form looks for an active return of the same dispatch with the same date, product and quantity created in the last 10 minutes and asks "একই ফেরত আগে সেভ হয়েছে?". The record id is fixed when the form opens, so a double tap can't create two returns. Returned paddy beyond what is left at the mill for that dispatch, a conversion consuming more than is left, and a settlement above the mill stock each need an explicit "তবুও সেভ করুন".
 
 ### D41: Due & Advance categories
-A party's tab follows its ledger balance and roles: balance > 0 → ক্রেতার পাওনা for customer / mill / vehicle-customer / Gola parties, অগ্রিম for farmers / suppliers (advance given), else অন্যান্য; balance < 0 → মিলের দেনা for mills, দেনা for farmers / suppliers, অগ্রিম for customers (advance received), else অন্যান্য. "Remaining" is always the ledger balance, so the Due totals equal the ledger by construction; bill totals / paid / due dates come from the open bills (`dueBillsOf`, which leaves out consignment expected values and orders).
+A party's tab follows its ledger balance and roles: balance > 0 → ক্রেতার পাওনা for customer / mill / vehicle-customer / Gola parties, অগ্রিম for farmers / suppliers (advance given), else অন্যান্য; balance < 0 → (v2.1, D53: অন্যান্য with "মিলকে ফেরত দিতে হবে" for mills; > 0 for mills → মিলের কাছে পাওনা), দেনা for farmers / suppliers, অগ্রিম for customers (advance received), else অন্যান্য. "Remaining" is always the ledger balance, so the Due totals equal the ledger by construction; bill totals / paid / due dates come from the open bills (`dueBillsOf`, which leaves out consignment expected values and orders).
 
 ### D42: Load links live on both sides and change together
 `load.link` and `record.linkedLoadId` are written in the same op group (link, unlink, create-from-load). The client checks 1:1 like the server (`ALREADY_LINKED`). A link to a voided record counts as "যুক্ত নয়". Editing a linked load offers "update the linked record too" (weight; for a sale also the rate), saved in the same op group, so stock still moves once. Reversing a load unlinks it first; a load never has money or stock of its own.
@@ -130,7 +130,7 @@ A party's tab follows its ledger balance and roles: balance > 0 → ক্রে
 Net profit per trip = income − the trip's own costs (§12.7). A Daily Expense can name a vehicle (optional); it is shown in the vehicle and month views as a separate "দৈনিক খরচে লেখা" column and is not added into the trip net profit, so the same money is never counted twice.
 
 ### D45: One report model for screen, print and export
-Every report (`client/reports/defs.ts`) returns one model (columns + exact cells: paise, grams, counts, dates). The section tab, the print page (A4 or 80 mm), Excel (exact decimal formulas, header lines with business / Gola / period) and CSV (UTF-8 BOM, exact decimals) all render that model, so they can't disagree. In the all-Golas view a section report runs per Gola and is merged with a Gola column (read-only); Gola-wise and combined run once over all Golas. On 80 mm paper each row prints as "label: value" lines. Gross profit = SALES − COGS ledger lines (average cost). Reports reconcile with the dashboard (`tests/repo/reports.test.ts`).
+Every report (`client/reports/defs.ts`) returns one model (columns + exact cells: paise, grams, counts, dates). The section tab, the print page (A4 or 80 mm), Excel (exact decimal formulas, header lines with business / Gola / period) and CSV (UTF-8 BOM, exact decimals) all render that model, so they can't disagree. In the all-Golas view a section report runs per Gola and is merged with a Gola column (read-only); Gola-wise and combined run once over all Golas. On 80 mm paper each row prints as "label: value" lines. Gross profit = SALES + MILL_SALES − MILL_DEDUCTION − COGS ledger lines (average cost; v2.1). Reports reconcile with the dashboard (`tests/repo/reports.test.ts`).
 
 ### D46: Voice input
 The browser's speech recognition only (no AI, no paid API), `bn-IN` / `en-IN` by UI language, a long press switches it for the field. Numbers go through the local parser and are shown ("শুনলাম: ৫২.৫") for a tap to confirm; text is inserted as said. Where the browser has no recognition, or the phone is offline (Chrome's recognition needs the network), the mic is shown disabled and a tap explains "type instead". Mics are in rate and quantity fields, picker searches (party / farmer / variety names), the expense title and notes.
@@ -155,3 +155,11 @@ The premium redesign keeps every behaviour and test id; it changes only looks. E
 
 ### D36: Day close and reopen
 Closing writes a DAY_CLOSE with the expected cash at that moment, the counted cash and the difference (note required when ≠ 0; denomination counts kept). The difference posts to CASH_DIFF, so the next day's opening equals the counted cash. Only the owner reopens (the close is voided with a reason). An entry dated on a closed day shows "পরে এন্ট্রি হয়েছে — আবার মেলান"; "আবার মেলান" reopens the day so it can be counted again.
+### D53: Mills pay the broker (v2.1 money-direction fix, 2026-11-26)
+v2.0 followed the spec's "milling charge payable to the mill" model, which reversed the client's real business: the broker delivers paddy to a mill and **the mill pays him**. Now (`docs/BUGFIX_MILL_DIRECTION.md`):
+- A dispatch posts Dr PARTY:mill / Cr MILL_SALES (quantity × the rate the mill pays) and Dr COGS / Cr STOCK_PADDY at average cost. The MILL stock position keeps the cost as a memo only, so a paddy return comes back at cost (Dr STOCK_PADDY / Cr COGS) and credits the mill (Dr MILL_SALES / Cr PARTY:mill; default qty × dispatch rate, editable). Rice / other returns and the milling conversion are stock-only. `dispatchType` is kept on old records and ignored.
+- **The final settlement is its own document, `MILL_SETTLEMENT`, not a field on the dispatch** (deviation from the fix request's `MillDispatch.settlement`). Every document posts on one business date and stock cost is replayed in date order: a settlement stored on the dispatch would post its cut and its stock exit on the dispatch date, rewriting the history of the days in between and running later returns against stock that had already left. Its amounts are pure: billed = (accepted + shortfall) × the dispatch rate (copied and checked), final = accepted × final rate − cut, adjustment = billed − final → MILL_DEDUCTION. One active settlement per dispatch; a settled dispatch takes no new return / conversion and keeps its mill, variety, rate and weight (`settlementGuard`, device and server).
+- Payment direction comes from one map (`domain/v2/direction.ts`), checked in `validateDocRules` and `validateLinks` on the device and the server (`PAYMENT_DIRECTION_MISMATCH`). New `MILL_REFUND` source (OUT, optional dispatch id) is the only way, besides a "মিলের খরচ / Mill charges" expense (new seeded category `MILL_CHARGES`), to pay a mill.
+- A dispatch bill is netted by its return credits and settlement (`millCredits`) everywhere dues are computed. Due & Advance and the dashboard classify by the balance sign first.
+- Legacy sales "from mill stock" post no COGS (the paddy was costed at dispatch); new sales can't choose that source. Opening stock / adjustments at a mill keep posting to STOCK_AT_MILL (rare; noted).
+- Old data is repaired by `pnpm fix:mill-direction` (dry run by default, owner decisions for anything ambiguous, idempotent).

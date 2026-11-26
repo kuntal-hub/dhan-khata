@@ -164,7 +164,7 @@ export const SECTIONS: readonly Section[] = [
       { key: "dispatch", label: "sections.millTabs.dispatch" },
       { key: "return", label: "sections.millTabs.return" },
       { key: "conversion", label: "sections.millTabs.conversion" },
-      { key: "consignment", label: "sections.millTabs.consignment" },
+      { key: "settlement", label: "sections.millTabs.settlement" },
       { key: "reports", label: "sections.millTabs.reports" },
     ],
   },

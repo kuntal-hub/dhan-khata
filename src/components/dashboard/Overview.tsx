@@ -313,7 +313,11 @@ export function Overview() {
       icon: HandCoins,
       label: t("dsh.sales"),
       value: { kind: "money", paise: o.salesPaise },
-      sub: qty(o.salesG),
+      // Paddy delivered to mills is income too (not listed in Sales): shown so all income is seen.
+      sub:
+        o.millSalesPaise > 0n
+          ? `${qty(o.salesG)} · ${t("dsh.millSent", { amount: money(o.millSalesPaise) })}`
+          : qty(o.salesG),
       tone: "green",
       href: "/sales",
     },
@@ -391,11 +395,16 @@ export function Overview() {
       href: "/dues?tab=payable",
     },
     {
-      id: "m-mill-payable",
+      id: "m-mill-receivable",
       icon: Factory,
-      label: t("dsh.millPayable"),
-      value: { kind: "money", paise: o.millPayablePaise },
-      tone: "out",
+      label: t("dsh.millReceivable"),
+      value: { kind: "money", paise: o.millReceivablePaise },
+      // Only when some mill paid more than it owed.
+      sub:
+        o.millRefundPaise > 0n
+          ? t("dsh.millRefund", { amount: money(o.millRefundPaise) })
+          : undefined,
+      tone: "in",
       href: "/dues?tab=mill",
     },
     {
@@ -510,7 +519,7 @@ export function Overview() {
           <Donut
             testId="dues-donut"
             centerLabel={t("viz.total")}
-            total={money(o.receivablePaise + o.farmerPayablePaise + o.millPayablePaise)}
+            total={money(o.receivablePaise + o.farmerPayablePaise + o.millReceivablePaise)}
             items={[
               {
                 key: "rec",
@@ -528,14 +537,14 @@ export function Overview() {
               },
               {
                 key: "mill",
-                label: t("dsh.millPayable"),
-                value: o.millPayablePaise,
-                display: money(o.millPayablePaise),
+                label: t("dsh.millReceivable"),
+                value: o.millReceivablePaise,
+                display: money(o.millReceivablePaise),
                 color: "var(--chart-3)",
               },
             ]}
           />
-          {o.receivablePaise + o.farmerPayablePaise + o.millPayablePaise === 0n ? (
+          {o.receivablePaise + o.farmerPayablePaise + o.millReceivablePaise === 0n ? (
             <p className="text-muted-foreground py-6 text-center text-sm">{t("dsh.noDues")}</p>
           ) : null}
         </Panel>

@@ -39,7 +39,7 @@ import {
 } from "@/domain/scope";
 import { cashEffects } from "@/domain/v2/cashbook";
 import { applyDocDerived } from "@/domain/v2/derive";
-import { linkedDocIds, validateLinks } from "@/domain/v2/links";
+import { linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
 import { recomputeDoc, validateDocRules, verifyDoc } from "@/domain/v2/recompute";
 import { audit, logChanges, type ChangeEntry } from "../changelog";
 import { publicDoc } from "../convert";
@@ -326,6 +326,21 @@ async function applyDoc(
       asReject(e);
     }
     await checkLoadLinkUnique(db, session, incoming);
+    // v2.1: one final settlement per dispatch; a settled dispatch is closed.
+    const guard = settlementGuard(incoming, current ?? undefined);
+    if (guard) {
+      const other = await k.vouchers.findOne(
+        {
+          godownId: g,
+          type: "MILL_SETTLEMENT",
+          status: "active",
+          dispatchId: guard.dispatchId,
+          ...(guard.exceptId ? { _id: { $ne: guard.exceptId } } : {}),
+        },
+        { session, projection: { _id: 1 } },
+      );
+      if (other) throw new Reject("ALREADY_LINKED", `settlement:${guard.dispatchId}`);
+    }
     if (
       current &&
       "partyId" in current &&

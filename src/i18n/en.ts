@@ -220,8 +220,9 @@ export const en = {
       ALREADY_LINKED: "Other entries are linked to this — reverse them first",
       CATEGORY_IS_PAYMENT:
         "A farmer payment is not an expense — record it as a payment to the farmer",
-      DISPATCH_TYPE_MISMATCH: "This mill dispatch type can't be used here",
       DUPLICATE_VARIETY: "A variety with this name already exists",
+      PAYMENT_DIRECTION_MISMATCH:
+        "Wrong money direction — money from a mill is 'Received', a refund to a mill is 'Gave'",
     },
     api: {
       UNAUTHORIZED: "Please log in again",
@@ -276,7 +277,7 @@ export const en = {
     TRIP: "Vehicle trip",
     CONTRA: "Cash/Bank",
     STOCK_ADJUST: "Stock adjustment",
-    MILL_SETTLEMENT: "Mill settlement",
+    MILL_SETTLEMENT: "Mill final settlement",
     DAY_CLOSE: "Day close",
     OPENING: "Opening",
     JOURNAL: "Journal",
@@ -292,6 +293,7 @@ export const en = {
     DIESEL: "Diesel",
     VEHICLE: "Vehicle expense",
     OFFICE: "Office expense",
+    MILL_CHARGES: "Mill charges",
     TRANSPORT: "Transport",
     OTHERS: "Others",
     GODOWN_RENT: "Gola rent",

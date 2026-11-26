@@ -188,7 +188,7 @@ describe("Daily Load Khata (§12.5)", () => {
 });
 
 describe("Due & Advance (§12.6)", () => {
-  it("remaining = ledger balance for every party; categories; consignment value is not due", async () => {
+  it("remaining = ledger balance for every party; categories by sign; a mill dispatch is owed by the mill", async () => {
     const p1 = await saveBillWithInitialPayment(
       GA,
       { ...purchaseDraft(G.farmer, G.variety.SWARNA!, 10n * QTL, 2000n * RS, D0), dueDate: D1 },
@@ -229,15 +229,16 @@ describe("Due & Advance (§12.6)", () => {
       category: "receivable",
       balancePaise: 10_000n * RS,
     });
-    // The mill paid ₹1,000 advance on a consignment: we owe it back until settlement; the
-    // expected ₹5,000 is not owed by the mill.
-    expect(byId.get(G.mill)).toMatchObject({ category: "mill", balancePaise: -1_000n * RS });
-    expect(byId.get(G.mill)!.open).toEqual([]);
+    // v2.1: the mill pays for the paddy (an old "consignment" type is ignored): 2 qtl × ₹2,500
+    // = ₹5,000 owed, ₹1,000 already received → the mill owes ₹4,000 (পাওনা, never দেনা).
+    expect(byId.get(G.mill)).toMatchObject({ category: "mill", balancePaise: 4_000n * RS });
+    expect(byId.get(G.mill)!.open.map((o) => o.state.duePaise)).toEqual([4_000n * RS]);
     const sum = dueSummary(rows);
     expect(sum.totals.payable).toBe(15_000n * RS);
     expect(sum.totals.receivable).toBe(10_000n * RS);
+    expect(sum.totals.mill).toBe(4_000n * RS);
     expect(sum.aging.pay.D31_60).toBe(15_000n * RS);
-    expect(sum.aging.collect.D0_30).toBe(10_000n * RS);
+    expect(sum.aging.collect.D0_30).toBe(14_000n * RS);
 
     // Automatic reminder from the due date; mark done.
     let rem = await reminderRows(GA);

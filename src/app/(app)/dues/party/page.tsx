@@ -22,7 +22,7 @@ import { PageSuspense, ReadOnlyNotice, useParam, useWriteGodown } from "@/compon
 import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown } from "@/client/hooks";
-import { dueCategory, openBillsOf } from "@/client/queries/dues";
+import { dueCategory, isMillRefundDue, openBillsOf } from "@/client/queries/dues";
 import { partyLedger } from "@/client/queries/purchases";
 import { todayIST } from "@/domain/dates";
 import { useI18n } from "@/i18n/I18nProvider";
@@ -64,7 +64,11 @@ function PartyLedger() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <span className="text-muted-foreground text-sm">
-              {cat ? t(`dues.cat.${cat}` as TKey) : t("mill.spSettled")}
+              {isMillRefundDue(party.roles, balance)
+                ? t("mill.refundDue")
+                : cat
+                  ? t(`dues.cat.${cat}` as TKey)
+                  : t("mill.spSettled")}
             </span>
             <p
               className={`tabular text-3xl font-semibold ${balance > 0n ? "text-emerald-800" : balance < 0n ? "text-red-800" : ""}`}

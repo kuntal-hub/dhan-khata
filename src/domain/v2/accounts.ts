@@ -9,10 +9,12 @@ export const ACC2 = {
   STOCK_PADDY: "STOCK_PADDY",
   STOCK_RICE: "STOCK_RICE",
   SALES: "SALES",
+  /** Paddy delivered to mills: income (the mill owes us, v2.1). */
+  MILL_SALES: "MILL_SALES",
+  /** Mill's final-settlement cut (moisture / quality / weight). Reduces income. */
+  MILL_DEDUCTION: "MILL_DEDUCTION",
   COGS: "COGS",
   EXP_PAYABLE: "EXP_PAYABLE",
-  MILLING_CHARGES: "MILLING_CHARGES",
-  MILLING_LOSS: "MILLING_LOSS",
   CASH_DIFF: "CASH_DIFF",
   STOCK_ADJ: "STOCK_ADJ",
   OPENING_BAL: "OPENING_BAL",
@@ -30,10 +32,10 @@ const SYSTEM: Record<SystemAccountV2, AccountTypeV2> = {
   STOCK_PADDY: "asset",
   STOCK_RICE: "asset",
   SALES: "income",
+  MILL_SALES: "income",
+  MILL_DEDUCTION: "income",
   COGS: "expense",
   EXP_PAYABLE: "liability",
-  MILLING_CHARGES: "expense",
-  MILLING_LOSS: "expense",
   CASH_DIFF: "expense",
   STOCK_ADJ: "expense",
   OPENING_BAL: "equity",
@@ -63,8 +65,19 @@ export function stockAccount(
   return ACC2.STOCK_PADDY;
 }
 
+/**
+ * v2.0 accounts that v2.1 no longer posts (milling charges payable to a mill; conversion loss).
+ * Recognised only so ledger rows written before the mill-direction fix still classify until the
+ * rebuild replaces them.
+ */
+const LEGACY: Record<string, AccountTypeV2> = {
+  MILLING_CHARGES: "expense",
+  MILLING_LOSS: "expense",
+};
+
 export function accountTypeV2(key: string): AccountTypeV2 {
   if (key in SYSTEM) return SYSTEM[key as SystemAccountV2];
+  if (key in LEGACY) return LEGACY[key]!;
   if (key.startsWith("BANK:")) return "asset";
   if (key.startsWith("PARTY:")) return "party";
   if (key.startsWith("STOCK_AT_MILL:") || key.startsWith("STOCK_OTHER:")) return "asset";
@@ -84,6 +97,8 @@ export const EXPENSE_CATEGORY_CODES_V2 = [
   "DIESEL",
   "VEHICLE",
   "OFFICE",
+  // v2.1: the only way (besides a refund) to pay a mill: an expense with the mill as party.
+  "MILL_CHARGES",
   "OTHERS",
 ] as const;
 export const FARMER_PAYMENT_CODE = "FARMER_PAYMENT";

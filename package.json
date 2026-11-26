@@ -7,6 +7,7 @@
     "build": "next build && serwist build serwist.config.mjs",
     "seed": "tsx scripts/seed.ts",
     "restore": "tsx scripts/restore.ts",
+    "fix:mill-direction": "tsx scripts/fix-mill-direction.ts",
     "migrate:v2": "tsx scripts/migrate-v2.ts",
     "admin:reset-password": "tsx scripts/admin-reset-password.ts",
     "icons": "node scripts/gen-icons.mjs",

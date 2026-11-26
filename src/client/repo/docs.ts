@@ -18,7 +18,7 @@ import { can } from "@/domain/rbac";
 import { assertGodownUnchanged, checkSameGodown, collectRefs } from "@/domain/scope";
 import { cashEffects } from "@/domain/v2/cashbook";
 import { applyDocDerived } from "@/domain/v2/derive";
-import { linkedDocIds, validateLinks } from "@/domain/v2/links";
+import { linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
 import { recomputeDoc, validateDocRules } from "@/domain/v2/recompute";
 import { DocSchema, businessDate, type Doc, type DocType } from "@/domain/v2/schemas";
 import { DomainError } from "@/domain/errors";
@@ -136,6 +136,18 @@ async function assertRefsAndLinks(d: Doc, extra?: ReadonlyMap<string, string>): 
   }
 }
 
+/** One final settlement per dispatch; a settled dispatch is closed (`settlementGuard`). */
+async function assertSettlementGuard(d: Doc, existing?: Doc): Promise<void> {
+  const g = settlementGuard(d, existing);
+  if (!g) return;
+  const rows = await db().vouchers.where("dispatchId").equals(g.dispatchId).toArray();
+  if (
+    rows.some((x) => x.type === "MILL_SETTLEMENT" && x.status === "active" && x._id !== g.exceptId)
+  ) {
+    throw new RepoError("ALREADY_LINKED", `settlement:${g.dispatchId}`);
+  }
+}
+
 async function assignNumber(ctx: WriteCtx, type: DocType): Promise<string> {
   for (;;) {
     const seq = await nextVoucherSeq(ctx.godown._id, type);
@@ -238,7 +250,10 @@ export async function paymentsOfSource(docId: string): Promise<Doc[]> {
   return [...exact, ...nested].filter((p) => p.status === "active" && p.type === "PAYMENT");
 }
 
-/** Active non-payment documents that depend on `doc` (returns, conversions, settlement sales…). */
+/**
+ * Active non-payment documents that depend on `doc` (returns, conversions, final settlement, and
+ * legacy consignment sales).
+ */
 export async function dependentsOf(doc: Doc): Promise<Doc[]> {
   const d = db();
   const out: Doc[] = [];
@@ -323,6 +338,7 @@ export async function createInTx(
   };
   const doc = await finalize(ctx, raw);
   await assertRefsAndLinks(doc, opts.extra);
+  await assertSettlementGuard(doc);
   if (await d.vouchers.get(doc._id)) throw new RepoError("VALIDATION_FAILED", "duplicate id");
   await onDayCloseWritten(ctx, doc, true);
   await d.vouchers.add(doc);
@@ -393,6 +409,7 @@ async function prepareEdit(
   const next = await finalize(ctx, raw);
   assertGodownUnchanged(existing, next);
   await assertRefsAndLinks(next);
+  await assertSettlementGuard(next, existing);
   // A bill's party can't change under its payments (they'd settle someone else's bill).
   if ("partyId" in existing && "partyId" in next && existing.partyId !== next.partyId) {
     if ((await paymentsOfSource(existing._id)).length > 0) throw new RepoError("LINKED_PAYMENTS");

@@ -854,18 +854,21 @@ const millDispatch: ReportDef = {
         (r) => r.doc.status === "active" && r.doc.dispatchDate >= from && r.doc.dispatchDate <= to,
       )
       .reverse();
+    // The mill pays us (v2.1): value (net of return credits and the final settlement),
+    // collected, and what is still receivable (negative = to refund).
     const columns = [
       col(t("rep.c.date"), "date"),
       col(t("rep.c.number")),
       col(t("rep.c.mill")),
-      col(t("rep.c.type")),
       col(t("rep.c.variety")),
       col(t("mill.sent"), "qty"),
       col(t("mill.returned"), "qty"),
       col(t("mill.consumed"), "qty"),
-      col(t("mill.settled"), "qty"),
+      col(t("mill.accepted"), "qty"),
       col(t("mill.atMill"), "qty"),
-      col(t("rep.c.amount"), "money"),
+      col(t("mill.value"), "money"),
+      col(t("mill.collected"), "money"),
+      col(t("mill.remaining"), "money"),
     ];
     return withTotals(
       columns,
@@ -873,14 +876,15 @@ const millDispatch: ReportDef = {
         d(r.doc.dispatchDate),
         r.doc.number,
         r.mill?.name ?? "",
-        t(`mill.${r.doc.dispatchType}` as TKey),
         vName(r.variety, t),
         q(r.balance.sentG),
         q(r.balance.returnedPaddyG),
         q(r.balance.consumedG),
-        q(r.balance.settledG),
+        q(r.balance.acceptedG),
         q(r.balance.remainingG),
-        m(r.doc.totalValuePaise),
+        m(r.money.netValuePaise),
+        m(r.money.collectedPaise),
+        m(r.money.receivablePaise),
       ]),
       t,
     );
@@ -905,8 +909,8 @@ const millReturn: ReportDef = {
       col(t("rep.c.dispatch")),
       col(t("rep.c.product")),
       col(t("rep.c.qty"), "qty"),
-      col(t("rep.c.value"), "money"),
-      col(t("rep.c.received"), "money"),
+      // Paddy returns are a credit to the mill (its receivable goes down); rice / other: none.
+      col(t("mill.creditValue"), "money"),
     ];
     return withTotals(
       columns,
@@ -919,8 +923,7 @@ const millReturn: ReportDef = {
           ? (r.doc.otherProductName ?? "")
           : t(`mill.${r.doc.product}` as TKey),
         q(r.doc.weight.netG),
-        m(r.doc.totalValuePaise ?? "0"),
-        m(r.receivedPaise),
+        m(r.creditPaise),
       ]),
       t,
     );
@@ -1264,22 +1267,25 @@ const dailyOverview: ReportDef = {
   },
 };
 
-/** Gross profit in a range = sales − cost of goods sold (ledger SALES / COGS lines). */
+/**
+ * Gross profit in a range = SALES + MILL_SALES − MILL_DEDUCTION − COGS (ledger lines, v2.1).
+ * Paddy delivered to mills is income; a mill's final-settlement cut reduces it.
+ */
 async function grossProfit(godownId: string, from: string, to: string): Promise<bigint> {
-  const lines = async (account: string) =>
-    db()
-      .ledgerLines.where("[godownId+account+date]")
-      .between([godownId, account, from], [godownId, account, to], true, true)
-      .toArray();
-  const sales = (await lines("SALES")).reduce(
-    (s, l) => s + BigInt(l.creditPaise) - BigInt(l.debitPaise),
-    0n,
+  const credit = async (account: string) =>
+    (
+      await db()
+        .ledgerLines.where("[godownId+account+date]")
+        .between([godownId, account, from], [godownId, account, to], true, true)
+        .toArray()
+    ).reduce((s, l) => s + BigInt(l.creditPaise) - BigInt(l.debitPaise), 0n);
+  // MILL_DEDUCTION is a debit (it reduces income), so its credit-minus-debit is negative.
+  return (
+    (await credit("SALES")) +
+    (await credit("MILL_SALES")) +
+    (await credit("MILL_DEDUCTION")) +
+    (await credit("COGS"))
   );
-  const cogs = (await lines("COGS")).reduce(
-    (s, l) => s + BigInt(l.debitPaise) - BigInt(l.creditPaise),
-    0n,
-  );
-  return sales - cogs;
 }
 
 function monthsOf(from: string, to: string): Array<{ key: string; from: string; to: string }> {
@@ -1360,7 +1366,8 @@ function summaryRows(
     [t("rep.c.atMill"), null, q(o.millPaddyG)],
     [t("rep.c.receivable"), m(o.receivablePaise), null],
     [t("rep.c.payable"), m(o.farmerPayablePaise), null],
-    [t("dues.cat.mill"), m(o.millPayablePaise), null],
+    [t("dues.cat.mill"), m(o.millReceivablePaise), null],
+    [t("mill.refundDue"), m(o.millRefundPaise), null],
     [t("rep.c.vehicleIncome"), m(o.vehicleIncomePaise), null],
   ];
 }

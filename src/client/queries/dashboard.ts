@@ -6,7 +6,7 @@
  */
 import { addDays, todayIST } from "@/domain/dates";
 import { cashEffects, cashbookDayFromEffects, type CashbookDay } from "@/domain/v2/cashbook";
-import { billState, dueBillsOf, type Direction } from "@/domain/v2/payments";
+import { billState, dueBillsOf, millCredits, type Direction } from "@/domain/v2/payments";
 import { businessDate, type Doc, type Party, type Payment } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { getGodownSettings } from "../db/meta";
@@ -26,9 +26,15 @@ export interface OverviewData {
   riceG: bigint;
   millPaddyG: bigint;
   mills: Array<{ id: string; name: string; g: bigint }>;
+  /** Σ positive balances of customers / vehicle customers / Golas (mills have their own card). */
   receivablePaise: bigint;
   farmerPayablePaise: bigint;
-  millPayablePaise: bigint;
+  /** Σ positive mill balances: what mills owe us (v2.1). */
+  millReceivablePaise: bigint;
+  /** Σ |negative| mill balances: mills that paid more than they owed (to refund). */
+  millRefundPaise: bigint;
+  /** Paddy delivered to mills in the range (dispatch value): income, shown under Total sales. */
+  millSalesPaise: bigint;
   vehicleIncomePaise: bigint;
   cashInPaise: bigint;
   cashOutPaise: bigint;
@@ -50,7 +56,7 @@ export interface FlowSummary {
   closingPaise: bigint;
 }
 
-const SALES_SIDE = new Set(["CUSTOMER", "MILL", "VEHICLE_CUSTOMER", "GOLA"]);
+const CUSTOMER_SIDE = new Set(["CUSTOMER", "VEHICLE_CUSTOMER", "GOLA"]);
 
 export async function golaDocs(godownId: string): Promise<Doc[]> {
   return (await db().vouchers.where("godownId").equals(godownId).toArray()) as Doc[];
@@ -114,7 +120,9 @@ export function emptyOverview(): OverviewData {
     mills: [],
     receivablePaise: 0n,
     farmerPayablePaise: 0n,
-    millPayablePaise: 0n,
+    millReceivablePaise: 0n,
+    millRefundPaise: 0n,
+    millSalesPaise: 0n,
     vehicleIncomePaise: 0n,
     cashInPaise: 0n,
     cashOutPaise: 0n,
@@ -159,6 +167,9 @@ export async function golaOverview(
         break;
       case "EXPENSE":
         o.expensesPaise += BigInt(doc.amountPaise);
+        break;
+      case "MILL_DISPATCH":
+        o.millSalesPaise += BigInt(doc.totalValuePaise);
         break;
       case "TRIP":
         o.vehicleIncomePaise += BigInt(doc.totalIncomePaise);
@@ -206,13 +217,18 @@ export async function golaOverview(
     if (!l.account.startsWith("PARTY:")) continue;
     bal.set(l.account, (bal.get(l.account) ?? 0n) + BigInt(l.debitPaise) - BigInt(l.creditPaise));
   }
+  // পাওনা / দেনা by the SIGN of the balance; the role only picks the card (v2.1).
   for (const [acct, v] of bal) {
     const p = parties.get(acct.slice(6));
     const roles = p?.roles ?? [];
-    if (v > 0n && roles.some((r) => SALES_SIDE.has(r))) o.receivablePaise += v;
+    if (roles.includes("MILL")) {
+      if (v > 0n) o.millReceivablePaise += v;
+      else if (v < 0n) o.millRefundPaise -= v;
+      continue;
+    }
+    if (v > 0n && roles.some((r) => CUSTOMER_SIDE.has(r))) o.receivablePaise += v;
     if (v < 0n && (roles.includes("FARMER") || roles.includes("SUPPLIER")))
       o.farmerPayablePaise -= v;
-    if (v < 0n && roles.includes("MILL")) o.millPayablePaise -= v;
   }
 
   // Stock at the range end.
@@ -351,6 +367,7 @@ const PARTY_OF = (doc: Doc): string | undefined => {
       return doc.partyId;
     case "MILL_DISPATCH":
     case "MILL_RETURN":
+    case "MILL_SETTLEMENT":
       return doc.millPartyId;
     case "TRIP":
       return doc.customerPartyId;
@@ -401,8 +418,9 @@ export async function dueAlerts(godownId: string, withinDays = 3): Promise<DueAl
     ),
   );
   const out: DueAlert[] = [];
+  const credits = millCredits(docs);
   for (const doc of docs) {
-    for (const b of dueBillsOf(doc)) {
+    for (const b of dueBillsOf(doc, credits)) {
       if (!b.dueDate || b.dueDate > limit) continue;
       const st = billState(b, bySource.get(b.sourceId) ?? [], today);
       if (st.duePaise <= 0n) continue;

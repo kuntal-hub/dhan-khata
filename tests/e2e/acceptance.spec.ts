@@ -174,7 +174,7 @@ async function ux(page: Page, lang: "bn" | "en") {
     "/loads": ["", "party", "mill", "vehicle", "reports"],
     "/dues": ["", "receivable", "payable", "mill", "advance", "other", "reminders", "reports"],
     "/vehicles": ["", "byVehicle", "byCustomer", "pnl", "reports"],
-    "/mill": ["", "dispatch", "return", "conversion", "consignment", "reports"],
+    "/mill": ["", "dispatch", "return", "conversion", "settlement", "reports"],
   };
   for (const w of [360, 768, 1280]) {
     await page.setViewportSize({ width: w, height: w === 360 ? 740 : 900 });

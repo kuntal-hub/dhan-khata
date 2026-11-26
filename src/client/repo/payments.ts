@@ -7,7 +7,7 @@
  */
 import { v7 as uuidv7 } from "uuid";
 import { DomainError } from "@/domain/errors";
-import { billState, billsOf, splitOverpayment } from "@/domain/v2/payments";
+import { billState, billsOf, millCredits, splitOverpayment, type Bill } from "@/domain/v2/payments";
 import type { Doc, Payment } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { todayIST } from "@/domain/dates";
@@ -36,11 +36,22 @@ async function activePaymentsOf(sourceId: string): Promise<Payment[]> {
   return rows.filter((p): p is Payment => p.type === "PAYMENT" && p.status === "active");
 }
 
+/**
+ * A bill as it is owed now: a mill dispatch is netted by its paddy returns and its final
+ * settlement (v2.1), so a collection can't silently exceed what the mill really owes.
+ */
+async function owedBill(source: Doc, bill: Bill): Promise<Bill> {
+  if (source.type !== "MILL_DISPATCH") return bill;
+  const linked = await db().vouchers.where("dispatchId").equals(source._id).toArray();
+  const credit = millCredits(linked).get(source._id) ?? 0n;
+  return { ...bill, totalPaise: bill.totalPaise - credit };
+}
+
 /** The remaining due of a document's main bill (bill total − active payments). */
 export async function dueOf(doc: Doc): Promise<bigint> {
   const bill = billsOf(doc)[0];
   if (!bill) return 0n;
-  return billState(bill, await activePaymentsOf(doc._id), todayIST()).duePaise;
+  return billState(await owedBill(doc, bill), await activePaymentsOf(doc._id), todayIST()).duePaise;
 }
 
 /**
@@ -112,7 +123,11 @@ export async function payParty(
     if (!bill || bill.partyId !== partyId || bill.direction !== direction) {
       throw new RepoError("SOURCE_MISMATCH", a.sourceId);
     }
-    const due = billState(bill, await activePaymentsOf(a.source._id), todayIST()).duePaise;
+    const due = billState(
+      await owedBill(a.source, bill),
+      await activePaymentsOf(a.source._id),
+      todayIST(),
+    ).duePaise;
     if (a.amountPaise > due) throw new RepoError("OVERPAYMENT", (a.amountPaise - due).toString());
     used += a.amountPaise;
     items.push({
@@ -159,7 +174,11 @@ export async function payBill(
   const bills = billsOf(source);
   const bill = opts.sourceId ? bills.find((b) => b.sourceId === opts.sourceId) : bills[0];
   if (!bill) throw new RepoError("SOURCE_MISMATCH");
-  const due = billState(bill, await activePaymentsOf(source._id), todayIST()).duePaise;
+  const due = billState(
+    await owedBill(source, bill),
+    await activePaymentsOf(source._id),
+    todayIST(),
+  ).duePaise;
   const amount = BigInt(part.amountPaise);
   const { billPaise, advancePaise } = splitOverpayment(amount, due);
   if (advancePaise > 0n && !opts.extraAsAdvance) {

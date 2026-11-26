@@ -1,6 +1,11 @@
 /**
- * v2 postLedger / postStock (requirement_v2 §8, §9.2): the one pure function that turns a
+ * v2 postLedger / postStock (requirement_v2.1 §8, §9.2): the one pure function that turns a
  * document into balanced ledger lines and stock moves. Shared by client and server.
+ *
+ * Mills (v2.1): a dispatch is paddy the mill pays for (Dr PARTY:mill / Cr MILL_SALES; cost to
+ * COGS); a paddy return is a credit to the mill; a final settlement adjusts the dispatch's
+ * receivable through MILL_DEDUCTION; a milling conversion is stock-only. Nothing creates money we
+ * owe a mill: only an explicit MILL_REFUND payment or an expense does.
  *
  * Stock is valued at weighted average per position key (product, location, variety, other
  * product name, mill, transit group). TRANSIT positions are scoped by the document group, so a
@@ -8,14 +13,13 @@
  * Cost depends on the position BEFORE the document, supplied by `ctx`.
  */
 import { DomainError } from "../errors";
-import { allocateProportional, divRoundHalfUp, sumBig } from "../rounding";
+import { divRoundHalfUp } from "../rounding";
 import {
   ACC2,
   bankKey,
   expenseKey,
   partyKey,
   stockAccount,
-  stockAtMillKey,
   vehExpenseKey,
   vehIncomeKey,
 } from "./accounts";
@@ -240,7 +244,9 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
         ...(d.source === "TRANSIT" ? { groupId: transit } : {}),
       };
       const cost = b.stockOut(k, BigInt(d.weight.netG), bagCountOf(d.weight));
-      b.entry(ACC2.COGS, keyAccount(k), cost, { varietyId: d.varietyId });
+      // Paddy at a mill was already costed when it was dispatched (v2.1): legacy sales from mill
+      // stock take the quantity only.
+      if (d.source !== "MILL") b.entry(ACC2.COGS, keyAccount(k), cost, { varietyId: d.varietyId });
       break;
     }
 
@@ -280,6 +286,9 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
       break;
 
     case "MILL_DISPATCH": {
+      // v2.1: paddy delivered to a mill that the MILL PAYS for. The mill owes us the total; the
+      // paddy's cost goes to COGS. Quantity still moves WAREHOUSE → MILL (the MILL position keeps
+      // the cost as a memo so a return comes back at cost). `dispatchType` is ignored.
       const qty = BigInt(d.weight.netG);
       const bags = bagCountOf(d.weight);
       const from: StockKeyV2 = { product: "PADDY", location: "WAREHOUSE", varietyId: d.varietyId };
@@ -291,18 +300,14 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
       };
       const cost = b.stockOut(from, qty, bags);
       b.stockIn(to, qty, cost, bags);
-      b.entry(stockAtMillKey(d.millPartyId), ACC2.STOCK_PADDY, cost, { varietyId: d.varietyId });
-      if (d.dispatchType === "MILLING") {
-        b.entry(
-          ACC2.MILLING_CHARGES,
-          partyKey(d.millPartyId),
-          BigInt(d.totalValuePaise),
-          {},
-          {
-            partyId: d.millPartyId,
-          },
-        );
-      }
+      b.entry(ACC2.COGS, ACC2.STOCK_PADDY, cost, { varietyId: d.varietyId });
+      b.entry(
+        partyKey(d.millPartyId),
+        ACC2.MILL_SALES,
+        BigInt(d.totalValuePaise),
+        { partyId: d.millPartyId },
+        { varietyId: d.varietyId },
+      );
       break;
     }
 
@@ -317,6 +322,7 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
           varietyId: d.varietyId,
           millPartyId: d.millPartyId,
         };
+        // Back to the warehouse at cost (the cost leaves COGS again) …
         const cost = b.stockOut(from, qty, bags);
         b.stockIn(
           { product: "PADDY", location: "WAREHOUSE", varietyId: d.varietyId },
@@ -324,11 +330,19 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
           cost,
           bags,
         );
-        b.entry(ACC2.STOCK_PADDY, stockAtMillKey(d.millPartyId), cost, { varietyId: d.varietyId });
+        b.entry(ACC2.STOCK_PADDY, ACC2.COGS, cost, { varietyId: d.varietyId });
+        // … and the mill owes us less: a credit, never cash.
+        b.entry(
+          ACC2.MILL_SALES,
+          partyKey(d.millPartyId),
+          BigInt(d.totalValuePaise ?? "0"),
+          { varietyId: d.varietyId },
+          { partyId: d.millPartyId },
+        );
       } else {
         if (d.product === "OTHER" && !d.otherProductName)
           throw new DomainError("VALIDATION_FAILED");
-        // Quantity only; value arrives with the milling conversion (DECISIONS D6).
+        // Rice / other: quantity only, in its own stock (never added to paddy).
         b.stockIn(
           {
             product: d.product,
@@ -345,36 +359,41 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
     }
 
     case "CONVERSION": {
-      const consumed = BigInt(d.paddyConsumedG);
-      const from: StockKeyV2 = {
+      // Stock-only record (v2.1): the consumed paddy leaves mill stock. Its cost is already in
+      // COGS (the dispatch), so nothing is posted; rice / by-products came in with their returns.
+      b.stockOut(
+        {
+          product: "PADDY",
+          location: "MILL",
+          varietyId: d.varietyId,
+          millPartyId: d.millPartyId,
+        },
+        BigInt(d.paddyConsumedG),
+      );
+      break;
+    }
+
+    case "MILL_SETTLEMENT": {
+      // Final settlement adjusts the dispatch's receivable (never a sale). Accepted and shortfall
+      // paddy leave mill stock; their cost is already in COGS.
+      const k: StockKeyV2 = {
         product: "PADDY",
         location: "MILL",
         varietyId: d.varietyId,
         millPartyId: d.millPartyId,
       };
-      const cost = b.stockOut(from, consumed);
-      const outKeys: StockKeyV2[] = d.outputs.map((o) => ({
-        product: o.product,
-        location: "WAREHOUSE",
-        ...(o.varietyId ? { varietyId: o.varietyId } : {}),
-        ...(o.product === "OTHER" ? { otherProductName: o.name ?? "" } : {}),
-      }));
-      let values: bigint[];
-      if (d.outputs.length > 0 && d.outputs.every((o) => o.valuePaise !== undefined)) {
-        values = d.outputs.map((o) => BigInt(o.valuePaise ?? "0"));
-      } else {
-        const loss = BigInt(d.lossG);
-        const weights = [...d.outputs.map((o) => BigInt(o.qtyG)), loss > 0n ? loss : 0n];
-        values = allocateProportional(cost, weights).slice(0, d.outputs.length);
-      }
-      d.outputs.forEach((o, i) => {
-        const k = outKeys[i]!;
-        const v = values[i] ?? 0n;
-        b.stockIn(k, 0n, v);
-        b.debit(keyAccount(k), v, { varietyId: o.varietyId });
-      });
-      b.debit(ACC2.MILLING_LOSS, cost - sumBig(values));
-      b.credit(stockAtMillKey(d.millPartyId), cost, { varietyId: d.varietyId });
+      const accepted = BigInt(d.acceptedG);
+      const shortfall = BigInt(d.shortfallG);
+      if (accepted > 0n) b.stockOut(k, accepted);
+      if (shortfall > 0n) b.stockOut(k, shortfall);
+      // > 0: a cut (Dr MILL_DEDUCTION / Cr PARTY:mill); < 0: extra value (the reverse).
+      b.entry(
+        ACC2.MILL_DEDUCTION,
+        partyKey(d.millPartyId),
+        BigInt(d.adjustmentPaise),
+        { varietyId: d.varietyId },
+        { partyId: d.millPartyId },
+      );
       break;
     }
 

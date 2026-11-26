@@ -160,7 +160,10 @@ export const SaleSchema = z.strictObject({
     })
     .optional(),
   linkedLoadId: Id.optional(),
-  /** Set when this sale settles a CONSIGNMENT dispatch (DECISIONS D5). */
+  /**
+   * LEGACY (v2.0 only): the sale an old consignment settlement created. v2.1 settles a dispatch
+   * with a MILL_SETTLEMENT instead; `scripts/fix-mill-direction.ts` converts these sales.
+   */
   consignmentDispatchId: Id.optional(),
   interGola: InterGolaSchema.optional(),
 });
@@ -171,12 +174,15 @@ export const PAYMENT_SOURCE_TYPES = [
   "SALE",
   "EXPENSE",
   "MILL_DISPATCH",
+  /** Legacy only: v2.1 refuses payments against a return (a return is a credit, not cash). */
   "MILL_RETURN",
   "VEHICLE_TRIP",
   "VEHICLE_COST",
   "SECOND_PARTY",
   "PARTY_ADVANCE",
   "OPENING_DUE",
+  /** Money given back to a mill that paid more than it owed (OUT). id = a dispatch or null. */
+  "MILL_REFUND",
 ] as const;
 export type PaymentSourceType = (typeof PAYMENT_SOURCE_TYPES)[number];
 
@@ -240,14 +246,15 @@ export type Load = z.infer<typeof LoadSchema>;
 export const MillDispatchSchema = z.strictObject({
   ...DocBaseShape,
   type: z.literal("MILL_DISPATCH"),
-  dispatchType: z.enum(["MILLING", "CONSIGNMENT"]),
+  /** DEPRECATED (v2.0 records only). Ignored by posting: every dispatch is paid for by the mill. */
+  dispatchType: z.enum(["MILLING", "CONSIGNMENT"]).optional(),
   millPartyId: Id,
   dispatchDate: YmdStr,
   varietyId: Id,
   weight: WeightBlockSchema,
-  /** MILLING: milling charge per qtl (may be 0); CONSIGNMENT: expected price per qtl. */
+  /** Price per quintal the MILL PAYS us. */
   ratePaisePerQtl: NonNegIntStr,
-  /** MILLING: charges payable to the mill; CONSIGNMENT: expected value (informational). */
+  /** quantity × rate = what the mill owes us for this dispatch (receivable). */
   totalValuePaise: NonNegIntStr,
   vehicleNumber: z.string().max(20).optional(),
   driverName: z.string().max(80).optional(),
@@ -268,8 +275,12 @@ export const MillReturnSchema = z.strictObject({
   /** Paddy: the dispatch's variety (copied). Rice: optional rice variety. */
   varietyId: Id.optional(),
   weight: WeightBlockSchema,
+  /** Paddy: the dispatch's rate by default (credit = qty × rate). Absent when the credit is typed. */
   ratePaisePerQtl: NonNegIntStr.optional(),
-  /** Optional valuation (rice/other: used by the conversion, DECISIONS D6). */
+  /**
+   * Paddy: the CREDIT to the mill (reduces what it owes us). Rice / other: informational only
+   * (stock never carries it; nothing is posted).
+   */
   totalValuePaise: NonNegIntStr.optional(),
   /** Same dispatch + date + product + quantity (duplicate check). */
   dedupeKey: z.string().max(200),
@@ -433,6 +444,37 @@ export const OpeningSchema = z.strictObject({
 });
 export type Opening = z.infer<typeof OpeningSchema>;
 
+/**
+ * Final settlement of a mill dispatch (v2.1 §12.8E, DECISIONS D53): the mill's accepted weight,
+ * final rate and quality/moisture cut. It adjusts THAT dispatch's receivable (never a sale):
+ *   billed     = (accepted + shortfall) × dispatch rate      (what the dispatch charged for it)
+ *   final      = accepted × final rate − deduction
+ *   adjustment = billed − final   (> 0: the mill owes us less; < 0: more)
+ * Accepted and shortfall paddy leave mill stock. One active settlement per dispatch.
+ */
+export const MillSettlementSchema = z.strictObject({
+  ...DocBaseShape,
+  type: z.literal("MILL_SETTLEMENT"),
+  dispatchId: Id,
+  /** Copied from the dispatch (verified). */
+  millPartyId: Id,
+  varietyId: Id,
+  dispatchRatePaisePerQtl: NonNegIntStr,
+  /** Settlement date (drives the ledger and stock). */
+  transactionDate: YmdStr,
+  acceptedG: NonNegIntStr,
+  finalRatePaisePerQtl: NonNegIntStr,
+  /** Moisture / quality cut in money. */
+  deductionPaise: NonNegIntStr,
+  /** Weight the mill did not account for (a reasoned stock loss). */
+  shortfallG: NonNegIntStr,
+  shortfallReason: z.enum(STOCK_ADJUST_REASONS_V2).optional(),
+  billedPaise: NonNegIntStr,
+  finalValuePaise: NonNegIntStr,
+  adjustmentPaise: IntStr,
+});
+export type MillSettlement = z.infer<typeof MillSettlementSchema>;
+
 export const DocSchema = z.discriminatedUnion("type", [
   PurchaseSchema,
   SaleSchema,
@@ -448,6 +490,7 @@ export const DocSchema = z.discriminatedUnion("type", [
   ContraSchema,
   DayCloseSchema,
   OpeningSchema,
+  MillSettlementSchema,
 ]);
 export type Doc = z.infer<typeof DocSchema>;
 export type DocType = Doc["type"];
@@ -467,6 +510,7 @@ export const DOC_TYPES = [
   "CONTRA",
   "DAY_CLOSE",
   "OPENING",
+  "MILL_SETTLEMENT",
 ] as const satisfies readonly DocType[];
 
 /** The date that drives a document's ledger lines and stock moves (§7.1). */

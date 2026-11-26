@@ -220,8 +220,9 @@ export const bn = {
       LINKED_PAYMENTS: "এর সাথে পেমেন্ট যুক্ত আছে — আগে পেমেন্টগুলো বাতিল করুন অথবা সব একসাথে বাতিল করুন",
       ALREADY_LINKED: "এর সাথে অন্য এন্ট্রি যুক্ত আছে — আগে সেগুলো বাতিল করুন",
       CATEGORY_IS_PAYMENT: "কৃষক পেমেন্ট খরচ নয় — কৃষককে পেমেন্ট হিসেবে লিখুন",
-      DISPATCH_TYPE_MISMATCH: "এই মিলে-পাঠানোর ধরন এর জন্য চলবে না",
       DUPLICATE_VARIETY: "এই নামের জাত আগেই আছে",
+      PAYMENT_DIRECTION_MISMATCH:
+        "টাকার দিক ভুল — যেমন মিল থেকে টাকা পেলে সেটা 'পেলাম', মিলকে ফেরত দিলে 'দিলাম'",
     },
     api: {
       UNAUTHORIZED: "আবার লগইন করুন",
@@ -276,7 +277,7 @@ export const bn = {
     TRIP: "গাড়ির ট্রিপ",
     CONTRA: "ক্যাশ/ব্যাংক",
     STOCK_ADJUST: "স্টক সমন্বয়",
-    MILL_SETTLEMENT: "মিলের হিসাব",
+    MILL_SETTLEMENT: "মিলের চূড়ান্ত হিসাব",
     DAY_CLOSE: "দিন শেষ",
     OPENING: "প্রারম্ভিক",
     JOURNAL: "জার্নাল",
@@ -292,6 +293,7 @@ export const bn = {
     DIESEL: "ডিজেল",
     VEHICLE: "গাড়ির খরচ",
     OFFICE: "অফিস খরচ",
+    MILL_CHARGES: "মিলের খরচ",
     TRANSPORT: "পরিবহন",
     OTHERS: "অন্যান্য",
     GODOWN_RENT: "গোলা ভাড়া",
