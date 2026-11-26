@@ -15,6 +15,7 @@ import { errorKey } from "@/client/errors";
 import { upsertMaster } from "@/client/repo";
 import type { Vehicle } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 export const normalizeVehicleNumber = (s: string) => s.toUpperCase().replace(/[^A-Z0-9]/g, "");
 
@@ -130,7 +131,7 @@ export function VehiclePicker({
       .sort((a, b) => a.number.localeCompare(b.number))
       .map((v) => ({
         id: v._id,
-        title: v.number,
+        title: displayVehicleNumber(v.number),
         sub: [t(v.ownership === "own" ? "veh.own" : "veh.external"), v.driverName]
           .filter(Boolean)
           .join(" · "),

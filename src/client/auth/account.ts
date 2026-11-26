@@ -4,11 +4,9 @@
  * Registration and recovery sign this device in, like login.
  */
 import type { Business } from "@/domain/schemas";
-import { db } from "../db/dexie";
 import { META, getOrCreateDeviceId, getSession, setMeta, type SessionMeta } from "../db/meta";
 import { apiCall } from "../sync/transport";
-import { authedCall, emit, storeAuth, type AuthResponse } from "./session";
-import { DomainError } from "@/domain/errors";
+import { assertNoPendingOfOtherUser, authedCall, signInWith, type AuthResponse } from "./session";
 
 export async function registrationStatus(): Promise<{ registrationOpen: boolean }> {
   return apiCall<{ registrationOpen: boolean }>("/api/auth/status");
@@ -29,11 +27,13 @@ export async function register(
   input: RegisterInput,
 ): Promise<{ session: SessionMeta; recoveryCode: string }> {
   const deviceId = await getOrCreateDeviceId();
+  const prev = await getSession();
+  // A new owner is always a different user: check before the business is created.
+  await assertNoPendingOfOtherUser(prev);
   const res = await apiCall<AuthResponse & { recoveryCode: string }>("/api/auth/register", {
     body: { ...input, deviceId },
   });
-  const session = await storeAuth(res);
-  emit("signed-in");
+  const session = await signInWith(res, prev);
   return { session, recoveryCode: res.recoveryCode };
 }
 
@@ -49,11 +49,7 @@ export async function recoverPassword(input: {
   const res = await apiCall<AuthResponse & { recoveryCode: string }>("/api/auth/recover", {
     body: { ...input, deviceId },
   });
-  if (prev && prev.user._id !== res.user._id && (await db().outbox.count()) > 0) {
-    throw new DomainError("FORBIDDEN", "pending-ops-of-other-user");
-  }
-  const session = await storeAuth(res);
-  emit("signed-in");
+  const session = await signInWith(res, prev);
   return { session, recoveryCode: res.recoveryCode };
 }
 

@@ -527,3 +527,22 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 **Note:** entrance animations must fill `backwards` only — a transform that keeps filling turns the page wrapper into the containing block of the full-screen forms (found in the screenshots, fixed).
 
 **Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 316 passed (33 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 244.3 KB · `pnpm test:e2e` ✅ 21/21 · `pnpm lighthouse` not run.
+
+### Full browser QA on the real Atlas DB (localhost:3000, `pnpm dev`) — 2026-11-26
+**What was done:** the Atlas dev DB was emptied (the Atlas user may not `dropDatabase`, so every collection was dropped); no seed was needed (registration opens while there is no owner). Then the whole app was driven in Chrome on :3000 against Atlas: registration on a device that still held the old business, PIN, first + second Gola, purchase (bags, total weight, মণ), sale (+ bank receipt with an account created inline), sale from a load (negative-stock warning), expense (+ edit, void), opening cash / bank, contra, day close with shortage and the "re-check" flag, stock / daily overview, load, mill dispatch / return / conversion, second-party entry, pay across bills (FIFO), reminders, vehicle trip, every section's reports + print, search (cross-script, vehicle, amount), bell, settings integrity check, all-Golas view, inter-Gola transfer, English sweep of every page / tab / form / view / print page, logout → login (Atlas data identical), and a server outage (saved to the outbox, synced on its own when the server came back; Atlas ledger balanced).
+
+**Bugs found and fixed:**
+- Registration / password recovery kept the previous user's local data (Golas, entries, sync cursor, active Gola) and PIN: on a device that had used another business, or after the server DB was reset, the new owner saw foreign data and screens crashed. One `signInWith` (`client/auth/session.ts`) now serves login, register and recover: a different user gets a clean device and must set a new PIN; unsent work of the previous user blocks the switch (register checks before the business is created). Test: `tests/sync/account-switch.test.ts`.
+- Closing a sheet after using a nested picker (payment sheet → bank picker) left the page: `history.back()` is asynchronous, so a sheet that re-opened during a release (React dev double effect, remount) had its new entry consumed. `client/ui/backStack.ts` defers a push until pending releases land. Test: `tests/unit/back-stack.test.ts`. (This only showed on :3000 because dev runs effects twice.)
+- A payment "by bank" with no bank account dead-ended: `BankPicker` now creates an account inline (`components/entry/BankAccountForm.tsx`, also used by `/banks`); "add a bank account first" shows only when there is none.
+- Save looked like it did nothing when a warning / error rendered far down a long form (e.g. "stock will go negative — save anyway"): `FormShell` scrolls the first new `role="alert"` into view after a submit (all 11 entry forms).
+- Opening stock and cashbook sheets said "পেমেন্ট সেভ করুন" (Save payment) → `common.save`.
+- Recovery-code screen: dark title / text on the green auth band → white title + card.
+- Raw values on screen: ISO payment date on the purchase receipt; ASCII digits in Bengali text (`t()` now shows every numeric placeholder in the user's digit style); vehicle numbers shown as `WB41B5678` (`displayVehicleNumber` everywhere they are shown, incl. reports); the load register's date group as `2026-11-26`; "গোলা: {name}" header in the all-Golas table.
+- Reports summed the rate column in the totals row (`Column.noTotal`).
+- Dashboard recent list: an opening balance showed "প্রারম্ভিক / প্রারম্ভিক" without an amount (`docTitle` / `docAmountPaise`); a load showed no party in search / recent lists.
+- Accessibility: picker buttons now carry their field label (`aria-labelledby`); Gola colour swatches had English names (`gola.colourName.*`).
+- The Gola switcher menu links to "গোলা পরিচালনা" (where a new Gola is added).
+- e2e: `loads-dues-trips` waited for the nested variety sheet to close before typing (flaky under load).
+
+**Notes:** test owner credentials for the dev DB are in `.env.local` (git-ignored). A true cold-offline start needs the service worker, which only the production build has; it stays covered by the e2e suite.

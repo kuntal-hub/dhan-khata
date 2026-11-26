@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { ArrowLeft, Printer, Receipt } from "lucide-react";
 import { docPath } from "@/components/entry/docPath";
-import { docTitle } from "@/components/entry/docLabel";
+import { docAmountPaise, docTitle } from "@/components/entry/docLabel";
 import { Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { Button } from "@/components/ui/button";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
@@ -47,12 +47,7 @@ function DayEntries({ day, ids }: { day: string; ids: string[] }) {
           <ul className="flex flex-col gap-2.5">
             {items.map((r, i) => {
               const d = r.doc;
-              const amount =
-                "totalPaise" in d
-                  ? BigInt(d.totalPaise)
-                  : "amountPaise" in d
-                    ? BigInt(d.amountPaise)
-                    : undefined;
+              const amount = docAmountPaise(d);
               const href = docPath(d);
               return (
                 <li key={d._id}>

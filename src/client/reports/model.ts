@@ -18,6 +18,8 @@ export type ColumnKind = "text" | "money" | "qty" | "count" | "date";
 export interface Column {
   label: string;
   kind: ColumnKind;
+  /** Not additive (a rate per quintal): the totals row leaves it empty. */
+  noTotal?: boolean;
 }
 
 export interface ReportModel {
@@ -43,6 +45,7 @@ export function autoTotals(
     v && typeof v === "object" && "n" in v ? v.n : 0;
   return columns.map((c, i) => {
     if (i === 0) return label;
+    if (c.noTotal) return null;
     if (c.kind === "money") return { m: rows.reduce((s, r) => s + big(r[i], "m"), 0n) };
     if (c.kind === "qty") return { q: rows.reduce((s, r) => s + big(r[i], "q"), 0n) };
     if (c.kind === "count") return { n: rows.reduce((s, r) => s + int(r[i]), 0) };

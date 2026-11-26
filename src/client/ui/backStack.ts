@@ -9,6 +9,8 @@ type Handler = () => void;
 interface Entry {
   id: number;
   handler: Handler;
+  /** Its history entry exists (a push waits while a released entry's back() is in flight). */
+  pushed: boolean;
 }
 
 const stack: Entry[] = [];
@@ -35,12 +37,25 @@ function install() {
   });
 }
 
-/** Register a back handler; returns its id. */
+/**
+ * Register a back handler; returns its id. history.back() is asynchronous: a push made while a
+ * released entry's back() is still in flight would be the entry that back() removes (a sheet
+ * that re-opens at once, e.g. React's dev double effect, or a remount), leaving the stack one
+ * entry ahead of the history — the next close then left the page. So the push waits until
+ * every pending back() has landed.
+ */
 export function pushBack(handler: Handler): number {
   install();
   const id = nextId++;
-  stack.push({ id, handler });
-  window.history.pushState({ dkBack: id }, "");
+  const entry: Entry = { id, handler, pushed: false };
+  stack.push(entry);
+  const doPush = () => {
+    if (entry.pushed || !stack.includes(entry)) return;
+    entry.pushed = true;
+    window.history.pushState({ dkBack: id }, "");
+  };
+  if (ignorePops > 0) settled.push(doPush);
+  else doPush();
   return id;
 }
 
@@ -48,7 +63,8 @@ export function pushBack(handler: Handler): number {
 export function releaseBack(id: number): void {
   const i = stack.findIndex((e) => e.id === id);
   if (i === -1) return;
-  stack.splice(i, 1);
+  const [entry] = stack.splice(i, 1);
+  if (!entry!.pushed) return; // its push never happened: nothing to undo
   ignorePops++;
   window.history.back();
 }

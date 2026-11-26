@@ -8,6 +8,7 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useId, useState, type ReactNode } from "react";
 import { CalendarClock } from "lucide-react";
 import { EntityPicker, type PickerItem } from "@/components/forms/EntityPicker";
+import { BankAccountForm } from "./BankAccountForm";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -313,7 +314,15 @@ export function BankPicker({
         items={items}
         onSelect={onChange}
         testId={testId}
-        emptyLabel={t("pay.noBank")}
+        {...(items && items.length === 0 ? { emptyLabel: t("pay.noBank") } : {})}
+        renderCreate={(initial, done, cancel) => (
+          <BankAccountForm
+            godownId={godownId}
+            initialName={initial}
+            onDone={done}
+            onCancel={cancel}
+          />
+        )}
       />
       {error ? <p className="text-destructive text-xs">{error}</p> : null}
     </div>

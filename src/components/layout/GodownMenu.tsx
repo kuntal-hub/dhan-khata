@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
-import { Check, Layers } from "lucide-react";
+import { Check, Layers, Settings2 } from "lucide-react";
 import { golaColourClass } from "@/components/gola/colours";
 import { Button } from "@/components/ui/button";
 import {
@@ -91,6 +92,14 @@ export function GodownMenu({ open, onOpenChange }: LazyMenuProps) {
               </DropdownMenuItem>
             </>
           ) : null}
+          <DropdownMenuSeparator />
+          {/* Where a new Gola is added (also in the avatar menu); one tap from the switcher. */}
+          <DropdownMenuItem asChild className="min-h-12 text-base">
+            <Link href="/golas" data-testid="godown-item-manage">
+              <Settings2 className="size-4" aria-hidden />
+              {t("gola.manage")}
+            </Link>
+          </DropdownMenuItem>
         </DropdownMenuContent>
       </DropdownMenu>
 

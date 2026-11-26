@@ -30,6 +30,7 @@ import type { Vehicle } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { VehicleForm } from "./VehiclePicker";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function NewTrip() {
   const { t } = useI18n();
@@ -66,7 +67,7 @@ export function TripList() {
                 index={i}
                 icon={Truck}
                 tone="gold"
-                title={`${r.vehicle?.number ?? ""}${r.customer ? ` · ${r.customer.name}` : ""}`}
+                title={`${r.vehicle ? displayVehicleNumber(r.vehicle.number) : ""}${r.customer ? ` · ${r.customer.name}` : ""}`}
                 subtitle={`${r.doc.loadingLocation} → ${r.doc.destination}`}
                 date={`${date(r.doc.transactionDate, "short")} · ${r.doc.number}`}
                 amountPaise={BigInt(r.doc.totalIncomePaise)}
@@ -169,7 +170,7 @@ export function ByVehicle() {
           {rows.map((r) => (
             <li key={r.vehicle._id}>
               <Panel
-                title={`${r.vehicle.number} · ${t(r.vehicle.ownership === "own" ? "veh.own" : "veh.external")}`}
+                title={`${displayVehicleNumber(r.vehicle.number)} · ${t(r.vehicle.ownership === "own" ? "veh.own" : "veh.external")}`}
                 action={
                   readOnly ? null : (
                     <Button
@@ -222,7 +223,7 @@ export function ByVehicle() {
 }
 
 export function ByCustomer() {
-  const { t, money } = useI18n();
+  const { t, money, count } = useI18n();
   const { godownId } = useActiveGodown();
   const rows = useLiveQuery(() => (godownId ? tripCustomerSummaries(godownId) : []), [godownId]);
   return (
@@ -240,7 +241,7 @@ export function ByCustomer() {
                 icon={Users}
                 title={r.party.name}
                 subtitle={t("veh.customerLine", {
-                  trips: r.pnl.trips,
+                  trips: count(r.pnl.trips),
                   income: money(r.pnl.incomePaise),
                   received: money(r.pnl.receivedPaise),
                 })}
@@ -302,7 +303,7 @@ export function PnlTab() {
           <option value="">{t("veh.allVehicles")}</option>
           {(vehicles ?? []).map((v) => (
             <option key={v.vehicle._id} value={v.vehicle._id}>
-              {v.vehicle.number}
+              {displayVehicleNumber(v.vehicle.number)}
             </option>
           ))}
         </select>

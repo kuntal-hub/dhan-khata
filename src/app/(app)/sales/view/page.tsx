@@ -47,6 +47,7 @@ import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 const STEPS: readonly DeliveryStatus[] = ["PENDING", "LOADED", "IN_TRANSIT", "DELIVERED"];
 
@@ -182,7 +183,11 @@ function Detail() {
           {doc.vehicleNumber || doc.driverName ? (
             <div>
               <dt className="text-muted-foreground text-xs">{t("sl.vehicle")}</dt>
-              <dd>{[doc.vehicleNumber, doc.driverName].filter(Boolean).join(" · ")}</dd>
+              <dd>
+                {[doc.vehicleNumber && displayVehicleNumber(doc.vehicleNumber), doc.driverName]
+                  .filter(Boolean)
+                  .join(" · ")}
+              </dd>
             </div>
           ) : null}
           {doc.charges ? (

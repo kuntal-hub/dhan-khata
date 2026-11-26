@@ -63,7 +63,10 @@ async function loads(page: Page, lang: "bn" | "en") {
       .catch(() => false)
   )
     await vis(page, "variety-create-anyway").click();
+  // The nested "new variety" sheet must be closed first: until then the fields behind it are inert.
+  await expect(vis(page, "opening-variety")).toContainText(variety);
   await vis(page, "opening-qty").fill("50");
+  await expect(vis(page, "opening-qty")).toHaveValue("50");
   await vis(page, "opening-rate").fill("2000");
   await vis(page, "opening-save").click();
   await expect(page.getByTestId("opening-stock-sheet")).toHaveCount(0);

@@ -368,7 +368,7 @@ function ContraSheet({
       )}
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
       <Button className="h-12 text-base" onClick={() => void save()} data-testid="contra-save">
-        {t("pay.save")}
+        {t("common.save")}
       </Button>
     </BottomSheet>
   );

@@ -29,7 +29,36 @@ export function docTitle(
           : type;
     return { title, subtitle: sub };
   }
+  if (doc.type === "OPENING") {
+    // What was set: opening cash / bank balance / stock / a party's old due.
+    const kind = doc.items[0]?.kind;
+    const what =
+      kind === "CASH"
+        ? t("cb.opening")
+        : kind === "BANK"
+          ? t("cb.openingBank")
+          : kind === "STOCK"
+            ? t("stk.opening")
+            : kind === "PARTY"
+              ? t("dues.opening")
+              : type;
+    return { title: partyName ? `${what} · ${partyName}` : what, subtitle: type };
+  }
   return { title: partyName ?? type, subtitle: type };
+}
+
+/**
+ * The money amount to show for a document in mixed lists. An opening entry shows the cash /
+ * bank money it set (stock or party openings show none here).
+ */
+export function docAmountPaise(doc: Doc): bigint | undefined {
+  if (doc.type === "OPENING") {
+    const money = doc.items.filter((i) => i.kind === "CASH" || i.kind === "BANK");
+    return money.length ? money.reduce((s, i) => s + BigInt(i.amountPaise), 0n) : undefined;
+  }
+  if ("totalPaise" in doc) return BigInt(doc.totalPaise);
+  if ("amountPaise" in doc) return BigInt(doc.amountPaise);
+  return undefined;
 }
 
 /** "14:05" in IST, digits as the user chose. */

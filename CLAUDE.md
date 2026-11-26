@@ -118,6 +118,13 @@ Keep this list up to date.
 - Kit: `Panel` takes `icon` + `tone`; `MetricCard` / `TxnCard` take `tone`; `EmptyArt`.
 - Charts: `components/charts/Donut` (SVG, legend + exact amounts), `LazyTrendChart` / `LazyBarsChart` from `components/charts/lazy` (recharts, lazy). Colours `var(--chart-1…8)` in fixed order (validated for colour blindness); keep an entity's colour stable, never by rank. Dashboard trend data: `golaTrend` / `trendFor`.
 
+## Key building blocks (QA pass, 2026-11-26)
+- Sign-in: login, register and recover all go through `signInWith` (`client/auth/session.ts`); a different user gets a wiped device and no PIN.
+- Sheets + history: `client/ui/backStack.ts` defers a push while a release's `history.back()` is in flight (never call `history.pushState` for sheets yourself).
+- Forms: `FormShell` scrolls the first new `role="alert"` into view after Save, so give every form warning / error `role="alert"`.
+- Display helpers: `displayVehicleNumber` (domain/vehicleNumber) for any vehicle shown; `docTitle` / `docAmountPaise` (components/entry/docLabel) for mixed lists; `t()` localises every numeric placeholder; report columns that must not be summed take `noTotal`.
+- `BankAccountForm` (components/entry) is the one bank-account form (page + inline in `BankPicker`).
+
 ## Environment notes
 - Windows 11. **The Bash tool fails in this environment (fork errors). Use the PowerShell tool.**
 - The project folder is **inside OneDrive** (the user chose to keep it there). `pnpm-workspace.yaml` sets `nodeLinker: hoisted` to avoid symlink problems. If `pnpm install` or a build fails with EPERM / EBUSY / file-locked errors, ask the user to **pause OneDrive sync** and retry.

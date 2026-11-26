@@ -75,6 +75,38 @@ export async function storeAuth(res: AuthResponse): Promise<SessionMeta> {
   return session;
 }
 
+/** Refuse to switch this device to another user while the previous user's work is unsent. */
+export async function assertNoPendingOfOtherUser(
+  prev: SessionMeta | undefined,
+  nextUserId?: string,
+): Promise<void> {
+  if (prev && prev.user._id !== nextUserId && (await db().outbox.count()) > 0) {
+    setAccessToken(null);
+    throw new DomainError("FORBIDDEN", "pending-ops-of-other-user");
+  }
+}
+
+/**
+ * Sign this device in with a server auth response (login, registration, recovery). A different
+ * user than before gets a clean device: the previous user's business data (another business, or
+ * a database that was reset) must never show up or be synced under the new user.
+ */
+export async function signInWith(
+  res: AuthResponse,
+  prev: SessionMeta | undefined,
+): Promise<SessionMeta> {
+  if (prev?.user._id !== res.user._id) {
+    await assertNoPendingOfOtherUser(prev, res.user._id);
+    await wipeLocalData();
+    // The previous user's PIN must never unlock the new user's data; the new user sets their own.
+    clearUnlocked();
+    await deleteMeta(META.pin);
+  }
+  const session = await storeAuth(res);
+  emit("signed-in");
+  return session;
+}
+
 /** Log in (online). Logging in as a DIFFERENT user is blocked while ops are pending. */
 export async function login(input: {
   phone: string;
@@ -91,14 +123,7 @@ export async function login(input: {
       ...(input.deviceLabel ? { deviceLabel: input.deviceLabel } : {}),
     },
   });
-  if (prev && prev.user._id !== res.user._id && (await db().outbox.count()) > 0) {
-    setAccessToken(null);
-    throw new DomainError("FORBIDDEN", "pending-ops-of-other-user");
-  }
-  if (prev && prev.user._id !== res.user._id) await wipeLocalData();
-  const session = await storeAuth(res);
-  emit("signed-in");
-  return session;
+  return signInWith(res, prev);
 }
 
 /** Renew the access token with the refresh cookie (rotating). */
@@ -158,6 +183,7 @@ async function wipeLocalData(): Promise<void> {
       META.activeGodownId,
       META.lastSyncAt,
       META.business,
+      "integrity:quick", // QUICK_INTEGRITY_KEY in client/diagnostics (per-business result)
     ]) {
       await deleteMeta(key);
     }

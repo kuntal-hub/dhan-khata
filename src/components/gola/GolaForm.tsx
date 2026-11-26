@@ -118,7 +118,7 @@ export function GolaForm({
               key={c}
               type="button"
               aria-pressed={form.colour === c}
-              aria-label={c}
+              aria-label={t(`gola.colourName.${c}`)}
               onClick={() => setForm((f) => ({ ...f, colour: c }))}
               className={`flex size-11 items-center justify-center rounded-full ring-offset-2 transition-shadow ${golaColourClass(c)} ${form.colour === c ? "ring-primary ring-2" : ""}`}
             >

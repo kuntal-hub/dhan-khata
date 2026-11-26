@@ -38,7 +38,7 @@ import { useCountUp } from "@/components/motion/Motion";
 import { Donut } from "@/components/charts/Donut";
 import { LazyTrendChart } from "@/components/charts/lazy";
 import { docPath } from "@/components/entry/docPath";
-import { docTitle, timeIST } from "@/components/entry/docLabel";
+import { docAmountPaise, docTitle, timeIST } from "@/components/entry/docLabel";
 import { MetricCard, Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
 import { QUICK_ACTIONS, SECTION_OF } from "@/components/shell/QuickAdd";
@@ -468,7 +468,7 @@ export function Overview() {
             <table className="w-full text-sm" data-testid="per-gola">
               <thead className="text-muted-foreground text-xs">
                 <tr>
-                  <th className="py-2 text-left font-normal">{t("gola.switcher")}</th>
+                  <th className="py-2 text-left font-normal">{t("gola.word")}</th>
                   <th className="py-2 text-right font-normal">{t("dsh.cash")}</th>
                   <th className="py-2 text-right font-normal">{t("dsh.paddy")}</th>
                   <th className="py-2 text-right font-normal">{t("dsh.purchase")}</th>
@@ -709,14 +709,11 @@ export function Overview() {
           <ul className="flex flex-col gap-2.5" data-testid="recent">
             {recent.map((r, i) => {
               const d = r.doc;
-              const amount =
-                "totalPaise" in d
-                  ? BigInt(d.totalPaise)
-                  : "amountPaise" in d
-                    ? BigInt(d.amountPaise)
-                    : undefined;
+              const amount = docAmountPaise(d);
               const dir =
-                d.type === "SALE" || (d.type === "PAYMENT" && d.direction === "IN")
+                d.type === "SALE" ||
+                (d.type === "PAYMENT" && d.direction === "IN") ||
+                (d.type === "OPENING" && amount !== undefined && amount > 0n)
                   ? "IN"
                   : d.type === "PURCHASE" || d.type === "EXPENSE" || d.type === "PAYMENT"
                     ? "OUT"

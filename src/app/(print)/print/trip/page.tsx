@@ -11,6 +11,7 @@ import { paymentsOf, stateOf } from "@/client/queries/purchases";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function TripReceipt() {
   const { t, money, digits, date } = useI18n();
@@ -40,7 +41,7 @@ function TripReceipt() {
   const st = stateOf(doc, payments);
   const rows: Array<[string, string]> = [
     ...(customer ? ([[t("veh.customer"), customer.name]] as Array<[string, string]>) : []),
-    [t("veh.vehicle"), vehicle?.number ?? ""],
+    [t("veh.vehicle"), vehicle ? displayVehicleNumber(vehicle.number) : ""],
     ...(doc.driverName ? ([[t("veh.driver"), doc.driverName]] as Array<[string, string]>) : []),
     [t("rep.c.route"), `${doc.loadingLocation} → ${doc.destination}`],
     [

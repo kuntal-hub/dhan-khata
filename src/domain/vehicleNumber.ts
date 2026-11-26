@@ -11,3 +11,10 @@ export function formatVehicleNumber(normalized: string): string {
   if (!m) return normalized;
   return [m[1], m[2], m[3], m[4]].filter((p) => p && p.length > 0).join(" ");
 }
+
+/** For display: "WB41B5678" or "wb 41 b 5678" → "WB 41 B 5678"; anything else as typed. */
+export function displayVehicleNumber(value: string): string {
+  const n = normalizeVehicleNumber(value);
+  const f = formatVehicleNumber(n);
+  return f === n ? value : f;
+}

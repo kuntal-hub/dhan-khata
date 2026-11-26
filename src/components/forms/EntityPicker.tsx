@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, type ReactNode } from "react";
+import { useId, useMemo, useState, type ReactNode } from "react";
 import { ChevronDown, Plus, Search } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,8 @@ export function EntityPicker({
   allowClear?: boolean;
 }) {
   const { t } = useI18n();
+  const labelId = useId();
+  const valueId = useId();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [creating, setCreating] = useState(false);
@@ -73,7 +75,7 @@ export function EntityPicker({
 
   return (
     <div className="flex min-w-0 flex-col gap-1">
-      <Label className="text-sm">
+      <Label id={labelId} className="text-sm">
         {label}
         {required ? (
           <span aria-hidden className="text-destructive ml-0.5">
@@ -84,6 +86,7 @@ export function EntityPicker({
       <button
         type="button"
         data-testid={testId}
+        aria-labelledby={`${labelId} ${valueId}`}
         disabled={disabled}
         onClick={() => setOpen(true)}
         className={cn(
@@ -92,7 +95,10 @@ export function EntityPicker({
           disabled ? "bg-muted opacity-70" : "",
         )}
       >
-        <span className={cn("min-w-0 truncate", display ? "" : "text-muted-foreground")}>
+        <span
+          id={valueId}
+          className={cn("min-w-0 truncate", display ? "" : "text-muted-foreground")}
+        >
           {display || emptyLabel || t("form.choose")}
           {selected?.sub ? (
             <span className="text-muted-foreground ml-2 text-sm">{selected.sub}</span>

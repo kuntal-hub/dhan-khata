@@ -20,6 +20,7 @@ import { farmerSummaries, partyLedger, purchaseRows } from "../queries/purchases
 import { customerSummaries, saleRows } from "../queries/sales";
 import { pnlByPeriod, tripRows, vehicleSummaries } from "../queries/vehicles";
 import { autoTotals, type CellValue, type Column, type ReportModel } from "./model";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 export type T = (key: TKey, vars?: Record<string, string | number>) => string;
 
@@ -147,7 +148,7 @@ const purchaseRegister: ReportDef = {
       col(t("rep.c.farmer")),
       col(t("rep.c.variety")),
       col(t("rep.c.qty"), "qty"),
-      col(t("rep.c.rate"), "money"),
+      { ...col(t("rep.c.rate"), "money"), noTotal: true },
       col(t("rep.c.amount"), "money"),
       col(t("rep.c.paid"), "money"),
       col(t("rep.c.due"), "money"),
@@ -265,7 +266,7 @@ const salesRegister: ReportDef = {
       col(t("rep.c.buyer")),
       col(t("rep.c.product")),
       col(t("rep.c.qty"), "qty"),
-      col(t("rep.c.rate"), "money"),
+      { ...col(t("rep.c.rate"), "money"), noTotal: true },
       col(t("rep.c.amount"), "money"),
       col(t("rep.c.received"), "money"),
       col(t("rep.c.due"), "money"),
@@ -363,7 +364,7 @@ const deliveryStatus: ReportDef = {
         r.doc.number,
         r.party?.name ?? "",
         q(r.doc.weight.netG),
-        r.doc.vehicleNumber ?? "",
+        r.doc.vehicleNumber ? displayVehicleNumber(r.doc.vehicleNumber) : "",
         t(`sl.delivery.${r.doc.deliveryStatus}` as TKey),
       ]),
       t,
@@ -551,18 +552,18 @@ const loadRegister: ReportDef = {
     const out: CellValue[][] = [];
     for (const g of groups) {
       for (const r of [...g.rows].reverse()) {
-        const label =
+        const label: CellValue =
           by === "date"
-            ? g.key
+            ? d(g.key)
             : by === "party"
               ? (r.from?.name ?? "")
               : by === "mill"
                 ? (r.mill?.name ?? "")
-                : r.doc.vehicleNumber;
+                : displayVehicleNumber(r.doc.vehicleNumber);
         out.push([
           label,
           d(r.doc.transactionDate),
-          r.doc.vehicleNumber,
+          displayVehicleNumber(r.doc.vehicleNumber),
           r.from?.name ?? "",
           r.mill?.name ?? "",
           vName(r.variety, t),
@@ -760,7 +761,7 @@ const vehicleIncome: ReportDef = {
       rows.map((r) => [
         d(r.doc.transactionDate),
         r.doc.number,
-        r.vehicle?.number ?? "",
+        r.vehicle ? displayVehicleNumber(r.vehicle.number) : "",
         r.customer?.name ?? "",
         `${r.doc.loadingLocation} → ${r.doc.destination}`,
         m(r.doc.totalIncomePaise),
@@ -828,7 +829,9 @@ const vehicleProfit: ReportDef = {
     const rows =
       opt === "month" || opt === "day"
         ? (await pnlByPeriod(godownId, opt, from, to)).reverse().map((r) => line(r.period, r.pnl))
-        : (await vehicleSummaries(godownId, from, to)).map((r) => line(r.vehicle.number, r.pnl));
+        : (await vehicleSummaries(godownId, from, to)).map((r) =>
+            line(displayVehicleNumber(r.vehicle.number), r.pnl),
+          );
     return withTotals(columns, rows, t, {
       chart: {
         labels: rows.map((r) => r[0] as string),

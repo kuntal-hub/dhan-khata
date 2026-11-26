@@ -12,6 +12,7 @@ import { paymentsOf, stateOf } from "@/client/queries/purchases";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function SaleInvoice() {
   const { t, money, digits, count, date } = useI18n();
@@ -58,7 +59,9 @@ function SaleInvoice() {
           : []),
         [t("sl.rate"), money(BigInt(doc.ratePaisePerQtl))],
         ...(doc.vehicleNumber
-          ? ([[t("sl.vehicle"), doc.vehicleNumber]] as Array<[string, string]>)
+          ? ([[t("sl.vehicle"), displayVehicleNumber(doc.vehicleNumber)]] as Array<
+              [string, string]
+            >)
           : []),
         ...payments.map(
           (p) =>

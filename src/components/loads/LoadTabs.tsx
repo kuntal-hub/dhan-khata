@@ -19,6 +19,7 @@ import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { groupLoads, loadRows, type LoadGroupBy, type LoadRow } from "@/client/queries/loads";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function LoadCard({ r, index }: { r: LoadRow; index: number }) {
   const { t, date, digits } = useI18n();
@@ -33,7 +34,7 @@ function LoadCard({ r, index }: { r: LoadRow; index: number }) {
       index={index}
       icon={ClipboardList}
       tone="gold"
-      title={`${r.doc.vehicleNumber}${r.from ? ` · ${r.from.name}` : ""}`}
+      title={`${displayVehicleNumber(r.doc.vehicleNumber)}${r.from ? ` · ${r.from.name}` : ""}`}
       subtitle={`${varietyName(r.variety, t)} · ${qtl} ${t("ui.unitQtlShort")}${r.mill ? ` → ${r.mill.name}` : ""}`}
       date={`${date(r.doc.transactionDate, "short")} · ${r.doc.number}`}
       amountPaise={BigInt(r.doc.totalPaise)}

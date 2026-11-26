@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
-import { useState, type FormEvent, type ReactNode } from "react";
+import { useEffect, useRef, useState, type FormEvent, type ReactNode } from "react";
 import { ArrowLeft, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -55,9 +55,50 @@ export function FormShell({
     else router.back();
   };
   const back = () => (dirty ? setConfirmLeave(true) : leave());
+  const bodyRef = useRef<HTMLDivElement>(null);
+  const stopWatch = useRef<(() => void) | null>(null);
+  useEffect(() => () => stopWatch.current?.(), []);
+  /**
+   * Save is in the sticky bar, but a warning or error ("stock will go negative — save anyway",
+   * a missing field, a refused save) can render far down a long form. After a submit, the first
+   * alert that shows up is scrolled into view, so tapping Save never looks like nothing happened.
+   */
+  const revealAlerts = () => {
+    stopWatch.current?.();
+    const body = bodyRef.current;
+    if (!body || typeof MutationObserver === "undefined") return;
+    const before = new Set(body.querySelectorAll('[role="alert"]'));
+    const check = () => {
+      const el = [...body.querySelectorAll<HTMLElement>('[role="alert"]')].find(
+        (a) => !before.has(a),
+      );
+      if (!el) return;
+      el.scrollIntoView({ block: "center", behavior: "smooth" });
+      stop();
+    };
+    const obs = new MutationObserver(check);
+    obs.observe(body, { childList: true, subtree: true });
+    const timer = window.setTimeout(() => stop(), 4000);
+    // Saved again with the same warning still showing: nothing new appears, so show that one.
+    const again = window.setTimeout(() => {
+      body.querySelector<HTMLElement>('[role="alert"]')?.scrollIntoView({
+        block: "center",
+        behavior: "smooth",
+      });
+    }, 600);
+    const stop = () => {
+      obs.disconnect();
+      window.clearTimeout(timer);
+      window.clearTimeout(again);
+      stopWatch.current = null;
+    };
+    stopWatch.current = stop;
+  };
   const submit = (e: FormEvent) => {
     e.preventDefault();
-    if (!saving) onSubmit();
+    if (saving) return;
+    revealAlerts();
+    onSubmit();
   };
 
   return (
@@ -80,7 +121,10 @@ export function FormShell({
         <h1 className="min-w-0 flex-1 truncate text-lg font-bold drop-shadow-sm">{title}</h1>
       </header>
       <form className="flex min-h-0 flex-1 flex-col" onSubmit={submit} noValidate>
-        <div className="anim-rise mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col gap-4 overflow-y-auto p-4 pb-8">
+        <div
+          ref={bodyRef}
+          className="anim-rise mx-auto flex min-h-0 w-full max-w-md flex-1 flex-col gap-4 overflow-y-auto p-4 pb-8"
+        >
           {restoreBanner}
           {children}
         </div>

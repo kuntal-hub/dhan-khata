@@ -10,6 +10,7 @@ import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function LoadSlip() {
   const { t, money, digits, count } = useI18n();
@@ -35,7 +36,7 @@ function LoadSlip() {
   const net = BigInt(doc.weight.netG);
   const bags = doc.weight.mode === "BAGS" ? (doc.weight.bags ?? []) : [];
   const rows: Array<[string, string]> = [
-    [t("ld.vehicle"), doc.vehicleNumber],
+    [t("ld.vehicle"), displayVehicleNumber(doc.vehicleNumber)],
     ...(doc.driverName ? ([[t("ld.driver"), doc.driverName]] as Array<[string, string]>) : []),
     ...(from ? ([[t("ld.from"), from.name]] as Array<[string, string]>) : []),
     ...(mill ? ([[t("ld.mill"), mill.name]] as Array<[string, string]>) : []),

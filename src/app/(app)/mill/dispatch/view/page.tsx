@@ -26,6 +26,7 @@ import { dispatchDetail } from "@/client/queries/mill";
 import { voidDoc } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function Detail() {
   const { t, money, date, digits, count } = useI18n();
@@ -98,7 +99,9 @@ function Detail() {
           {doc.dueDate ? <Cell label={t("mill.dueDate")}>{date(doc.dueDate, "short")}</Cell> : null}
           {doc.vehicleNumber || doc.driverName ? (
             <Cell label={t("mill.vehicle")}>
-              {[doc.vehicleNumber, doc.driverName].filter(Boolean).join(" · ")}
+              {[doc.vehicleNumber && displayVehicleNumber(doc.vehicleNumber), doc.driverName]
+                .filter(Boolean)
+                .join(" · ")}
             </Cell>
           ) : null}
           {mill?.phone ? (

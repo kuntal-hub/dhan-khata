@@ -26,6 +26,7 @@ import { voidDoc } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
 import type { Payment } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function Detail() {
   const { t, money, date, digits, count } = useI18n();
@@ -76,7 +77,7 @@ function Detail() {
   return (
     <div className="flex flex-col gap-4" data-testid="trip-detail">
       <PageTitle
-        title={`${vehicle?.number ?? ""}${customer ? ` · ${customer.name}` : ""}`}
+        title={`${vehicle ? displayVehicleNumber(vehicle.number) : ""}${customer ? ` · ${customer.name}` : ""}`}
         subtitle={`${t("veh.title", { number: doc.number })} · ${date(doc.transactionDate)}`}
         back="/vehicles"
         actions={

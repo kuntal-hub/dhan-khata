@@ -9,7 +9,7 @@ import {
   useState,
   type ReactNode,
 } from "react";
-import type { DigitStyle } from "@/domain/digits";
+import { applyDigits, type DigitStyle } from "@/domain/digits";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
 import {
   formatCount,
@@ -120,11 +120,17 @@ export function I18nProvider({ children }: { children: ReactNode }) {
       digits,
       weight,
       t: (key, vars) => {
-        // `{count}` is shown in the user's digit style; plural selection uses the number.
-        if (vars && typeof vars.count === "number") {
-          return translate(lang, key, { ...vars, countDisplay: formatCount(vars.count, prefs) });
+        if (!vars) return translate(lang, key);
+        // Every number placeholder is shown in the user's digit style ("১টি ট্রিপ", never
+        // "1টি"); digits only, no grouping (a year stays "২০২৬"). `{count}` stays numeric for
+        // plural selection and shows the grouped `countDisplay`.
+        const shown: TVars = {};
+        for (const [k, v] of Object.entries(vars)) {
+          shown[k] =
+            typeof v === "number" && k !== "count" ? applyDigits(String(v), prefs.digits) : v;
         }
-        return translate(lang, key, vars);
+        if (typeof vars.count === "number") shown.countDisplay = formatCount(vars.count, prefs);
+        return translate(lang, key, shown);
       },
       money: (p, symbol = true) => formatMoney(p, prefs, symbol),
       weightOf: (g) => formatWeight(g, prefs),

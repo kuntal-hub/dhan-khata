@@ -27,6 +27,7 @@ import { linkCandidates, type Load } from "@/client/queries/loads";
 import { activeLinkOf, linkLoad, unlinkLoad, voidDoc, type LoadLinkType } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
+import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
 function LinkSheet({
   load,
@@ -80,7 +81,7 @@ function LinkSheet({
                       monKg: business?.monKg,
                     })}{" "}
                     {t("ui.unitQtlShort")} · {money(BigInt(amount))}
-                    {c.doc.vehicleNumber ? ` · ${c.doc.vehicleNumber}` : ""}
+                    {c.doc.vehicleNumber ? ` · ${displayVehicleNumber(c.doc.vehicleNumber)}` : ""}
                   </span>
                 </button>
               </li>
@@ -131,7 +132,7 @@ function Detail() {
   return (
     <div className="flex flex-col gap-4" data-testid="load-detail">
       <PageTitle
-        title={doc.vehicleNumber}
+        title={displayVehicleNumber(doc.vehicleNumber)}
         subtitle={`${t("ld.title", { number: doc.number })} · ${date(doc.transactionDate)}`}
         back="/loads"
         actions={voided ? <StatusPill status="VOID" /> : null}

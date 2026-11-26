@@ -12,7 +12,7 @@ import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
 
 function PurchaseReceipt() {
-  const { t, money, digits, count } = useI18n();
+  const { t, money, digits, count, date } = useI18n();
   const id = useParam("id");
   const { godown } = useActiveGodown();
   const business = useBusiness();
@@ -58,7 +58,7 @@ function PurchaseReceipt() {
         ...payments.map(
           (p) =>
             [
-              `${t("pay.date")} ${p.paymentDate} · ${t(`pay.${p.mode}`)}`,
+              `${t("pay.date")} ${date(p.paymentDate, "short")} · ${t(`pay.${p.mode}`)}`,
               money(BigInt(p.amountPaise)),
             ] as [string, string],
         ),

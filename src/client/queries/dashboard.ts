@@ -354,6 +354,8 @@ const PARTY_OF = (doc: Doc): string | undefined => {
       return doc.millPartyId;
     case "TRIP":
       return doc.customerPartyId;
+    case "LOAD":
+      return doc.fromPartyId;
     default:
       return undefined;
   }

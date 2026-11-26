@@ -269,7 +269,7 @@ const NEXT: Record<DeliveryStatus, DeliveryStatus | null> = {
 };
 
 export function DeliveryBoard() {
-  const { t } = useI18n();
+  const { t, count } = useI18n();
   const { godownId } = useActiveGodown();
   const { readOnly } = useWriteGodown();
   const [tab, setTab] = useState<DeliveryStatus | "ALL">("PENDING");
@@ -305,7 +305,7 @@ export function DeliveryBoard() {
         {DELIVERY.map((d) => (
           <Chip key={d} on={tab === d} onClick={() => setTab(d)} testId={`delivery-tab-${d}`}>
             {t(`sl.delivery.${d}` as TKey)}
-            {counts?.get(d) ? ` · ${counts.get(d)}` : ""}
+            {counts?.get(d) ? ` · ${count(counts.get(d)!)}` : ""}
           </Chip>
         ))}
         <Chip on={tab === "ALL"} onClick={() => setTab("ALL")}>

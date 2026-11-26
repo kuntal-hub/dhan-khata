@@ -572,7 +572,7 @@ function OpeningStockSheet({
       <RateInput label={t("stk.rate")} value={rate} onChange={setRate} testId="opening-rate" />
       {error ? <p className="text-destructive text-sm">{error}</p> : null}
       <Button className="h-12 text-base" onClick={() => void save()} data-testid="opening-save">
-        {t("pay.save")}
+        {t("common.save")}
       </Button>
     </BottomSheet>
   );
