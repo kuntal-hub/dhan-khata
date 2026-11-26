@@ -50,7 +50,7 @@ export const OutboxOpSchema = z.strictObject({
   godownId: Id.nullable(),
   entity: z.string(),
   entityId: Id,
-  op: z.enum(["upsert", "void"]),
+  op: z.enum(["upsert", "void", "dueDate"]),
   baseRev: z.number().int().min(0),
   payload: z.unknown(),
   createdAt: IsoTimestamp,

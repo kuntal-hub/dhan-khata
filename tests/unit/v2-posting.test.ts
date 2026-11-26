@@ -77,7 +77,7 @@ describe("posting per event", () => {
     ]);
   });
 
-  it("consignment: dispatch is not a sale; the settlement sale leaves MILL stock", () => {
+  it("mill dispatch: the mill owes us (Dr PARTY / Cr MILL_SALES), cost to COGS, no cash", () => {
     const op = opening(D, [
       {
         kind: "STOCK",
@@ -92,6 +92,7 @@ describe("posting per event", () => {
       "MILL_DISPATCH",
       D,
       {
+        // A v2.0 type is kept on old records but ignored by posting.
         dispatchType: "CONSIGNMENT",
         millPartyId: "M1",
         dispatchDate: D,
@@ -104,42 +105,52 @@ describe("posting per event", () => {
     );
     expect(di.totalValuePaise).toBe((50_000n * RS).toString());
     const diLines = balanced(di);
-    expect(acct(diLines, "PARTY:M1")).toBe(0n);
+    expect(acct(diLines, "PARTY:M1")).toBe(50_000n * RS);
+    expect(acct(diLines, "MILL_SALES")).toBe(-50_000n * RS);
     expect(acct(diLines, "SALES")).toBe(0n);
-    const adv = payment(
+    expect(acct(diLines, "CASH")).toBe(0n);
+    expect(cashEffects(di)).toEqual([]);
+    const col = payment(
       D,
       "IN",
       10_000n * RS,
       { type: "MILL_DISPATCH", id: di._id },
       { partyId: "M1" },
     );
-    const settle = sale(
-      "2026-11-22",
-      "M1",
-      "V1",
-      18n * QTL,
-      2550n * RS,
-      {},
-      {
-        source: "MILL",
-        sourceMillId: "M1",
-        consignmentDispatchId: di._id,
-      },
-    );
-    const { lines, moves } = deriveAll([op, di, adv, settle]);
-    expect(qtyAt(moves, { product: "PADDY", location: "MILL" })).toBe(2n * QTL);
+    expect(acct(balanced(col), "CASH")).toBe(10_000n * RS);
+    // Final settlement: 18 qtl accepted at 2,550, 2 qtl short → cut 50,000 − 45,900 = 4,100.
+    const st = doc("MILL_SETTLEMENT", "2026-11-22", {
+      dispatchId: di._id,
+      millPartyId: "M1",
+      varietyId: "V1",
+      dispatchRatePaisePerQtl: di.ratePaisePerQtl,
+      transactionDate: "2026-11-22",
+      acceptedG: (18n * QTL).toString(),
+      finalRatePaisePerQtl: (2550n * RS).toString(),
+      deductionPaise: "0",
+      shortfallG: (2n * QTL).toString(),
+      shortfallReason: "WEIGHING",
+      billedPaise: "0",
+      finalValuePaise: "0",
+      adjustmentPaise: "0",
+    });
+    expect(st.adjustmentPaise).toBe((4_100n * RS).toString());
+    const { lines, moves } = deriveAll([op, di, col, st]);
+    expect(qtyAt(moves, { product: "PADDY", location: "MILL" })).toBe(0n);
     expect(qtyAt(moves, { product: "PADDY", location: "WAREHOUSE" })).toBe(10n * QTL);
-    const mill = sumBig(
-      lines
-        .filter((l) => l.account === "PARTY:M1")
-        .map((l) => BigInt(l.debitPaise) - BigInt(l.creditPaise)),
-    );
-    expect(mill).toBe((18n * 2550n - 10_000n) * RS);
-    // Mill stock value is consumed at average cost (60,000 / 30 qtl = 2,000 per qtl).
-    const cogs = sumBig(lines.filter((l) => l.account === "COGS").map((l) => BigInt(l.debitPaise)));
-    expect(cogs).toBe(36_000n * RS);
+    const sum = (a: string) =>
+      sumBig(
+        lines
+          .filter((l) => l.account === a)
+          .map((l) => BigInt(l.debitPaise) - BigInt(l.creditPaise)),
+      );
+    expect(sum("PARTY:M1")).toBe((45_900n - 10_000n) * RS);
+    expect(sum("MILL_DEDUCTION")).toBe(4_100n * RS);
+    // Cost of the 20 qtl at average (60,000 / 30 qtl = 2,000 per qtl), once, at dispatch.
+    expect(sum("COGS")).toBe(40_000n * RS);
+    // No sale is ever created.
+    expect(lines.some((l) => l.account === "SALES")).toBe(false);
   });
-
   it("expense: with a party → PARTY; without → EXP_PAYABLE; payments clear them", () => {
     const e1 = doc("EXPENSE", D, {
       title: "লেবার",
@@ -299,15 +310,31 @@ describe("posting per event", () => {
 });
 
 describe("dues", () => {
-  it("statuses: paid / partial / unpaid / overdue", () => {
+  it("statuses: paid / partial / unpaid, overdue an extra flag (D54)", () => {
     const p = purchase(D, "F1", "V1", QTL, 1000n * RS, {}, { dueDate: "2026-11-22" });
     const [b] = billsOf(p);
-    expect(billState(b!, [], "2026-11-21").status).toBe("UNPAID");
-    expect(billState(b!, [], "2026-11-25")).toMatchObject({ status: "OVERDUE", overdueDays: 3 });
+    expect(billState(b!, [], "2026-11-21")).toMatchObject({ status: "UNPAID", overdue: false });
+    // On the due date itself: not overdue yet.
+    expect(billState(b!, [], "2026-11-22")).toMatchObject({ status: "UNPAID", overdue: false });
+    expect(billState(b!, [], "2026-11-25")).toMatchObject({
+      status: "UNPAID",
+      overdue: true,
+      overdueDays: 3,
+    });
     const half = payment(D, "OUT", 500n * RS, { type: "PURCHASE", id: p._id }, { partyId: "F1" });
     expect(billState(b!, [half], "2026-11-21").status).toBe("PARTIAL");
+    // Partly paid AND overdue: both, the status is not replaced.
+    expect(billState(b!, [half], "2026-11-25")).toMatchObject({ status: "PARTIAL", overdue: true });
     const rest = payment(D, "OUT", 500n * RS, { type: "PURCHASE", id: p._id }, { partyId: "F1" });
-    expect(billState(b!, [half, rest], "2026-11-25").status).toBe("PAID");
+    // Fully paid is never overdue.
+    expect(billState(b!, [half, rest], "2026-11-25")).toMatchObject({
+      status: "PAID",
+      overdue: false,
+      overdueDays: 0,
+    });
+    // No due date = never overdue.
+    const [noDue] = billsOf(purchase(D, "F1", "V1", QTL, 1000n * RS));
+    expect(billState(noDue!, [], "2027-06-01")).toMatchObject({ status: "UNPAID", overdue: false });
     const voided = { ...rest, status: "void" as const };
     expect(billState(b!, [half, voided], "2026-11-21").duePaise).toBe(500n * RS);
   });

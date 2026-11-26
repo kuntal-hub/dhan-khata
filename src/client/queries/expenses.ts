@@ -120,15 +120,16 @@ export async function expenseRows(godownId: string, f: ExpenseFilter = {}): Prom
     );
 }
 
-/** Unpaid / part-paid expenses, earliest due first (then oldest). */
+/** Unpaid / part-paid expenses, oldest first (expenses carry no due date, D54). */
 export async function unpaidExpenses(godownId: string): Promise<ExpenseRow[]> {
   const rows = await expenseRows(godownId, { status: "OPEN" });
-  return rows.sort((a, b) => {
-    const da = a.doc.dueDate ?? "9999";
-    const dbb = b.doc.dueDate ?? "9999";
-    if (da !== dbb) return da < dbb ? -1 : 1;
-    return a.doc.expenseDate < b.doc.expenseDate ? -1 : 1;
-  });
+  return rows.sort((a, b) =>
+    a.doc.expenseDate === b.doc.expenseDate
+      ? a.doc.createdAt.localeCompare(b.doc.createdAt)
+      : a.doc.expenseDate < b.doc.expenseDate
+        ? -1
+        : 1,
+  );
 }
 
 export function expenseTotals(rows: readonly ExpenseRow[]): {

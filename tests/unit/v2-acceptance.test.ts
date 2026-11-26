@@ -130,12 +130,11 @@ function stockStory() {
   const pu = purchase(d("11-20"), "F1", "V1", 56n * QTL, 2400n * RS);
   const sa = sale(d("11-21"), "C1", "V1", 10n * QTL, 2600n * RS);
   const di = doc("MILL_DISPATCH", d("11-22"), {
-    dispatchType: "MILLING",
     millPartyId: "M1",
     dispatchDate: d("11-22"),
     varietyId: "V1",
     weight: manual(20n * QTL),
-    ratePaisePerQtl: (50n * RS).toString(),
+    ratePaisePerQtl: (2600n * RS).toString(),
     totalValuePaise: "0",
   });
   return { op, pu, sa, di };
@@ -148,10 +147,11 @@ describe("Test 2: stock", () => {
     expect(qtyAt(moves, { product: "PADDY", location: "WAREHOUSE" })).toBe(126n * QTL);
     expect(qtyAt(moves, { product: "PADDY", location: "MILL" })).toBe(20n * QTL);
     expect(qtyAt(moves, { product: "PADDY", location: "MILL", millPartyId: "M1" })).toBe(20n * QTL);
-    // A dispatch is never a sale: no SALES line, no receivable from the mill for the paddy.
+    // v2.1: the mill pays for the paddy: MILL_SALES (not a Sales-section sale), and the mill
+    // owes us 20 qtl × ₹2,600 (পাওনা).
     expect(lines.filter((l) => l.voucherId === di._id && l.account === "SALES")).toEqual([]);
-    // Milling charges are payable to the mill: 20 qtl × ₹50.
-    expect(partyBalance(lines, "M1")).toBe(-1_000n * RS);
+    expect(ledgerBalance(lines, "MILL_SALES")).toBe(-52_000n * RS);
+    expect(partyBalance(lines, "M1")).toBe(52_000n * RS);
     // Daily lines on the dispatch day.
     const day = paddyDay(moves, d("11-22"));
     expect(day.openingG).toBe(146n * QTL);
@@ -198,7 +198,7 @@ describe("Test 3: mill return", () => {
     expect(dispatchBalance(di, [di, ret, rice]).remainingG).toBe(15n * QTL);
   });
 
-  it("milling conversion removes the consumed paddy from mill stock and moves its value", () => {
+  it("milling conversion removes the consumed paddy from mill stock (stock only)", () => {
     const { op, pu, sa, di } = stockStory();
     const rice = doc("MILL_RETURN", d("11-24"), {
       dispatchId: di._id,
@@ -221,12 +221,8 @@ describe("Test 3: mill return", () => {
     const { moves, lines } = deriveAll([op, pu, sa, di, rice, conv]);
     expect(qtyAt(moves, { product: "PADDY", location: "MILL" })).toBe(0n);
     expect(qtyAt(moves, { product: "RICE" })).toBe(13n * QTL);
-    // The conversion is balanced and empties the mill's stock value.
-    const convLines = lines.filter((l) => l.voucherId === conv._id);
-    expect(sumBig(convLines.map((l) => BigInt(l.debitPaise)))).toBe(
-      sumBig(convLines.map((l) => BigInt(l.creditPaise))),
-    );
-    expect(ledgerBalance(lines, "STOCK_AT_MILL:M1")).toBe(0n);
+    // v2.1: stock only — the paddy's cost is already in COGS, so nothing is posted.
+    expect(lines.filter((l) => l.voucherId === conv._id)).toEqual([]);
   });
 });
 

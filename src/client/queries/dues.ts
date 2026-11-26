@@ -1,15 +1,21 @@
 /**
- * Due & Advance reads (requirement_v2 §12.6): one unified view over parties, their bills and
+ * Due & Advance reads (requirement_v2.1 §12.6): one unified view over parties, their bills and
  * payments. Nothing here is stored.
  *  - The remaining amount of a party IS its ledger balance (so "Due totals == ledger" always).
  *  - Bill totals / paid / earliest due / overdue come from the party's open bills (`dueBillsOf`:
- *    a consignment's expected value and an order are not owed, DECISIONS D39 / D3).
- *  - Categories follow the party's roles and the balance sign (DECISIONS D33 / D41).
- *  - Reminders: automatic from open bills' due dates + manual ones, with the owner's state.
+ *    an order is not owed (D3); a mill dispatch is netted by its returns and final settlement).
+ *  - Categories follow the balance SIGN first (> 0 they owe us, < 0 we owe them), then the
+ *    party's role picks the tab (DECISIONS D41, v2.1). A mill is a debtor: a positive mill
+ *    balance is "মিলের কাছে পাওনা"; a negative one (it paid too much) is "মিলকে ফেরত দিতে হবে"
+ *    under অন্যান্য, never a receivable.
+ *  - Reminders: automatic from open deals' due dates (purchase, sale, mill dispatch: D54) + manual
+ *    ones. An automatic reminder's date is always the deal's; the owner's stored done / snooze
+ *    state counts only while it was made for that same date (`autoReminderState`).
  */
 import { addDays, diffDays, todayIST } from "@/domain/dates";
 import { AGING_BUCKETS, agingBucketOf, type AgingBucket } from "@/domain/aging";
-import { billState, dueBillsOf, type BillState } from "@/domain/v2/payments";
+import { autoReminderState } from "@/domain/v2/dueDate";
+import { billState, dueBillsOf, millCredits, type BillState } from "@/domain/v2/payments";
 import type { Doc, Party, PartyRole, Payment, Reminder } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { godownBalances } from "./ledger";
@@ -23,23 +29,31 @@ export const DUE_CATEGORIES: readonly DueCategory[] = [
   "other",
 ];
 
-const SALES_SIDE: readonly PartyRole[] = ["CUSTOMER", "MILL", "VEHICLE_CUSTOMER", "GOLA"];
+const CUSTOMER_SIDE: readonly PartyRole[] = ["CUSTOMER", "VEHICLE_CUSTOMER", "GOLA"];
 const BUY_SIDE: readonly PartyRole[] = ["FARMER", "SUPPLIER"];
 const has = (roles: readonly PartyRole[], list: readonly PartyRole[]) =>
   roles.some((r) => list.includes(r));
 
-/** Which Due & Advance tab a party belongs to (null when settled). */
+/** Which Due & Advance tab a party belongs to (null when settled). Sign first, then role. */
 export function dueCategory(roles: readonly PartyRole[], balancePaise: bigint): DueCategory | null {
   if (balancePaise === 0n) return null;
   if (balancePaise > 0n) {
-    if (has(roles, SALES_SIDE)) return "receivable";
+    // They owe us (পাওনা).
+    if (roles.includes("MILL")) return "mill";
+    if (has(roles, CUSTOMER_SIDE)) return "receivable";
     if (has(roles, BUY_SIDE)) return "advance";
     return "other";
   }
-  if (roles.includes("MILL")) return "mill";
+  // We owe them (দেনা). A mill here paid more than it owed: to refund, shown under অন্যান্য.
+  if (roles.includes("MILL")) return "other";
   if (has(roles, BUY_SIDE)) return "payable";
   if (roles.includes("CUSTOMER") || roles.includes("VEHICLE_CUSTOMER")) return "advance";
   return "other";
+}
+
+/** A mill that paid more than it owed (the "মিলকে ফেরত দিতে হবে" label). */
+export function isMillRefundDue(roles: readonly PartyRole[], balancePaise: bigint): boolean {
+  return balancePaise < 0n && roles.includes("MILL");
 }
 
 export interface OpenBill {
@@ -108,6 +122,7 @@ function partyOf(d: Doc): string | undefined {
       return d.partyId;
     case "MILL_DISPATCH":
     case "MILL_RETURN":
+    case "MILL_SETTLEMENT":
       return d.millPartyId;
     case "TRIP":
       return d.customerPartyId;
@@ -125,6 +140,7 @@ export async function partyDues(godownId: string, today = todayIST()): Promise<P
     godownBalances(godownId),
   ]);
   const pays = bySource(docs);
+  const credits = millCredits(docs);
   const bills = new Map<string, OpenBill[]>();
   const totals = new Map<string, { total: bigint; paid: bigint }>();
   const opening = new Map<string, bigint>();
@@ -141,7 +157,7 @@ export async function partyDues(godownId: string, today = todayIST()): Promise<P
           opening.set(it.refId, (opening.get(it.refId) ?? 0n) + BigInt(it.amountPaise));
       }
     }
-    for (const b of dueBillsOf(doc)) {
+    for (const b of dueBillsOf(doc, credits)) {
       if (!b.partyId) continue;
       const st = billState(b, pays.get(b.sourceId) ?? [], today);
       const t = totals.get(b.partyId) ?? { total: 0n, paid: 0n };
@@ -226,9 +242,10 @@ export async function openBillsOf(
 ): Promise<OpenBill[]> {
   const docs = await golaDocs(godownId);
   const pays = bySource(docs);
+  const credits = millCredits(docs);
   const out: OpenBill[] = [];
   for (const doc of docs) {
-    for (const b of dueBillsOf(doc)) {
+    for (const b of dueBillsOf(doc, credits)) {
       if (b.partyId !== partyId || b.direction !== direction) continue;
       const st = billState(b, pays.get(b.sourceId) ?? [], today);
       if (st.duePaise > 0n) out.push({ doc, state: st });
@@ -281,24 +298,25 @@ export async function reminderRows(godownId: string, today = todayIST()): Promis
   const p = new Map(parties.map((x) => [x._id, x] as const));
   const state = new Map(stored.map((r) => [r._id, r] as const));
   const pays = bySource(docs);
+  const credits = millCredits(docs);
   const out: ReminderRow[] = [];
   for (const doc of docs) {
-    for (const b of dueBillsOf(doc)) {
+    for (const b of dueBillsOf(doc, credits)) {
       if (!b.dueDate) continue;
       const st = billState(b, pays.get(b.sourceId) ?? [], today);
       if (st.duePaise <= 0n) continue;
       const id = `auto:${b.sourceId}`;
-      const s = state.get(id);
+      const s = autoReminderState(b.dueDate, state.get(id));
       out.push({
         id,
         kind: b.direction === "IN" ? "COLLECT" : "PAY",
         auto: true,
         ...(b.partyId && p.get(b.partyId) ? { party: p.get(b.partyId) } : {}),
-        dueDate: s?.dueDate ?? b.dueDate,
+        dueDate: b.dueDate,
         amountPaise: st.duePaise,
         title: "",
-        status: s?.status ?? "open",
-        ...(s?.snoozeUntil ? { snoozeUntil: s.snoozeUntil } : {}),
+        status: s.status,
+        ...(s.snoozeUntil ? { snoozeUntil: s.snoozeUntil } : {}),
         source: { type: b.sourceType, id: b.sourceId },
         doc,
       });

@@ -81,11 +81,16 @@ describe("documents", () => {
     await expect(
       saveDoc(GA, paymentDraft("OUT", 100n, { type: "PURCHASE", id: p._id }, { partyId: G.mill })),
     ).rejects.toMatchObject({ code: "SOURCE_MISMATCH" });
+    // The direction comes from the source type (v2.1 direction map).
     await expect(
       saveDoc(GA, paymentDraft("IN", 100n, { type: "PURCHASE", id: p._id }, { partyId: G.farmer })),
-    ).rejects.toMatchObject({ code: "SOURCE_MISMATCH" });
+    ).rejects.toMatchObject({ code: "PAYMENT_DIRECTION_MISMATCH" });
     await expect(
       saveDoc(GA, paymentDraft("OUT", 100n, { type: "SALE", id: p._id }, { partyId: G.farmer })),
+    ).rejects.toMatchObject({ code: "PAYMENT_DIRECTION_MISMATCH" });
+    // Right direction, wrong kind of source → still refused.
+    await expect(
+      saveDoc(GA, paymentDraft("IN", 100n, { type: "SALE", id: p._id }, { partyId: G.farmer })),
     ).rejects.toMatchObject({ code: "SOURCE_MISMATCH" });
     // Nothing was written by the failed saves.
     expect(await db().vouchers.count()).toBe(1);

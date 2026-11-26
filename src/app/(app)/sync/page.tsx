@@ -121,6 +121,7 @@ function describe(op: OutboxRow, i18n: I18nValue): string {
     const parts = [t(`voucherType.${p.type}` as TKey)];
     if (typeof p.number === "string") parts.push(p.number);
     if (typeof p.date === "string") parts.push(i18n.date(p.date, "short"));
+    if (op.op === "dueDate") parts.push(t("dueF.syncOp"));
     return parts.join(" · ");
   }
   const label = t(`sync.entity.${op.entity}` as TKey);

@@ -1,15 +1,19 @@
 "use client";
 
 /**
- * Party ledger (requirement_v2 §12.6): balance and category, open bills, the chronological ledger
- * from every source with running balance and links (date-range filter), pay / collect across bills,
- * WhatsApp, call, print / share the statement.
+ * Party ledger (requirement_v2 §12.6): balance and category, open bills (each with its due date,
+ * "+ বাকি টাকা দিন" / "+ টাকা পেলাম" and, for a deal, "তারিখ বদলান": D54), the chronological
+ * ledger from every source with running balance and links (date-range filter), pay / collect
+ * across bills, WhatsApp, call, print / share the statement.
  */
 import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { ArrowDownLeft, ArrowUpRight, Phone, Printer } from "lucide-react";
 import { PayAcross } from "@/components/dues/PayAcross";
+import { ChangeDueDateSheet, DUE_LABEL, useDueWhen } from "@/components/entry/DueDate";
+import { AddPaymentSheet } from "@/components/entry/Payments";
+import { StatusPill } from "@/components/kit/Kit";
 import { useDueWhatsApp } from "@/components/dues/DueTabs";
 import { LedgerTable } from "@/components/entry/PartyAccount";
 import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
@@ -22,9 +26,15 @@ import { PageSuspense, ReadOnlyNotice, useParam, useWriteGodown } from "@/compon
 import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown } from "@/client/hooks";
-import { dueCategory, openBillsOf } from "@/client/queries/dues";
+import {
+  dueCategory,
+  isMillRefundDue,
+  openBillsOf,
+  type OpenBill,
+} from "@/client/queries/dues";
 import { partyLedger } from "@/client/queries/purchases";
 import { todayIST } from "@/domain/dates";
+import { isDueDateType } from "@/domain/v2/dueDate";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 
@@ -37,6 +47,9 @@ function PartyLedger() {
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const [paying, setPaying] = useState<"IN" | "OUT" | null>(null);
+  const [payBill, setPayBill] = useState<OpenBill | null>(null);
+  const [dateBill, setDateBill] = useState<OpenBill | null>(null);
+  const when = useDueWhen();
   const data = useLiveQuery(async () => {
     if (!id || !godown) return null;
     const party = await db().parties.get(id);
@@ -64,7 +77,11 @@ function PartyLedger() {
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
             <span className="text-muted-foreground text-sm">
-              {cat ? t(`dues.cat.${cat}` as TKey) : t("mill.spSettled")}
+              {isMillRefundDue(party.roles, balance)
+                ? t("mill.refundDue")
+                : cat
+                  ? t(`dues.cat.${cat}` as TKey)
+                  : t("mill.spSettled")}
             </span>
             <p
               className={`tabular text-3xl font-semibold ${balance > 0n ? "text-emerald-800" : balance < 0n ? "text-red-800" : ""}`}
@@ -118,24 +135,61 @@ function PartyLedger() {
       {open.length ? (
         <Panel title={t("dues.openBills")}>
           <ul className="flex flex-col divide-y text-sm">
-            {open.map((o) => (
-              <li key={o.state.bill.sourceId} className="flex items-center justify-between py-2">
-                <span>
-                  {t(`voucherType.${o.doc.type}` as TKey)} · {o.doc.number}
-                  <span className="text-muted-foreground block text-xs">
-                    {date(o.state.bill.date, "short")}
-                    {o.state.bill.dueDate
-                      ? ` · ${t("dues.dueOn", { date: date(o.state.bill.dueDate, "short") })}`
-                      : ""}
-                  </span>
-                </span>
-                <span
-                  className={`tabular font-semibold ${o.state.bill.direction === "IN" ? "text-money-in" : "text-money-out"}`}
+            {open.map((o) => {
+              const b = o.state.bill;
+              return (
+                <li
+                  key={b.sourceId}
+                  className="flex flex-col gap-2 py-2"
+                  data-testid="open-bill"
+                  data-source={b.sourceId}
                 >
-                  {money(o.state.duePaise)}
-                </span>
-              </li>
-            ))}
+                  <div className="flex items-center justify-between gap-2">
+                    <span className="min-w-0">
+                      {t(`voucherType.${o.doc.type}` as TKey)} · {o.doc.number}
+                      <span
+                        className={`block text-xs ${o.state.overdue ? "font-semibold text-red-700" : "text-muted-foreground"}`}
+                      >
+                        {date(b.date, "short")}
+                        {b.dueDate
+                          ? ` · ${t("dues.dueOn", { date: date(b.dueDate, "short") })} (${when(b.dueDate)})`
+                          : ""}
+                      </span>
+                    </span>
+                    <span className="flex shrink-0 items-center gap-1.5">
+                      {o.state.overdue ? <StatusPill status="OVERDUE" /> : null}
+                      <span
+                        className={`tabular font-semibold ${b.direction === "IN" ? "text-money-in" : "text-money-out"}`}
+                      >
+                        {money(o.state.duePaise)}
+                      </span>
+                    </span>
+                  </div>
+                  {readOnly ? null : (
+                    <div className="no-print flex flex-wrap gap-2">
+                      <Button
+                        variant="outline"
+                        className="h-11"
+                        onClick={() => setPayBill(o)}
+                        data-testid="open-bill-pay"
+                      >
+                        {b.direction === "OUT" ? t("pur.addDuePayment") : t("sl.addCollection")}
+                      </Button>
+                      {isDueDateType(o.doc.type) ? (
+                        <Button
+                          variant="outline"
+                          className="h-11"
+                          onClick={() => setDateBill(o)}
+                          data-testid="open-bill-due-date"
+                        >
+                          {b.dueDate ? t("dueF.change") : t("dueF.set")}
+                        </Button>
+                      ) : null}
+                    </div>
+                  )}
+                </li>
+              );
+            })}
           </ul>
         </Panel>
       ) : null}
@@ -193,6 +247,29 @@ function PartyLedger() {
           testId="due-ledger"
         />
       </Panel>
+      {payBill ? (
+        <AddPaymentSheet
+          open
+          onOpenChange={(o) => !o && setPayBill(null)}
+          godownId={godown._id}
+          source={payBill.doc}
+          duePaise={payBill.state.duePaise}
+          direction={payBill.state.bill.direction}
+          totalPaise={payBill.state.bill.totalPaise}
+          paidPaise={payBill.state.paidPaise}
+          {...(payBill.state.bill.sourceId !== payBill.doc._id
+            ? { sourceId: payBill.state.bill.sourceId }
+            : {})}
+        />
+      ) : null}
+      {dateBill && isDueDateType(dateBill.doc.type) ? (
+        <ChangeDueDateSheet
+          godownId={godown._id}
+          doc={dateBill.doc}
+          label={t(DUE_LABEL[dateBill.doc.type])}
+          onClose={() => setDateBill(null)}
+        />
+      ) : null}
       {paying ? (
         <BottomSheet
           open

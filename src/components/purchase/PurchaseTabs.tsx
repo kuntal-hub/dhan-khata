@@ -26,7 +26,7 @@ import {
 import { mergeVarieties, upsertMaster } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
 import { VARIETY_COMPANIES, type Variety } from "@/domain/schemas";
-import type { PayStatus } from "@/domain/v2/payments";
+import { displayStatus, type PayFilter } from "@/domain/v2/payments";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { useWriteGodown } from "@/components/system/page";
@@ -36,7 +36,7 @@ export function PurchaseList() {
   const { godownId } = useActiveGodown();
   const business = useBusiness();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<PayStatus | "ALL">("ALL");
+  const [status, setStatus] = useState<PayFilter | "ALL">("ALL");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const dq = useDeferredValue(q);
@@ -133,7 +133,7 @@ export function PurchaseList() {
                 subtitle={`${varietyName(r.variety, t)} · ${formatWeightNumber(BigInt(r.doc.weight.netG), "QTL", o)} ${t("ui.unitQtlShort")}`}
                 date={`${date(r.doc.transactionDate, "short")} · ${r.doc.number}`}
                 amountPaise={BigInt(r.doc.totalPaise)}
-                status={r.doc.status === "void" ? "VOID" : r.state.status}
+                status={r.doc.status === "void" ? "VOID" : displayStatus(r.state)}
                 href={`/purchase/view?id=${r.doc._id}`}
                 testId="purchase-row"
                 extra={

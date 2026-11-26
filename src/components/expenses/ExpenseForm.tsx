@@ -51,7 +51,6 @@ interface State {
   expenseDate: string;
   payMode: PayMode;
   pay: PayState;
-  dueDate: string;
   notes: string;
   /** Optional: the vehicle this expense is for (shown with that vehicle's costs). */
   vehicleId?: string;
@@ -71,7 +70,6 @@ function initial(existing?: Expense): State {
       expenseDate: existing.expenseDate,
       payMode: "NONE",
       pay: emptyPay(existing.expenseDate),
-      dueDate: existing.dueDate ?? "",
       notes: existing.notes ?? "",
       ...(existing.vehicleId ? { vehicleId: existing.vehicleId } : {}),
     };
@@ -84,7 +82,6 @@ function initial(existing?: Expense): State {
     expenseDate: today,
     payMode: "FULL",
     pay: emptyPay(today),
-    dueDate: "",
     notes: "",
   };
 }
@@ -154,7 +151,6 @@ export function ExpenseForm({
         ...(s.partyId ? { partyId: s.partyId } : {}),
         ...(!s.partyId && s.personText.trim() ? { personText: s.personText.trim() } : {}),
         expenseDate: s.expenseDate,
-        ...(s.dueDate ? { dueDate: s.dueDate } : {}),
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
         ...(s.vehicleId ? { vehicleId: s.vehicleId } : {}),
         ...(existing?.linkedTripId ? { linkedTripId: existing.linkedTripId } : {}),
@@ -487,15 +483,6 @@ export function ExpenseForm({
                 </div>
               </section>
             )}
-            {s.payMode !== "FULL" || existing ? (
-              <DateField
-                label={t("xp.dueDate")}
-                value={s.dueDate}
-                onChange={(dueDate) => set({ dueDate })}
-                testId="expense-due-date"
-                allowFuture
-              />
-            ) : null}
             <FieldBox label={t("xp.notes")}>
               <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
             </FieldBox>

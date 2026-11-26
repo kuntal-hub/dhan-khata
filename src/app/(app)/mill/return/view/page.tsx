@@ -1,17 +1,16 @@
 "use client";
 
 /**
- * Mill return detail (requirement_v2 §12.8C): what came back from which dispatch, bags, optional
- * valuation (stock value only), money received from the mill with "+ টাকা পেলাম", edit, reverse
- * (blocked while a conversion uses it), history.
+ * Mill return detail (requirement_v2.1 §12.8C): what came back from which dispatch, bags, the
+ * credit to the mill (paddy: "মিলের পাওনা ₹X কমবে"; rice / other: stock only), edit, reverse
+ * (blocked while a conversion uses it), history. A return never carries money; money recorded
+ * with a return before v2.1 is listed read-only until the data fix moves it to the dispatch.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { useState } from "react";
 import { Pencil } from "lucide-react";
 import { PaymentList } from "@/components/entry/Payments";
-import { AdvanceSheet } from "@/components/entry/PartyAccount";
 import { varietyName } from "@/components/entry/Variety";
 import { Panel, QtyTriple, StatusPill } from "@/components/kit/Kit";
 import { Loading } from "@/components/lists/common";
@@ -22,7 +21,7 @@ import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { paymentsOf } from "@/client/queries/purchases";
-import { saveDocs, voidDoc, type DocDraft, type PaymentPart } from "@/client/repo";
+import { voidDoc } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -33,7 +32,6 @@ function Detail() {
   const { godown } = useActiveGodown();
   const { readOnly } = useWriteGodown();
   const business = useBusiness();
-  const [receiving, setReceiving] = useState(false);
   const data = useLiveQuery(async () => {
     if (!id) return null;
     const doc = await db().vouchers.get(id);
@@ -60,7 +58,7 @@ function Detail() {
   const o = { digits, monKg: business?.monKg };
   const voided = doc.status === "void";
   const active = payments.filter((p) => p.status === "active");
-  const received = active.reduce((s, p) => s + BigInt(p.amountPaise), 0n);
+  const credit = doc.product === "PADDY" ? BigInt(doc.totalValuePaise ?? "0") : 0n;
   const bags = doc.weight.mode === "BAGS" ? (doc.weight.bags ?? []) : [];
   const product = doc.product === "OTHER" ? (doc.otherProductName ?? "") : t(`mill.${doc.product}`);
 
@@ -88,11 +86,11 @@ function Detail() {
               </Link>
             </Cell>
           ) : null}
-          {doc.totalValuePaise ? (
-            <Cell label={t("mill.value")}>
-              <span className="tabular">{money(BigInt(doc.totalValuePaise))}</span>
-              <span className="text-muted-foreground block text-xs font-normal">
-                {t("mill.valueHint")}
+          {doc.product === "PADDY" ? (
+            <Cell label={t("mill.creditValue")} testId="return-detail-credit">
+              <span className="tabular">{money(credit)}</span>
+              <span className="block text-xs font-normal text-emerald-800">
+                {t("mill.creditEffect", { amount: money(credit) })}
               </span>
             </Cell>
           ) : null}
@@ -119,7 +117,7 @@ function Detail() {
           </div>
         ) : null}
         {doc.product !== "PADDY" ? (
-          <p className="text-muted-foreground mt-3 text-xs">{t("mill.riceOnly")}</p>
+          <p className="text-muted-foreground mt-3 text-xs">{t("mill.riceNoMoney")}</p>
         ) : null}
         {usedBy ? (
           <p className="mt-2 text-sm">
@@ -130,25 +128,11 @@ function Detail() {
         ) : null}
       </Panel>
 
-      <Panel
-        title={t("mill.receivedMoney")}
-        action={
-          !voided && !readOnly ? (
-            <Button
-              className="h-11"
-              onClick={() => setReceiving(true)}
-              data-testid="return-receive"
-            >
-              {t("mill.addReceived")}
-            </Button>
-          ) : null
-        }
-      >
-        {received > 0n ? (
-          <p className="tabular mb-2 text-xl font-semibold text-emerald-800">{money(received)}</p>
-        ) : null}
-        <PaymentList payments={payments} godownId={godown._id} />
-      </Panel>
+      {payments.length ? (
+        <Panel title={t("mill.legacyReceived")}>
+          <PaymentList payments={payments} godownId={godown._id} />
+        </Panel>
+      ) : null}
 
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3">
@@ -175,56 +159,7 @@ function Detail() {
       ) : null}
 
       <HistoryPanel doc={doc} />
-
-      {receiving ? (
-        <ReturnMoneySheet
-          godownId={godown._id}
-          millId={doc.millPartyId}
-          returnId={doc._id}
-          onClose={() => setReceiving(false)}
-          title={t("mill.addReceived")}
-        />
-      ) : null}
     </div>
-  );
-}
-
-/** Money received from the mill against this return (IN, source MILL_RETURN; DECISIONS D10). */
-function ReturnMoneySheet({
-  godownId,
-  millId,
-  returnId,
-  onClose,
-  title,
-}: {
-  godownId: string;
-  millId: string;
-  returnId: string;
-  onClose: () => void;
-  title: string;
-}) {
-  return (
-    <AdvanceSheet
-      godownId={godownId}
-      partyId={millId}
-      direction="IN"
-      title={title}
-      onClose={onClose}
-      onSave={async (part: PaymentPart) => {
-        await saveDocs(godownId, [
-          {
-            draft: {
-              ...part,
-              type: "PAYMENT",
-              direction: "IN",
-              partyId: millId,
-              source: { type: "MILL_RETURN", id: returnId },
-              isInitial: false,
-            } as DocDraft,
-          },
-        ]);
-      }}
-    />
   );
 }
 

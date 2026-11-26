@@ -1,11 +1,11 @@
 "use client";
 
 /**
- * Milling conversion (requirement_v2 §12.8D), MILLING dispatches only: the dispatch, date, paddy
+ * Milling conversion (requirement_v2.1 §12.8D), a STOCK-ONLY record for any dispatch: the dispatch, date, paddy
  * actually milled, the rice / by-product returns that came out of it (picked from that dispatch's
  * returns), and the loss. The app never assumes a ratio: it shows
  * `consumed − outputs = loss` and the user confirms the loss (DECISIONS D11). The yield % is for
- * information. Saving takes the consumed paddy out of mill stock (§9.2).
+ * information. Saving takes the consumed paddy out of mill stock (§9.2); money is not touched.
  */
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
@@ -100,10 +100,11 @@ export function ConversionForm({
 
   const dispatches = useLiveQuery(
     () =>
-      dispatchRows(godown._id, { type: "MILLING" }).then((rows) =>
+      dispatchRows(godown._id).then((rows) =>
         rows.filter(
           (r) =>
-            r.doc._id === s.dispatchId || (r.doc.status === "active" && r.balance.remainingG > 0n),
+            r.doc._id === s.dispatchId ||
+            (r.doc.status === "active" && r.balance.remainingG > 0n && !r.settlement),
         ),
       ),
     [godown._id, s.dispatchId],
@@ -211,7 +212,7 @@ export function ConversionForm({
       <div className="flex flex-col gap-5 pb-6">
         <FieldBox
           label={t("mill.convDispatch")}
-          hint={t("mill.convOnlyMilling")}
+          hint={t("mill.convStockOnly")}
           error={showErrors && !s.dispatchId ? t("acct.required") : null}
         >
           {dispatches && dispatches.length === 0 ? (

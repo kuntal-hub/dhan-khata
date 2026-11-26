@@ -31,6 +31,8 @@ import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
 import { DateField, FieldBox, PartyPicker, Segmented } from "@/components/entry/Fields";
+import { DueDateField } from "@/components/entry/DueDate";
+import { checkDueDate } from "@/domain/v2/dueDate";
 import { VarietyPicker } from "@/components/entry/Variety";
 import { emptyPay, PaymentFields, toPart, type PayState } from "@/components/entry/Payments";
 import {
@@ -169,7 +171,8 @@ export function SaleForm({
     w.result && rate.value !== undefined
       ? computeBill(w.result.netG, rate.value, settings?.rounding.roundToRupee ?? false)
       : undefined;
-  const payPart = existing ? { part: null } : toPart(s.pay, true);
+  const payPart = existing ? { part: null } : toPart(s.pay, true, s.date);
+  const dueCheck = checkDueDate(existing ? undefined : s.dueDate || undefined, s.date, todayIST());
   const received = payPart.part ? BigInt(payPart.part.amountPaise) : 0n;
   const due = bill ? bill.totalPaise - received : undefined;
   const source: Source = s.product === "RICE" ? "WAREHOUSE" : s.source;
@@ -217,6 +220,7 @@ export function SaleForm({
     if (source === "MILL" && !s.millId) return setError(t("errors.domain.MILL_REQUIRED"));
     if (source === "TRANSIT" && !s.transitGroup) return setError(t("acct.required"));
     if (payPart.error) return setError(t(payPart.error));
+    if (dueCheck.error) return setError(t("errors.domain.DUE_BEFORE_DEAL"));
     if (received > bill.totalPaise) return setError(t("errors.domain.OVERPAYMENT"));
     if (
       !anyway &&
@@ -268,7 +272,7 @@ export function SaleForm({
             : log,
         ...(s.vehicle.trim() ? { vehicleNumber: s.vehicle.trim().toUpperCase() } : {}),
         ...(s.driver.trim() ? { driverName: s.driver.trim() } : {}),
-        ...(s.dueDate ? { dueDate: s.dueDate } : {}),
+        ...(!existing && s.dueDate ? { dueDate: s.dueDate } : {}),
         ...(charges ? { charges } : {}),
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
         ...((existing?.linkedLoadId ?? fromLoad?._id)
@@ -453,6 +457,7 @@ export function SaleForm({
               hint={t("sl.advanceHint")}
               testId="sale-pay"
               allowZero
+              minDate={s.date}
             />
             <div className="bg-forest-100/60 flex items-center justify-between rounded-xl px-3 py-2">
               <span className="text-forest text-sm">{t("sl.remainingDue")}</span>
@@ -460,15 +465,16 @@ export function SaleForm({
                 {due !== undefined ? money(due) : "—"}
               </span>
             </div>
+            <DueDateField
+              label={t("sl.dueDate")}
+              value={s.dueDate}
+              onChange={(dueDate) => set({ dueDate })}
+              dealDate={s.date}
+              dealType="SALE"
+              testId="sale-due-date"
+            />
           </section>
         )}
-        <DateField
-          label={t("sl.dueDate")}
-          value={s.dueDate}
-          onChange={(dueDate) => set({ dueDate })}
-          testId="sale-due-date"
-          allowFuture
-        />
         <FieldBox label={t("sl.saveAs")} hint={s.saleStatus === "ORDER" ? t("sl.orderHint") : null}>
           <Segmented
             label={t("sl.saveAs")}
@@ -536,10 +542,14 @@ export function SaleForm({
                 <Segmented
                   label={t("sl.source")}
                   value={s.source}
+                  // v2.1: paddy at a mill is the mill's to pay for (settled on its dispatch), so a
+                  // new sale can't come "from the mill"; an old record keeps showing its source.
                   options={[
                     ["WAREHOUSE", t("sl.srcWAREHOUSE")],
                     ["TRANSIT", t("sl.srcTRANSIT")],
-                    ["MILL", t("sl.srcMILL")],
+                    ...(existing?.source === "MILL"
+                      ? [["MILL", t("sl.srcMILL")] as ["MILL", string]]
+                      : []),
                   ]}
                   onChange={(src) => set({ source: src })}
                   testId="sale-source"

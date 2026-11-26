@@ -61,6 +61,7 @@ Keep this list up to date.
 - `pnpm check:bundle`: Home route JS size (gzipped) after `pnpm build`; `node scripts/bundle-size.mjs --why` marks the libraries per chunk
 - `pnpm lighthouse`: Lighthouse mobile audit of Home, logged in (after `pnpm build`; boots the e2e server). Fails below Performance 85 or when Chrome reports the app not installable
 - `pnpm restore --file=backup.json [--db=…]`: restore an in-app JSON backup into an EMPTY database (`docs/RESTORE.md`)
+- `pnpm fix:mill-direction [--apply] [--db=…] [--godown=…] [--decisions=…]`: one-off v2.1 repair of mill data (dry run by default; run on a copy first)
 
 ## Key building blocks (from Phase 1)
 - Money and weight: `src/domain/{money,weight,decimal,rounding,digits}.ts`, plus `divRoundHalfUp` and `allocateProportional`.
@@ -95,9 +96,12 @@ Keep this list up to date.
 - Sales: `repo/sales.ts` (delivery steps, confirm order, inter-Gola transfer = one op group across two Golas), `queries/sales.ts` (incl. `stockAvailable`). Expenses: `queries/expenses.ts` (day view, unpaid, farmer-payment bills). Dashboard: `queries/dashboard.ts` (one Gola) + `queries/consolidated/dashboard.ts` (sum), `repo/daily.ts` (day close / reopen, contra, opening cash / stock, stock count).
 - Shared UI: `components/entry/{PartyAccount,docPath,docLabel}`; dashboard tabs are `next/dynamic` chunks (keep heavy code off Home).
 
-## Key building blocks (v2 Phase 9)
-- Mill: `repo/mill.ts` (`saveMillReturn`, `findDuplicateReturn`, `settleConsignment` / `voidSettlement`); dispatches and second-party entries use `saveBillWithInitialPayment`, conversions `saveDoc`. Reads in `queries/mill.ts` (dispatch-wise balance via `dispatchBalance`). UI in `components/mill/*` (forms, `MillTabs`, `common.tsx` with `ReverseButton` / `HistoryPanel`), routes under `/mill/*`.
-- On-account second-party money: `payAdvance(..., "SECOND_PARTY")` / `AdvanceSheet sourceType`. A CONSIGNMENT dispatch's expected value is never a receivable (DECISIONS D39).
+## Key building blocks (v2 Phase 9, corrected in v2.1 — DECISIONS D53)
+- **Mills pay the broker.** A dispatch is a receivable (Dr PARTY:mill / Cr MILL_SALES); collections are IN; a paddy return is a credit; the final settlement is a `MILL_SETTLEMENT` doc (MILL_DEDUCTION), never a sale; the conversion is stock-only. Never add a "mill payable".
+- Payment direction comes only from `domain/v2/direction.ts` (`PAYMENT_DIRECTION`, `directionFor`, `assertPaymentDirection`), enforced in `validateDocRules` + `validateLinks` (device and server). Dispatch dues are netted with `millCredits` (pass it to `dueBillsOf`).
+- Mill: `repo/mill.ts` (`saveMillReturn`, `findDuplicateReturn`, `saveMillSettlement`, `saveMillRefund`); dispatches and second-party entries use `saveBillWithInitialPayment`, conversions `saveDoc`. One settlement per dispatch (`settlementGuard`). Reads in `queries/mill.ts` (`dispatchMoney`, `dispatchBalance`). UI in `components/mill/*` (forms, `MillTabs`, `SettleForm` = `FinalSettlementForm`, `RefundSheet`, `common.tsx`), routes under `/mill/*`.
+- On-account second-party money: `payAdvance(..., "SECOND_PARTY")` / `AdvanceSheet sourceType`.
+- Data repair for v2.0 mill data: `pnpm fix:mill-direction` (`src/server/fixMillDirection.ts`; `docs/OPERATIONS.md` §6a).
 
 ## Key building blocks (v2 Phase 12)
 - Header: `layout/HeaderTools` (search → `/search`, bell → due reminders), loaded lazily. Settings `/settings` (theme, links, Excel export, JSON backup, integrity check incl. `negativePositions`).

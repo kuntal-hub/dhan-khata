@@ -62,12 +62,11 @@ function Detail() {
   const who = party?.name ?? doc.personText;
   const waText =
     st.duePaise > 0n && party
-      ? t(doc.dueDate ? "wa.pay" : "wa.payNoDate", {
+      ? t("wa.payNoDate", {
           name: party.name,
           business: business?.name ?? "",
           gola: godown.name,
           amount: money(st.duePaise),
-          dueDate: doc.dueDate ? date(doc.dueDate, "short") : "",
         })
       : "";
   return (
@@ -106,12 +105,6 @@ function Detail() {
             <div>
               <dt className="text-muted-foreground text-xs">{t("xp.person")}</dt>
               <dd>{who}</dd>
-            </div>
-          ) : null}
-          {doc.dueDate ? (
-            <div>
-              <dt className="text-muted-foreground text-xs">{t("xp.dueDate")}</dt>
-              <dd>{date(doc.dueDate, "short")}</dd>
             </div>
           ) : null}
           {doc.notes ? (

@@ -11,6 +11,7 @@ import { useState } from "react";
 import { Printer, Scale } from "lucide-react";
 import { printHrefOf } from "@/components/reports/ReportView";
 import { todayIST } from "@/domain/dates";
+import { displayStatus } from "@/domain/v2/payments";
 import { AdvanceSheet, LedgerTable } from "@/components/entry/PartyAccount";
 import { PaymentList } from "@/components/entry/Payments";
 import { EmptyState, Panel, TxnCard } from "@/components/kit/Kit";
@@ -122,7 +123,7 @@ function Account() {
                   date={`${date(r.doc.transactionDate, "short")} · ${r.doc.number}`}
                   amountPaise={BigInt(r.doc.amountPaise)}
                   direction={r.doc.kind === "WE_OWE" ? "OUT" : "IN"}
-                  status={r.doc.status === "void" ? "VOID" : r.state.status}
+                  status={r.doc.status === "void" ? "VOID" : displayStatus(r.state)}
                   href={`/mill/entry/view?id=${r.doc._id}`}
                   testId="sp-entry-row"
                   extra={

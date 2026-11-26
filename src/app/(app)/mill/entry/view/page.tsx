@@ -63,7 +63,6 @@ function Detail() {
           <Cell label={t("mill.spAmount")}>
             <span className="tabular">{money(BigInt(doc.amountPaise))}</span>
           </Cell>
-          {doc.dueDate ? <Cell label={t("mill.dueDate")}>{date(doc.dueDate, "short")}</Cell> : null}
           {doc.notes ? (
             <Cell label={t("mill.notes")} wide>
               {doc.notes}
@@ -73,7 +72,7 @@ function Detail() {
         <div className="mt-3 grid grid-cols-2 gap-3">
           <div className="bg-forest-100/60 rounded-xl p-3">
             <span className="text-muted-foreground text-xs">
-              {we ? t("mill.paidMILLING") : t("sl.received")}
+              {we ? t("mill.spPaid") : t("sl.received")}
             </span>
             <p className="tabular text-xl font-semibold" data-testid="detail-paid">
               {money(st.paidPaise)}

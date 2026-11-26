@@ -22,6 +22,7 @@ export const VOUCHER_TYPE_CODES: Record<DocType, string> = {
   CONTRA: "CON",
   DAY_CLOSE: "DCL",
   OPENING: "OPN",
+  MILL_SETTLEMENT: "MST",
 };
 
 export const GODOWN_CODE_RE = /^[A-Z][A-Z0-9]{1,5}$/;

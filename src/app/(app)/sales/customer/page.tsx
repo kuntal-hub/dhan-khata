@@ -20,6 +20,7 @@ import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { partyLedger } from "@/client/queries/purchases";
 import { saleRows } from "@/client/queries/sales";
 import { formatWeightNumber } from "@/domain/units";
+import { displayStatus } from "@/domain/v2/payments";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 
@@ -111,7 +112,7 @@ function Customer() {
                       ? "VOID"
                       : r.doc.saleStatus === "ORDER"
                         ? "ORDER"
-                        : r.state.status
+                        : displayStatus(r.state)
                   }
                   href={`/sales/view?id=${r.doc._id}`}
                   extra={

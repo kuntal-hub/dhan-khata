@@ -19,6 +19,7 @@ export {
   type ReminderStateInput,
   type ManualReminderInput,
 } from "./reminders";
+export { setDueDate } from "./dueDate";
 export { rebuildDailyAgg } from "./dailyAgg";
 export { RepoError } from "./context";
 export { onLocalWrite } from "./notify";
@@ -45,10 +46,11 @@ export { mergeVarieties } from "./varieties";
 export {
   findDuplicateReturn,
   saveMillReturn,
-  settleConsignment,
-  voidSettlement,
+  saveMillSettlement,
+  saveMillRefund,
+  settlementDraft,
   DUPLICATE_WINDOW_MS,
-  type SettleInput,
+  type SettlementInput,
 } from "./mill";
 export { saveBankAccount, type BankInput } from "./banks";
 export {

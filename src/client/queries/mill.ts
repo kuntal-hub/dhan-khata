@@ -1,14 +1,21 @@
 /**
- * Mill & Second Party reads (requirement_v2 §12.8), one Gola at a time.
- *  - Dispatch-wise history: sent, returned, consumed, settled, remaining at the mill
- *    (`dispatchBalance`, from the active returns / conversions / settlement sales).
- *  - MILLING dispatch: milling charges payable to the mill, paid / due from its active payments.
- *    CONSIGNMENT dispatch: the expected value is informational; money already received from the
- *    mill is an advance (IN payments against the dispatch) until the settlement sale.
+ * Mill & Second Party reads (requirement_v2.1 §12.8), one Gola at a time.
+ *  - Dispatch-wise history: sent, returned, consumed, accepted, shortfall, still at the mill
+ *    (`dispatchBalance`, from the active returns / conversions / final settlement).
+ *  - Dispatch money (the mill PAYS us): value − paddy-return credits − settlement adjustment =
+ *    net value; collected = IN payments − refunds against the dispatch; receivable = net −
+ *    collected (negative = the mill paid too much → "মিলকে ফেরত দিতে হবে").
  *  - Second parties: "we owe" / "they owe" entries with their payments, and the party balance.
  */
 import { todayIST } from "@/domain/dates";
-import { billState, billsOf, type BillState, type PayStatus } from "@/domain/v2/payments";
+import {
+  billState,
+  billsOf,
+  millCredits,
+  type BillState,
+  matchesPayFilter,
+  type PayFilter,
+} from "@/domain/v2/payments";
 import { dispatchBalance, type DispatchBalance } from "@/domain/v2/stock";
 import type { Doc, DocOf, Party, Payment, Variety } from "@/domain/schemas";
 import { db } from "../db/dexie";
@@ -18,32 +25,85 @@ import { paymentsOf } from "./purchases";
 export type Dispatch = DocOf<"MILL_DISPATCH">;
 export type MillReturn = DocOf<"MILL_RETURN">;
 export type Conversion = DocOf<"CONVERSION">;
+export type Settlement = DocOf<"MILL_SETTLEMENT">;
 export type SecondPartyEntry = DocOf<"SECOND_PARTY">;
+
+export interface DispatchMoney {
+  /** quantity × rate the mill pays. */
+  valuePaise: bigint;
+  /** Σ credits of active paddy returns. */
+  returnCreditPaise: bigint;
+  /** Final-settlement adjustment (signed: a cut is positive). */
+  settlementAdjPaise: bigint;
+  /** value − return credits − settlement adjustment. */
+  netValuePaise: bigint;
+  /** Σ IN collections − Σ refunds against this dispatch. */
+  collectedPaise: bigint;
+  /** net − collected (< 0: the mill paid more than it owes). */
+  receivablePaise: bigint;
+}
 
 export interface DispatchRow {
   doc: Dispatch;
   mill?: Party;
   variety?: Variety;
   balance: DispatchBalance;
-  /** Bill state (MILLING: what we owe the mill; CONSIGNMENT: expected value vs advances). */
+  money: DispatchMoney;
+  /** Bill state over the NET value (what the mill still owes for this dispatch). */
   state: BillState;
-  /** Active payments against the dispatch (MILLING: paid; CONSIGNMENT: advances received). */
-  paidPaise: bigint;
+  /** Active final settlement, if any. */
+  settlement?: Settlement;
 }
 
 async function related(godownId: string): Promise<Doc[]> {
   const d = db();
-  const [returns, conversions, sales] = await Promise.all([
+  const [returns, conversions, settlements, sales] = await Promise.all([
     d.vouchers.where("[godownId+type]").equals([godownId, "MILL_RETURN"]).toArray(),
     d.vouchers.where("[godownId+type]").equals([godownId, "CONVERSION"]).toArray(),
+    d.vouchers.where("[godownId+type]").equals([godownId, "MILL_SETTLEMENT"]).toArray(),
     d.vouchers
       .where("[godownId+type]")
       .equals([godownId, "SALE"])
       .filter((x) => x.type === "SALE" && !!x.consignmentDispatchId)
       .toArray(),
   ]);
-  return [...returns, ...conversions, ...sales];
+  return [...returns, ...conversions, ...settlements, ...sales];
 }
+
+/** Money of one dispatch from its linked docs and its active payments (incl. refunds). */
+export function dispatchMoney(
+  doc: Dispatch,
+  linked: readonly Doc[],
+  payments: readonly Payment[],
+  today = todayIST(),
+): { money: DispatchMoney; state: BillState } {
+  const credits = millCredits(linked.filter((x) => "dispatchId" in x && x.dispatchId === doc._id));
+  const net = BigInt(doc.totalValuePaise) - (credits.get(doc._id) ?? 0n);
+  const bill = { ...billsOf({ ...doc, status: "active" })[0]!, totalPaise: net };
+  const state = billState(bill, payments, today);
+  const active = linked.filter((x) => x.status === "active");
+  const returnCredit = active
+    .filter((x): x is MillReturn => x.type === "MILL_RETURN" && x.dispatchId === doc._id)
+    .filter((x) => x.product === "PADDY")
+    .reduce((s, x) => s + BigInt(x.totalValuePaise ?? "0"), 0n);
+  const value = BigInt(doc.totalValuePaise);
+  return {
+    money: {
+      valuePaise: value,
+      returnCreditPaise: returnCredit,
+      settlementAdjPaise: value - returnCredit - net,
+      netValuePaise: net,
+      collectedPaise: state.paidPaise,
+      receivablePaise: net - state.paidPaise,
+    },
+    state,
+  };
+}
+
+const isMine = (doc: Dispatch) => (x: Doc) =>
+  x.type === "SALE"
+    ? x.consignmentDispatchId === doc._id
+    : (x as { dispatchId?: string }).dispatchId === doc._id;
 
 async function maps(godownId: string) {
   const d = db();
@@ -58,17 +118,13 @@ async function maps(godownId: string) {
 }
 
 export interface DispatchFilter {
-  type?: Dispatch["dispatchType"] | "ALL";
   millId?: string;
   /** Only dispatches with paddy still at the mill. */
   open?: boolean;
+  /** Only active dispatches without a final settlement. */
+  unsettled?: boolean;
   q?: string;
-  status?: PayStatus | "ALL";
-}
-
-function dispatchState(doc: Dispatch, payments: readonly Payment[], today: string): BillState {
-  const bill = billsOf({ ...doc, status: "active" })[0]!;
-  return billState(bill, payments, today);
+  status?: PayFilter | "ALL";
 }
 
 export async function dispatchRows(
@@ -86,28 +142,27 @@ export async function dispatchRows(
   const s = f.q?.trim().toLowerCase() ?? "";
   const out: DispatchRow[] = [];
   for (const doc of docs) {
-    if (f.type && f.type !== "ALL" && doc.dispatchType !== f.type) continue;
     if (f.millId && doc.millPartyId !== f.millId) continue;
-    const mine = rel.filter((x) =>
-      x.type === "SALE"
-        ? x.consignmentDispatchId === doc._id
-        : (x as { dispatchId?: string }).dispatchId === doc._id,
-    );
+    const mine = rel.filter(isMine(doc));
     const balance = dispatchBalance(doc, mine);
     if (f.open && (doc.status !== "active" || balance.remainingG <= 0n)) continue;
+    const settlement = mine.find(
+      (x): x is Settlement => x.type === "MILL_SETTLEMENT" && x.status === "active",
+    );
+    if (f.unsettled && (doc.status !== "active" || settlement)) continue;
     const pays = (await paymentsOf(doc._id)).filter((p) => p.status === "active");
-    const state = dispatchState(doc, pays, today);
+    const { money, state } = dispatchMoney(doc, mine, pays, today);
     if (f.status && f.status !== "ALL") {
-      if (doc.status !== "active" || doc.dispatchType !== "MILLING" || state.status !== f.status)
-        continue;
+      if (doc.status !== "active" || !matchesPayFilter(state, f.status)) continue;
     }
     const row: DispatchRow = {
       doc,
       mill: m.party.get(doc.millPartyId),
       variety: m.variety.get(doc.varietyId),
       balance,
+      money,
       state,
-      paidPaise: state.paidPaise,
+      ...(settlement ? { settlement } : {}),
     };
     if (s) {
       const hay = [
@@ -141,7 +196,10 @@ export interface DispatchDetail extends DispatchRow {
   payments: Payment[];
   returns: MillReturn[];
   conversions: Conversion[];
-  settlements: DocOf<"SALE">[];
+  /** Final settlements (any status, for history). */
+  settlements: Settlement[];
+  /** Legacy v2.0 consignment sales of this dispatch (read-only history). */
+  legacySales: DocOf<"SALE">[];
 }
 
 /** One dispatch with everything linked to it (any status, for history). */
@@ -150,7 +208,7 @@ export async function dispatchDetail(id: string): Promise<DispatchDetail | null>
   const doc = await d.vouchers.get(id);
   if (!doc || doc.type !== "MILL_DISPATCH") return null;
   const linked = await d.vouchers.where("dispatchId").equals(id).toArray();
-  const settlements = (await d.vouchers
+  const legacySales = (await d.vouchers
     .where("[godownId+type]")
     .equals([doc.godownId, "SALE"])
     .filter((x) => x.type === "SALE" && x.consignmentDispatchId === id)
@@ -161,19 +219,25 @@ export async function dispatchDetail(id: string): Promise<DispatchDetail | null>
     d.varieties.get(doc.varietyId),
   ]);
   const active = payments.filter((p) => p.status === "active");
-  const state = dispatchState(doc, active, todayIST());
+  const { money, state } = dispatchMoney(doc, linked, active);
   const byDate = <T extends Doc>(a: T, b: T) => (a.createdAt < b.createdAt ? -1 : 1);
+  const settlements = (linked.filter((x) => x.type === "MILL_SETTLEMENT") as Settlement[]).sort(
+    byDate,
+  );
+  const settlement = settlements.find((s) => s.status === "active");
   return {
     doc,
     mill,
     variety,
-    balance: dispatchBalance(doc, [...linked, ...settlements]),
+    balance: dispatchBalance(doc, [...linked, ...legacySales]),
+    money,
     state,
-    paidPaise: state.paidPaise,
+    ...(settlement ? { settlement } : {}),
     payments,
     returns: (linked.filter((x) => x.type === "MILL_RETURN") as MillReturn[]).sort(byDate),
     conversions: (linked.filter((x) => x.type === "CONVERSION") as Conversion[]).sort(byDate),
-    settlements: settlements.sort(byDate),
+    settlements,
+    legacySales: legacySales.sort(byDate),
   };
 }
 
@@ -182,7 +246,9 @@ export interface ReturnRow {
   mill?: Party;
   variety?: Variety;
   dispatch?: Dispatch;
-  /** Money received from the mill with this return (active IN payments). */
+  /** Paddy: the credit to the mill (its receivable goes down by this). 0 for rice / other. */
+  creditPaise: bigint;
+  /** Legacy v2.0 money received with the return (repaired onto the dispatch by the data fix). */
   receivedPaise: bigint;
   /** Rice / other already used by an active conversion. */
   converted: boolean;
@@ -215,6 +281,7 @@ export async function returnRows(
       mill: m.party.get(doc.millPartyId),
       variety: doc.varietyId ? m.variety.get(doc.varietyId) : undefined,
       dispatch,
+      creditPaise: doc.product === "PADDY" ? BigInt(doc.totalValuePaise ?? "0") : 0n,
       receivedPaise: pays.reduce((s, p) => s + BigInt(p.amountPaise), 0n),
       converted: used.has(doc._id),
     });

@@ -6,6 +6,7 @@ import { DomainError, type DomainErrorCode } from "../errors";
 import { amountForWeight } from "../money";
 import { sumBig } from "../rounding";
 import { FARMER_PAYMENT_CODE } from "./accounts";
+import { assertPaymentDirection } from "./direction";
 import { businessDate, type Doc, type WeightBlock } from "./schemas";
 import { computeBill, recomputeWeight } from "./weightBlock";
 
@@ -69,6 +70,15 @@ export function recomputeDoc<D extends Doc>(d: D): D {
       const outputs = sumBig(doc.outputs.map((o) => BigInt(o.qtyG)));
       return { ...doc, lossG: (BigInt(doc.paddyConsumedG) - outputs).toString() } as D;
     }
+    case "MILL_SETTLEMENT": {
+      const s = settlementAmounts(doc);
+      return {
+        ...doc,
+        billedPaise: s.billedPaise.toString(),
+        finalValuePaise: s.finalValuePaise.toString(),
+        adjustmentPaise: s.adjustmentPaise.toString(),
+      } as D;
+    }
     case "TRIP": {
       const total =
         doc.rateMode === "PER_QTL"
@@ -83,6 +93,28 @@ export function recomputeDoc<D extends Doc>(d: D): D {
     default:
       return d;
   }
+}
+
+/**
+ * Final-settlement money (v2.1 §12.8E). `billed` is what the dispatch charged for the paddy the
+ * settlement closes (accepted + shortfall, at the dispatch rate); `final` is what the mill accepts
+ * to pay for it. The difference adjusts the dispatch's receivable.
+ */
+export function settlementAmounts(s: {
+  acceptedG: string;
+  shortfallG: string;
+  dispatchRatePaisePerQtl: string;
+  finalRatePaisePerQtl: string;
+  deductionPaise: string;
+}): { billedPaise: bigint; finalValuePaise: bigint; adjustmentPaise: bigint } {
+  const accepted = BigInt(s.acceptedG);
+  const billed = amountForWeight(
+    accepted + BigInt(s.shortfallG),
+    BigInt(s.dispatchRatePaisePerQtl),
+  );
+  const finalValue =
+    amountForWeight(accepted, BigInt(s.finalRatePaisePerQtl)) - BigInt(s.deductionPaise);
+  return { billedPaise: billed, finalValuePaise: finalValue, adjustmentPaise: billed - finalValue };
 }
 
 /** Same dispatch + date + product + quantity identifies a possible duplicate return (§12.8C). */
@@ -118,6 +150,9 @@ export function verifyDoc(d: Doc): string[] {
     "lossG",
     "diffPaise",
     "dedupeKey",
+    "billedPaise",
+    "finalValuePaise",
+    "adjustmentPaise",
   ]) {
     if (k === "amountPaise" && d.type !== "PURCHASE" && d.type !== "SALE") continue;
     cmp(k, a[k], b[k]);
@@ -141,11 +176,22 @@ export function validateDocRules(d: Doc, today: string): void {
     case "PAYMENT": {
       if (d.mode === "CASH" && d.bankAccountId) fail("VALIDATION_FAILED", "bankAccountId");
       if (d.mode !== "CASH" && !d.bankAccountId) fail("BANK_ACCOUNT_REQUIRED");
-      const onAccount = d.source.type === "PARTY_ADVANCE" || d.source.type === "SECOND_PARTY";
+      // The direction comes from the source type, never from the screen (v2.1).
+      assertPaymentDirection(d.source.type, d.direction);
+      const onAccount =
+        d.source.type === "PARTY_ADVANCE" ||
+        d.source.type === "SECOND_PARTY" ||
+        d.source.type === "MILL_REFUND";
       if (d.source.id === null && !onAccount) fail("SOURCE_MISMATCH");
       if (onAccount && !d.partyId) fail("PARTY_REQUIRED");
       break;
     }
+    case "MILL_SETTLEMENT":
+      if (BigInt(d.acceptedG) + BigInt(d.shortfallG) <= 0n) fail("VALIDATION_FAILED", "acceptedG");
+      if (BigInt(d.finalValuePaise) < 0n) fail("VALIDATION_FAILED", "deductionPaise");
+      if (BigInt(d.shortfallG) > 0n && !d.shortfallReason)
+        fail("VALIDATION_FAILED", "shortfallReason");
+      break;
     case "EXPENSE":
       if (d.categoryCode === FARMER_PAYMENT_CODE) fail("CATEGORY_IS_PAYMENT");
       break;

@@ -1,10 +1,11 @@
 "use client";
 
 /**
- * Mill return (requirement_v2 §12.8C): the original dispatch (required; shows mill, date, variety,
- * paddy still at the mill), return date, product ধান / চাল / অন্যান্য (+ name), rice variety,
- * bag-wise or total weight, optional valuation (rate → value; stock value only, D10), money received
- * from the mill now (optional IN payment linked to the return), notes.
+ * Mill return (requirement_v2.1 §12.8C): the original dispatch (required; shows mill, date,
+ * variety, paddy still at the mill), return date, product ধান / চাল / অন্যান্য (+ name), rice
+ * variety, bag-wise or total weight, notes. A paddy return is a CREDIT to the mill: "credit value"
+ * = quantity × the dispatch's rate (editable), shown as "মিলের পাওনা ₹X কমবে". A return never
+ * carries money (no payment fields). Rice / other change stock only.
  * Paddy goes back to the Gola and out of mill stock; rice / other only to their own stock. More
  * paddy than is left at the mill for that dispatch, or a possible duplicate (same dispatch, date,
  * product, quantity within 10 minutes), needs a confirmation. The id is fixed when the form opens,
@@ -15,7 +16,6 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2 } from "lucide-react";
 import { DateField, FieldBox, Segmented } from "@/components/entry/Fields";
-import { emptyPay, PaymentFields, toPart, type PayState } from "@/components/entry/Payments";
 import { varietyName, VarietyPicker } from "@/components/entry/Variety";
 import {
   emptyWeight,
@@ -25,7 +25,7 @@ import {
   type WeightState,
 } from "@/components/entry/WeightBlockInput";
 import { FormShell } from "@/components/forms/FormShell";
-import { RateInput } from "@/components/money/inputs";
+import { AmountInput } from "@/components/money/inputs";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VoiceText } from "@/components/voice/VoiceText";
@@ -33,7 +33,7 @@ import { errorKey } from "@/client/errors";
 import { useBusiness } from "@/client/hooks";
 import { dispatchRows } from "@/client/queries/mill";
 import { findDuplicateReturn, newId, saveMillReturn, type DraftOf } from "@/client/repo";
-import { paiseToInput, parseRateField } from "@/client/ui/parse";
+import { paiseToInput, parseAmountField } from "@/client/ui/parse";
 import { todayIST } from "@/domain/dates";
 import { amountForWeight } from "@/domain/money";
 import type { DocOf, Godown } from "@/domain/schemas";
@@ -51,13 +51,16 @@ interface State {
   otherName: string;
   riceVarietyId?: string;
   weight: WeightState;
-  rate: string;
-  pay: PayState;
+  /** Paddy: a typed credit value (empty = quantity × the dispatch rate). */
+  credit: string;
   notes: string;
 }
 
 function initial(existing?: Ret, dispatchId?: string): State {
   if (existing) {
+    // A credit typed by hand (no rate stored) stays as typed.
+    const typed =
+      existing.product === "PADDY" && !existing.ratePaisePerQtl && existing.totalValuePaise;
     return {
       dispatchId: existing.dispatchId,
       date: existing.returnDate,
@@ -67,20 +70,17 @@ function initial(existing?: Ret, dispatchId?: string): State {
         ? { riceVarietyId: existing.varietyId }
         : {}),
       weight: weightFromBlock(existing.weight),
-      rate: existing.ratePaisePerQtl ? paiseToInput(existing.ratePaisePerQtl) : "",
-      pay: emptyPay(existing.returnDate),
+      credit: typed ? paiseToInput(existing.totalValuePaise!) : "",
       notes: existing.notes ?? "",
     };
   }
-  const today = todayIST();
   return {
     ...(dispatchId ? { dispatchId } : {}),
-    date: today,
+    date: todayIST(),
     product: "PADDY",
     otherName: "",
     weight: emptyWeight("BAGS"),
-    rate: "",
-    pay: emptyPay(today, "0"),
+    credit: "",
     notes: "",
   };
 }
@@ -110,13 +110,7 @@ export function ReturnForm({
   const [warn, setWarn] = useState<Warn | null>(null);
   const [accepted, setAccepted] = useState<Set<Warn["kind"]>>(new Set());
   const set = (patch: Partial<State>) => {
-    setS((x) => ({
-      ...x,
-      ...patch,
-      ...(patch.date && !existing && x.pay.date === x.date
-        ? { pay: { ...x.pay, date: patch.date } }
-        : {}),
-    }));
+    setS((x) => ({ ...x, ...patch }));
     setDirty(true);
     setWarn(null);
     setAccepted(new Set());
@@ -128,19 +122,21 @@ export function ReturnForm({
       dispatchRows(godown._id).then((rows) =>
         rows.filter(
           (r) =>
-            r.doc._id === s.dispatchId || (r.doc.status === "active" && r.balance.remainingG > 0n),
+            r.doc._id === s.dispatchId ||
+            (r.doc.status === "active" && r.balance.remainingG > 0n && !r.settlement),
         ),
       ),
     [godown._id, s.dispatchId],
   );
   const chosen = dispatches?.find((r) => r.doc._id === s.dispatchId);
   const w = parseWeightState(s.weight, monKg, false);
-  const rate = parseRateField(s.rate, false, 0n);
-  const value =
-    w.result && rate.value !== undefined && rate.value > 0n
-      ? amountForWeight(w.result.netG, rate.value)
+  // Credit (paddy only): typed, or quantity × the dispatch rate.
+  const typedCredit = s.credit.trim() ? parseAmountField(s.credit, false, 0n) : undefined;
+  const autoCredit =
+    chosen && w.result
+      ? amountForWeight(w.result.netG, BigInt(chosen.doc.ratePaisePerQtl))
       : undefined;
-  const payPart = existing ? { part: null } : toPart(s.pay, true);
+  const credit = s.product !== "PADDY" ? undefined : (typedCredit?.value ?? autoCredit);
   // Paddy still at the mill for this dispatch (this return excluded when editing).
   const left =
     chosen !== undefined
@@ -153,9 +149,8 @@ export function ReturnForm({
   const save = async (accept: Set<Warn["kind"]>) => {
     setShowErrors(true);
     setError(null);
-    if (!chosen || !w.block || !w.result || rate.error) return setError(t("acct.required"));
+    if (!chosen || !w.block || !w.result || typedCredit?.error) return setError(t("acct.required"));
     if (s.product === "OTHER" && !s.otherName.trim()) return setError(t("acct.required"));
-    if (payPart.error) return setError(t(payPart.error));
     if (
       !accept.has("over") &&
       s.product === "PADDY" &&
@@ -194,13 +189,19 @@ export function ReturnForm({
         ...(s.product === "RICE" && s.riceVarietyId ? { varietyId: s.riceVarietyId } : {}),
         ...(s.product === "OTHER" ? { otherProductName: s.otherName.trim() } : {}),
         weight: w.block,
-        ...(rate.value !== undefined && rate.value > 0n
-          ? { ratePaisePerQtl: rate.value.toString() }
-          : {}),
+        ...(s.product === "PADDY"
+          ? typedCredit?.value !== undefined
+            ? { totalValuePaise: typedCredit.value.toString() }
+            : { ratePaisePerQtl: chosen.doc.ratePaisePerQtl }
+          : // Rice / other: stock only; an old record keeps its informational value unchanged.
+            {
+              ...(existing?.ratePaisePerQtl ? { ratePaisePerQtl: existing.ratePaisePerQtl } : {}),
+              ...(existing?.totalValuePaise ? { totalValuePaise: existing.totalValuePaise } : {}),
+            }),
         dedupeKey: "",
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
       };
-      await saveMillReturn(godown._id, draft, payPart.part, existing ? { id: existing._id } : {});
+      await saveMillReturn(godown._id, draft, existing ? { id: existing._id } : {});
       setDirty(false);
       if (existing) router.replace(`/mill/return/view?id=${existing._id}`);
       else setSaved(id);
@@ -290,7 +291,7 @@ export function ReturnForm({
                     qty: formatWeightNumber(r.balance.remainingG, "QTL", o),
                   })}
                   <span className="text-muted-foreground block text-xs">
-                    {r.doc.number} · {t(`mill.${r.doc.dispatchType}`)}
+                    {r.doc.number} · {money(BigInt(r.doc.ratePaisePerQtl))}/{t("ui.unitQtlShort")}
                   </span>
                 </button>
               ))}
@@ -354,26 +355,40 @@ export function ReturnForm({
             testId="return-weight"
           />
         </FieldBox>
-        <RateInput
-          label={t("mill.valueRate")}
-          value={s.rate}
-          onChange={(r) => set({ rate: r })}
-          testId="return-rate"
-          hint={value !== undefined ? `${t("mill.value")}: ${money(value)}` : t("mill.valueHint")}
-        />
-        {existing ? null : (
-          <section className="bg-card shadow-card flex flex-col gap-3 rounded-2xl border p-4">
-            <PaymentFields
-              godownId={godown._id}
-              value={s.pay}
-              onChange={(pay) => set({ pay })}
-              amountLabel={t("mill.received")}
-              hint={t("mill.payHint")}
-              testId="return-pay"
+        {s.product === "PADDY" ? (
+          <section className="bg-card shadow-card flex flex-col gap-2 rounded-2xl border p-4">
+            <AmountInput
+              label={t("mill.creditValue")}
+              value={
+                s.credit !== ""
+                  ? s.credit
+                  : autoCredit !== undefined
+                    ? paiseToInput(autoCredit)
+                    : ""
+              }
+              onChange={(v) => set({ credit: v })}
               allowZero
+              testId="return-credit"
+              {...(chosen
+                ? {
+                    hint: t("mill.creditHint", { rate: money(BigInt(chosen.doc.ratePaisePerQtl)) }),
+                  }
+                : {})}
             />
+            {credit !== undefined ? (
+              <p
+                className="tabular text-sm font-medium text-emerald-800"
+                data-testid="return-credit-effect"
+                data-paise={credit.toString()}
+              >
+                {t("mill.creditEffect", { amount: money(credit) })}
+              </p>
+            ) : null}
           </section>
+        ) : (
+          <p className="text-muted-foreground text-sm">{t("mill.riceNoMoney")}</p>
         )}
+        <p className="text-muted-foreground text-xs">{t("mill.noMoneyOnReturn")}</p>
         <FieldBox label={t("mill.notes")}>
           <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
         </FieldBox>

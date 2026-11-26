@@ -53,9 +53,11 @@ export interface AuditLocalRow {
   deviceId: string;
   entity: string;
   entityId: string;
-  action: "create" | "edit" | "void" | "resolve" | "pull-purge" | "unlock";
+  action: "create" | "edit" | "void" | "resolve" | "pull-purge" | "unlock" | "dueDate";
   rev?: number;
   reason?: string;
+  /** e.g. a due date change: "old→new" ("" = none). */
+  detail?: string;
 }
 
 export interface ClientErrorRow {

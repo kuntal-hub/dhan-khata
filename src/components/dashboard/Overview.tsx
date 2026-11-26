@@ -43,6 +43,7 @@ import { MetricCard, Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
 import { QUICK_ACTIONS, SECTION_OF } from "@/components/shell/QuickAdd";
 import { useWriteGodown } from "@/components/system/page";
+import { Button } from "@/components/ui/button";
 import { varietyName } from "@/components/entry/Variety";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
@@ -313,7 +314,11 @@ export function Overview() {
       icon: HandCoins,
       label: t("dsh.sales"),
       value: { kind: "money", paise: o.salesPaise },
-      sub: qty(o.salesG),
+      // Paddy delivered to mills is income too (not listed in Sales): shown so all income is seen.
+      sub:
+        o.millSalesPaise > 0n
+          ? `${qty(o.salesG)} · ${t("dsh.millSent", { amount: money(o.millSalesPaise) })}`
+          : qty(o.salesG),
       tone: "green",
       href: "/sales",
     },
@@ -391,11 +396,16 @@ export function Overview() {
       href: "/dues?tab=payable",
     },
     {
-      id: "m-mill-payable",
+      id: "m-mill-receivable",
       icon: Factory,
-      label: t("dsh.millPayable"),
-      value: { kind: "money", paise: o.millPayablePaise },
-      tone: "out",
+      label: t("dsh.millReceivable"),
+      value: { kind: "money", paise: o.millReceivablePaise },
+      // Only when some mill paid more than it owed.
+      sub:
+        o.millRefundPaise > 0n
+          ? t("dsh.millRefund", { amount: money(o.millRefundPaise) })
+          : undefined,
+      tone: "in",
       href: "/dues?tab=mill",
     },
     {
@@ -510,7 +520,7 @@ export function Overview() {
           <Donut
             testId="dues-donut"
             centerLabel={t("viz.total")}
-            total={money(o.receivablePaise + o.farmerPayablePaise + o.millPayablePaise)}
+            total={money(o.receivablePaise + o.farmerPayablePaise + o.millReceivablePaise)}
             items={[
               {
                 key: "rec",
@@ -528,14 +538,14 @@ export function Overview() {
               },
               {
                 key: "mill",
-                label: t("dsh.millPayable"),
-                value: o.millPayablePaise,
-                display: money(o.millPayablePaise),
+                label: t("dsh.millReceivable"),
+                value: o.millReceivablePaise,
+                display: money(o.millReceivablePaise),
                 color: "var(--chart-3)",
               },
             ]}
           />
-          {o.receivablePaise + o.farmerPayablePaise + o.millPayablePaise === 0n ? (
+          {o.receivablePaise + o.farmerPayablePaise + o.millReceivablePaise === 0n ? (
             <p className="text-muted-foreground py-6 text-center text-sm">{t("dsh.noDues")}</p>
           ) : null}
         </Panel>
@@ -682,13 +692,22 @@ export function Overview() {
                           <Clock className="size-3" aria-hidden />
                           {a.overdue
                             ? t("dsh.overdue", { days: count(diffDays(a.dueDate, today)) })
-                            : t("dsh.dueOn", { date: date(a.dueDate, "short") })}
+                            : a.dueDate === today
+                              ? t("dsh.dueToday")
+                              : t("dsh.dueOn", { date: date(a.dueDate, "short") })}
                         </span>
                       </Link>
                     ) : (
                       <span className="min-w-0 flex-1 truncate text-sm">{a.party?.name ?? ""}</span>
                     )}
                     <span className="tabular text-sm font-semibold">{money(a.duePaise)}</span>
+                    {href && !readOnly && !consolidated ? (
+                      <Button asChild variant="outline" className="h-10 shrink-0 px-2.5 text-xs">
+                        <Link href={`${href}&pay=1`} data-testid="due-alert-pay">
+                          {a.direction === "IN" ? t("dsh.collectNow") : t("dsh.payNow")}
+                        </Link>
+                      </Button>
+                    ) : null}
                     <WhatsAppButton
                       phone={a.party?.phone}
                       text={msg}

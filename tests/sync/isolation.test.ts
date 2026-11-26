@@ -9,6 +9,7 @@ import { META, getMeta, getSession } from "@/client/db/meta";
 import { rebuildDailyAgg, saveDoc, upsertMaster, voidDoc } from "@/client/repo";
 import { godownBalances, godownTrialBalance } from "@/client/queries/ledger";
 import { discardOp } from "@/client/sync/resolve";
+import { todayIST } from "@/domain/dates";
 import type { Doc as Voucher, PullResponse, PushResponse } from "@/domain/schemas";
 import { createBusinessWithOwner } from "@/server/business";
 import { closeMongo, cols, getDb, type UserDoc } from "@/server/db";
@@ -259,6 +260,45 @@ describe("owner separation (Test 9)", () => {
     const forged = { ...p, source: { type: "PURCHASE", id: bill._id } } as Voucher;
     const res = await crafted(od, [opFor(forged)]);
     expect(res.results[0]).toMatchObject({ result: "rejected", reason: "CROSS_GODOWN_REFERENCE" });
+  });
+
+  it("the server enforces the payment direction map (v2.1): money from a mill is IN only", async () => {
+    od.use();
+    const mill = (await upsertMaster(GA, "party", { name: "Mill A", roles: ["MILL"] }))._id;
+    const dispatch = await createVoucher(GA, {
+      type: "MILL_DISPATCH",
+      millPartyId: mill,
+      dispatchDate: todayIST(),
+      varietyId: await swarna(GA),
+      weight: { mode: "MANUAL", totalG: QTL.toString(), netG: QTL.toString() },
+      ratePaisePerQtl: "260000",
+      totalValuePaise: "0",
+    } as Parameters<typeof saveDoc>[1]);
+    await od.sync();
+    od.offline = true;
+    const p = await createVoucher(
+      GA,
+      paymentDraft("IN", 100n, { type: "MILL_DISPATCH", id: dispatch._id }, { partyId: mill }),
+    );
+    od.offline = false;
+    await forgetLocal(p);
+    // A device that claims the mill's money went OUT is refused by the server.
+    const out = { ...p, direction: "OUT" } as Voucher;
+    let res = await crafted(od, [opFor(out)]);
+    expect(res.results[0]).toMatchObject({
+      result: "rejected",
+      reason: "PAYMENT_DIRECTION_MISMATCH",
+    });
+    // A refund to a mill must be OUT.
+    const refundIn = { ...p, source: { type: "MILL_REFUND", id: null } } as Voucher;
+    res = await crafted(od, [opFor(refundIn)]);
+    expect(res.results[0]).toMatchObject({
+      result: "rejected",
+      reason: "PAYMENT_DIRECTION_MISMATCH",
+    });
+    // The right direction is accepted.
+    res = await crafted(od, [opFor(p)]);
+    expect(res.results[0]).toMatchObject({ result: "applied" });
   });
 });
 

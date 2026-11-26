@@ -76,6 +76,20 @@ per client per month.
 5. Check `/api/health` and one owner login per client.
 Keep Next.js patched: check its security releases monthly and redeploy all clients.
 
+## 6a. Mill direction fix (v2.1, one-off per client)
+The v2.1 release changes how mill dispatches post (the mill pays the broker; see
+`docs/BUGFIX_MILL_DIRECTION.md`). Existing data is repaired once, right after deploying v2.1:
+1. Copy the database (`mongodump` → `mongorestore` into `<db>_fixcopy`).
+2. Dry run on the copy: `pnpm fix:mill-direction --db=<db>_fixcopy`. Read `docs/MILL_FIX_REVIEW.md`
+   with the owner and fill in `docs/mill-fix-decisions.json` (payments wrongly entered as paid to a
+   mill, the real price of old "for milling" dispatches, old return values).
+3. `pnpm fix:mill-direction --db=<db>_fixcopy --apply`; check `docs/MILL_FIX_RECONCILIATION.md`:
+   every stock check must be OK, and cash/bank may change only by 2 × each flipped payment.
+4. Same command on production with `--apply`. Phones re-download every voucher of the repaired
+   Golas on their next sync (their local ledger lines, stock moves and daily totals follow).
+   A phone with unsynced mill entries should sync **before** step 4.
+5. Run it again: every Gola must report `unchanged`.
+
 ## 7. Year close and archival (spec §17.4)
 1. Owner → Settings → Backup & export → **Download full backup (All godowns)**; keep the file
    (and the nightly archive of the same day) somewhere safe.

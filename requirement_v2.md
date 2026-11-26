@@ -2,7 +2,10 @@
 ### Dhan Gola Management Software — offline-first business PWA for paddy brokers in West Bengal
 
 > **Audience:** Claude Code and the developer supervising it.
-> **Version:** 2.0. This version merges the original technical spec (v1.1) with the client's full requirement document.
+> **Version:** 2.1. Version 2.0 merged the original technical spec (v1.1) with the client's full requirement document.
+>
+> **Changelog**
+> - **v2.1 (2026-11-26) — money direction with mills corrected: mills pay the broker.** A mill dispatch is paddy the mill pays for (a receivable, পাওনা); money from a mill is always money received; a mill return is a credit to the mill; the final settlement adjusts the same dispatch (no separate sale). "Mill payable / মিলের দেনা", milling charges and the consignment-settlement sale are removed. Payment direction comes from the source type (§7.2). New acceptance Test 12 (§21). Details: `docs/BUGFIX_MILL_DIRECTION.md`.
 > **Precedence:** where they differ, the **client's functional and UI/UX requirements win**. Technical choices from v1.1 (stack, offline-first sync, integer money, the posting engine) stay unless a client requirement needs a change.
 > **Terminology:** **Gola (গোলা) = godown.** The UI always says "গোলা / Gola". Internal code may keep the existing `godownId` field and type names; renaming them is not required.
 
@@ -31,7 +34,7 @@
 ### 1.1 Product
 - **Product:** Dhan Gola Management Software. **App name:** Dhan Gola (ধান গোলা).
 - **Users:** paddy brokers/traders in West Bengal and their families. They may not be highly educated or technically experienced, so the app must be simple, with large text and buttons.
-- Each broker buys paddy from farmers, keeps it in his golas, sells it to mills and customers, and sends paddy to mills either for **milling** (rice comes back) or on **consignment** (the mill decides and settles later). He also runs a **vehicle (truck) business**, deals with **second parties** (other traders) and handles a lot of cash plus bank/UPI.
+- Each broker **buys paddy from farmers and pays the farmers** (money out; the broker owes a farmer until paid: দেনা), keeps it in his golas, and **delivers it to rice mills, which pay him** (money in; a mill owes the broker until it pays: পাওনা). He may also sell to other customers. A mill can send paddy back, and its final accepted weight / rate / quality cut adjusts what it owes. He also runs a **vehicle (truck) business**, deals with **second parties** (other traders) and handles a lot of cash plus bank/UPI.
 - Two current clients. **Each client gets his own deployment and his own database** from the same codebase. Each deployment has **one business owner account**, and that owner manages **two (or more) independent Golas** with one login.
 
 ### 1.2 Glossary (use these terms; natural West Bengal Bengali)
@@ -49,11 +52,12 @@
 | Bag | বস্তা | Individual weighed bag |
 | Farmer / supplier | কৃষক / সরবরাহকারী | Sells paddy to us |
 | Customer / buyer | ক্রেতা / খদ্দের | Buys paddy or rice from us (can be a mill) |
-| Mill | মিল / চালকল | Rice mill: a buyer, or the place paddy is dispatched to for milling or consignment |
+| Mill | মিল / চালকল | Rice mill: **the broker's main buyer and debtor**. It pays for the paddy delivered to it |
 | Second party | সেকেন্ড পার্টি / পার্টি | Another trader we have a running account with |
-| Mill dispatch | মিলে পাঠানো | Paddy sent to a mill. **Not a sale** |
-| Mill return | মিল থেকে ফেরত | Paddy, rice or other product coming back from a mill |
-| Milling conversion | ভাঙানোর হিসাব | Record of paddy consumed → rice/by-products/loss |
+| Mill dispatch | মিলে পাঠানো | Paddy delivered to a mill **that the mill pays for** (receivable). Listed in the Mill section, not in the Sales list |
+| Mill return | মিল থেকে ফেরত | Paddy, rice or other product coming back from a mill. Paddy back = a **credit** to the mill |
+| Final settlement | চূড়ান্ত হিসাব | The mill's accepted weight, final rate and quality cut for one dispatch; adjusts that dispatch's receivable |
+| Milling conversion | ভাঙানোর হিসাব | Stock-only record of paddy consumed → rice/by-products/loss |
 | Load khata | লোড খাতা | Daily register of truck loadings |
 | Due | বাকি | Unpaid part of a bill |
 | Advance | অগ্রিম / দাদন | Money paid or received before goods or a bill |
@@ -195,7 +199,8 @@ Sales total = Quantity × Rate                      (same formula)
 Remaining due (any bill) = Bill total − Σ active linked payments
 Expected closing cash = Opening cash + Cash received − Cash paid − Cash expenses
 Closing paddy stock  = Opening + Purchases + Returned paddy − Confirmed sales − Mill dispatches ± Approved adjustments
-Closing mill stock   = Opening mill stock + Dispatches − Returns − Consumed in milling − Settled to sale ± Adjustments
+Closing mill stock   = Opening mill stock + Dispatches − Returns − Consumed in milling − Final settlements (accepted + shortfall) ± Adjustments
+Mill receivable (per dispatch) = Qty × Rate − Return credits − Final-settlement cut − Collections + Refunds
 Vehicle net profit   = Total income − Driver cost − Diesel cost − Other expenses
 ```
 Rounding: half-up (half away from zero), at exactly one point per formula. Optional "round bill to rupee" shows a visible round-off line.
@@ -254,9 +259,9 @@ interface Payment extends BaseDoc {            // BaseDoc: _id(uuid v7), busines
   vehicleNumber?: string;                      // cash sent via a vehicle
   partyId?: string;
   source: {                                    // what this payment settles
-    type: 'PURCHASE' | 'SALE' | 'EXPENSE' | 'MILL_DISPATCH' | 'MILL_RETURN' | 'VEHICLE_TRIP'
+    type: 'PURCHASE' | 'SALE' | 'EXPENSE' | 'MILL_DISPATCH' | 'MILL_REFUND' | 'VEHICLE_TRIP'
         | 'VEHICLE_COST' | 'SECOND_PARTY' | 'PARTY_ADVANCE' | 'OPENING_DUE';
-    id: string | null;                         // null only for on-account advances
+    id: string | null;                         // null only for on-account money (advance, second party, refund to a mill)
   };
   isInitial: boolean;                          // the "initial payment" entered on the source form
   notes?: string;
@@ -270,13 +275,27 @@ interface Payment extends BaseDoc {            // BaseDoc: _id(uuid v7), busines
 - A payment can't exceed the remaining due of its source unless the user confirms "extra as advance". In that case the payment is split into the bill part and a `PARTY_ADVANCE` part (two records with a shared `groupId`; never double-counted).
 - One payment can only be linked to one source (bulk "pay several bills" creates one payment per bill under one `groupId`).
 - **Payment receipt:** every payment has a printable/shareable receipt (bilingual template, business logo, Gola, amount in words).
+- **Direction comes from the source type, never from the screen.** One shared map in `/domain` (`domain/v2/direction.ts`) is used by the device's write path and enforced by the server; a mismatch is rejected with `PAYMENT_DIRECTION_MISMATCH`:
+
+  | source.type | direction |
+  |---|---|
+  | PURCHASE | OUT |
+  | SALE | IN |
+  | MILL_DISPATCH | **IN** (the mill pays us) |
+  | MILL_REFUND | OUT ("টাকা ফেরত দিলাম / Refund to mill": only when a mill paid more than it owed) |
+  | EXPENSE, VEHICLE_COST | OUT |
+  | VEHICLE_TRIP | IN |
+  | MILL_RETURN | no payment allowed (a return is a credit, not cash) |
+  | SECOND_PARTY, PARTY_ADVANCE, OPENING_DUE | the user's explicit choice: "দিলাম / Gave" = OUT, "পেলাম / Received" = IN |
+
+- **The broker pays a mill only when the user records it explicitly:** a "Refund to mill" (OUT, `MILL_REFUND`), or a Daily Expense in category "মিলের খরচ / Mill charges" with the mill as party (e.g. unloading or milling charge). Nothing creates a mill payable automatically.
 
 ### 7.3 Cashbook categories (how each payment is classified)
 
 | Cashbook line | Includes (mode = CASH only) |
 |---|---|
-| **Cash received** | IN payments: sale collections, mill receipts, vehicle income collections, second-party receipts, advances received, bank → cash withdrawals |
-| **Cash paid** | OUT payments that are not expenses: farmer/supplier payments, mill payments, second-party payments, advances given, cash → bank deposits |
+| **Cash received** | IN payments: sale collections, **collections from mills (MILL_DISPATCH)**, vehicle income collections, second-party receipts, advances received, bank → cash withdrawals |
+| **Cash paid** | OUT payments that are not expenses: farmer/supplier payments, refunds to mills (MILL_REFUND), second-party payments, advances given, cash → bank deposits. Money from a mill is **never** counted here |
 | **Cash expenses** | OUT payments whose source is `EXPENSE` or `VEHICLE_COST` |
 | Bank (separate book) | same lines for BANK/UPI mode, per bank account |
 
@@ -286,9 +305,9 @@ Note: the client listed **"Farmer payment" as an expense category**. In the Dail
 
 ## 8. Accounting model (hidden from users)
 
-Users see only দিলাম / পেলাম, পাওনা / দেনা, নগদ / ব্যাংক. Internally the double-entry chart of accounts from v1.1 is kept **per Gola**: `CASH`, `BANK:<id>`, `PARTY:<id>`, `STOCK_PADDY`, `STOCK_RICE`, `STOCK_OTHER:<product>`, `STOCK_AT_MILL:<millId>`, `SALES`, `COGS`, `EXP:<category>`, `EXP_PAYABLE`, `MILLING_CHARGES`, `MILLING_LOSS`, `VEH_INCOME:<vehicle>`, `VEH_EXP:<vehicle>:<type>`, `CASH_DIFF`, `STOCK_ADJ`, `OPENING_BAL`, `CAPITAL`, `DRAWINGS`.
+Users see only দিলাম / পেলাম, পাওনা / দেনা, নগদ / ব্যাংক. Internally the double-entry chart of accounts from v1.1 is kept **per Gola**: `CASH`, `BANK:<id>`, `PARTY:<id>`, `STOCK_PADDY`, `STOCK_RICE`, `STOCK_OTHER:<product>`, `STOCK_AT_MILL:<millId>` (opening stock / adjustments at a mill only), `SALES`, `MILL_SALES`, `MILL_DEDUCTION`, `COGS`, `EXP:<category>`, `EXP_PAYABLE`, `VEH_INCOME:<vehicle>`, `VEH_EXP:<vehicle>:<type>`, `CASH_DIFF`, `STOCK_ADJ`, `OPENING_BAL`, `CAPITAL`, `DRAWINGS`, `SP_CLEARING`. (v2.0's `MILLING_CHARGES` and `MILLING_LOSS` are no longer posted.)
 
-Party balance sign: **> 0 = they owe us (পাওনা)**, **< 0 = we owe them (দেনা)**.
+Party balance sign — **one convention everywhere: > 0 = they owe us (পাওনা)**, **< 0 = we owe them (দেনা)**. Every list, card, tab, ledger and report decides পাওনা vs দেনা by the **sign of the balance**, never by the party's role. A mill with a positive balance is always পাওনা; a mill with a negative balance (it paid too much) shows as "মিলকে ফেরত দিতে হবে / To refund to mill".
 
 | Event | Debit | Credit | Cash effect |
 |---|---|---|---|
@@ -298,13 +317,17 @@ Party balance sign: **> 0 = they owe us (পাওনা)**, **< 0 = we owe them
 | Collection | CASH / BANK | PARTY:customer | on paymentDate |
 | Expense incurred (with person/party) | EXP:cat | PARTY:person (or EXP_PAYABLE) | none |
 | Expense payment | PARTY:person / EXP_PAYABLE | CASH / BANK | on paymentDate |
-| Mill dispatch (any type) | STOCK_AT_MILL:mill | STOCK_PADDY (avg cost) | none |
-| Milling charges (MILLING dispatch) | MILLING_CHARGES | PARTY:mill | none |
-| Payment to mill | PARTY:mill | CASH / BANK | on paymentDate |
-| Consignment advance from mill | CASH / BANK | PARTY:mill | on paymentDate |
-| Consignment settled → sale | PARTY:mill / SALES; COGS / STOCK_AT_MILL | | none |
-| Paddy returned from mill | STOCK_PADDY | STOCK_AT_MILL:mill | none |
-| Milling conversion | STOCK_RICE, STOCK_OTHER:x (at entered value), MILLING_LOSS (balancing) | STOCK_AT_MILL:mill (cost of paddy consumed) | none |
+| Mill dispatch (quantity × rate the mill pays) | PARTY:mill (total) | MILL_SALES | none |
+| Mill dispatch: cost of the paddy | COGS | STOCK_PADDY (avg cost) | none (quantity moves WAREHOUSE → MILL) |
+| Collection from a mill (`MILL_DISPATCH`, IN) | CASH / BANK | PARTY:mill | on paymentDate (Cash received) |
+| Paddy returned by a mill: credit (default qty × dispatch rate, editable) | MILL_SALES | PARTY:mill | none |
+| Paddy returned by a mill: stock back at cost | STOCK_PADDY | COGS | none (quantity MILL → WAREHOUSE) |
+| Final settlement: cut (moisture / quality / weight) | MILL_DEDUCTION | PARTY:mill | none |
+| Final settlement: extra value | PARTY:mill | MILL_DEDUCTION | none |
+| Refund to a mill that overpaid (`MILL_REFUND`, OUT) | PARTY:mill | CASH / BANK | on paymentDate (Cash paid) |
+| Mill expense (Daily Expense "মিলের খরচ", mill as party) | EXP:MILL_CHARGES | PARTY:mill | none until paid |
+| Rice / other returned by a mill | — | — | none (stock quantity only) |
+| Milling conversion | — | — | none (stock only: consumed paddy leaves mill stock) |
 | Vehicle trip income | PARTY:customer | VEH_INCOME | none |
 | Vehicle cost | VEH_EXP | CASH / BANK / PARTY:driver/pump | if paid |
 | Stock adjustment | STOCK_ADJ ↔ STOCK_* | | none |
@@ -312,6 +335,8 @@ Party balance sign: **> 0 = they owe us (পাওনা)**, **< 0 = we owe them
 | Cash ↔ bank | BANK ↔ CASH | | yes |
 
 `postLedger` is shared by client and server. The server recomputes it and rejects mismatches (`CALC_MISMATCH`).
+
+Profit: **gross profit = SALES + MILL_SALES − MILL_DEDUCTION − COGS**; net profit also subtracts expenses (and vehicle costs). Paddy at a mill is costed when it is dispatched; the MILL stock position keeps that cost as a memo only so a paddy return comes back at cost.
 
 ---
 
@@ -338,7 +363,7 @@ Every `StockMove` has: `godownId`, `product` (`PADDY` | `RICE` | `OTHER`), `othe
 | Mill return: paddy | − PADDY MILL(mill), + PADDY WAREHOUSE |
 | Mill return: rice / other | + RICE / OTHER WAREHOUSE (quantity entered); **the paddy consumed is removed from MILL stock only through the Milling Conversion record** |
 | Milling conversion | − PADDY MILL (paddy consumed). Rice/by-product quantities come from the linked return(s); loss = consumed − outputs (shown, user-confirmed) |
-| Consignment settlement | − PADDY MILL(mill) (via the created sale) |
+| Final settlement | − PADDY MILL(mill): accepted quantity, plus any weight shortfall (a reasoned stock loss). No sale is created |
 | Stock adjustment (approved) | ± any product/location, reason required |
 | Load khata entry | **none by itself.** It moves stock only through its linked sale or dispatch (section 12.5) |
 | Opening stock | + per product/variety/location |
@@ -386,21 +411,32 @@ interface Sale extends BaseDoc {
   deliveryLog: Array<{ status; at; note? }>;
   vehicleNumber?; driverName?; dueDate?; notes?;
   charges?: { loadingPaise?; freightPaise?; vehicleAdvancePaise? };   // optional, collapsed (from client's first brief)
-  linkedLoadId?; consignmentDispatchId?; interGolaGroupId?;
+  linkedLoadId?; interGolaGroupId?;
   invoiceNo: string;
+  // v2.1: `consignmentDispatchId` is removed (v2.0 consignment-settlement sales are converted
+  // into final settlements by scripts/fix-mill-direction.ts; the field only parses old records).
 }
 interface Expense extends BaseDoc { title; categoryCode; amountPaise; partyId?; personText?; expenseDate; dueDate?; notes?; vehicleId?; linkedTripId? }
    // paid / unpaid / partial is DERIVED from payments
 interface LoadEntry extends BaseDoc { transactionDate /* loading date */; fromPartyId; destinationMillId; varietyId; weight: WeightBlock; ratePaisePerQtl; totalPaise; vehicleNumber; driverName?; secondPartyId?; notes?; link?: { type: 'SALE'|'MILL_DISPATCH'; id: string } }
 interface MillDispatch extends BaseDoc {
-  dispatchType: 'MILLING'|'CONSIGNMENT'; millPartyId; dispatchDate; varietyId; weight: WeightBlock;
-  ratePaisePerQtl;   // MILLING: milling charge per qtl (may be 0); CONSIGNMENT: expected price per qtl
-  totalValuePaise;   // MILLING: charges payable to mill; CONSIGNMENT: expected value (informational until settled)
-  vehicleNumber?; driverName?; dueDate?; notes?; linkedLoadId?;
+  dispatchType?: 'MILLING'|'CONSIGNMENT';   // DEPRECATED: kept on v2.0 records, ignored by posting
+  millPartyId; dispatchDate; varietyId; weight: WeightBlock;
+  ratePaisePerQtl;   // price per quintal THE MILL PAYS
+  totalValuePaise;   // quantity × rate = what the mill owes for this dispatch (receivable)
+  vehicleNumber?; driverName?; dueDate? /* COLLECT reminder */; notes?; linkedLoadId?;
 }
-interface MillReturn extends BaseDoc { dispatchId; millPartyId; returnDate; product: 'PADDY'|'RICE'|'OTHER'; otherProductName?; varietyId?; weight: WeightBlock; ratePaisePerQtl?; totalValuePaise?; notes?; dedupeKey }
-interface MillingConversion extends BaseDoc { dispatchId; conversionDate; paddyConsumedG; outputs: Array<{ returnId: string; product: 'RICE'|'OTHER'; name?; qtyG }>; lossG /* entered; system shows consumed − Σoutputs */; notes? }
-interface ConsignmentSettlement extends BaseDoc { dispatchId; transactionDate; qtyAcceptedG; finalRatePaisePerQtl; saleId }
+interface MillReturn extends BaseDoc { dispatchId; millPartyId; returnDate; product: 'PADDY'|'RICE'|'OTHER'; otherProductName?; varietyId?; weight: WeightBlock;
+  ratePaisePerQtl?;  // paddy: the dispatch's rate (credit = qty × rate); absent when the credit is typed
+  totalValuePaise?;  // paddy: the CREDIT to the mill; rice / other: informational only
+  notes?; dedupeKey }
+interface MillingConversion extends BaseDoc { dispatchId; conversionDate; paddyConsumedG; outputs: Array<{ returnId: string; product: 'RICE'|'OTHER'; name?; qtyG }>; lossG /* entered; system shows consumed − Σoutputs */; notes? }   // stock only
+interface MillSettlement extends BaseDoc {   // "the dispatch's settlement": its own record so it posts on its own date (DECISIONS D53)
+  dispatchId; millPartyId; varietyId; dispatchRatePaisePerQtl /* copied, verified */; transactionDate;
+  acceptedG; finalRatePaisePerQtl; deductionPaise; shortfallG; shortfallReason?;
+  billedPaise /* (accepted + shortfall) × dispatch rate */; finalValuePaise /* accepted × final rate − deduction */;
+  adjustmentPaise /* billed − final: > 0 cut, < 0 extra */;
+}   // one active settlement per dispatch; v2.0's ConsignmentSettlement (a Sale) is removed
 interface VehicleTrip extends BaseDoc { transactionDate; customerPartyId; vehicleId; driverName?; loadingLocation; destination; qtyG?; rateMode: 'PER_QTL'|'FIXED'; ratePaise; totalIncomePaise; dueDate?; notes?; costs: Array<{ id; kind: 'DRIVER'|'DIESEL'|'OTHER'; amountPaise; litresMl?; payeeText?; note? }> }
    // cost payments = Payment(source VEHICLE_COST, id = trip._id + ':' + cost.id); income collections = Payment(source VEHICLE_TRIP)
 interface SecondPartyEntry extends BaseDoc { partyId; transactionDate; kind: 'WE_OWE'|'THEY_OWE'; amountPaise; dueDate?; notes? }
@@ -426,9 +462,9 @@ Indexes: every business index is prefixed with `businessId, godownId` (server) o
 | 3 | **ধান বিক্রি / Sales** | বিক্রির তালিকা · নতুন বিক্রি · ক্রেতার হিসাব (Customer ledger) · ডেলিভারি · রিপোর্ট (+ Inter-Gola transfer action) |
 | 4 | **দৈনিক খরচ / Daily Expenses** | আজকের খরচ · সব খরচ · বাকি খরচ (Unpaid) · রিপোর্ট |
 | 5 | **দৈনিক লোড খাতা / Daily Load Khata** | তারিখ অনুযায়ী · পার্টি · মিল · গাড়ি · রিপোর্ট |
-| 6 | **বাকি ও অগ্রিম / Due & Advance** | সারাংশ · পাওনা · দেনা · মিলের দেনা · অগ্রিম · অন্যান্য · রিমাইন্ডার · রিপোর্ট |
+| 6 | **বাকি ও অগ্রিম / Due & Advance** | সারাংশ · পাওনা · দেনা · মিলের কাছে পাওনা · অগ্রিম · অন্যান্য · রিমাইন্ডার · রিপোর্ট |
 | 7 | **গাড়ির ব্যবসা / Vehicle Business** | ট্রিপ · গাড়ি অনুযায়ী · খদ্দের অনুযায়ী · আয়-খরচ · রিপোর্ট |
-| 8 | **মিল ও পার্টির হিসাব / Mill & Second Party** | সেকেন্ড পার্টি খাতা · মিলে পাঠানো (Dispatch) · মিল থেকে ফেরত (Return) · ভাঙানোর হিসাব (Conversion) · কনসাইনমেন্ট নিষ্পত্তি · রিপোর্ট |
+| 8 | **মিল ও পার্টির হিসাব / Mill & Second Party** | সেকেন্ড পার্টি খাতা · মিলে পাঠানো (Dispatch) · মিল থেকে ফেরত (Return) · ভাঙানোর হিসাব (Conversion) · চূড়ান্ত হিসাব (Final settlement) · রিপোর্ট |
 
 **Not main sections** (live in the header, never in the section list):
 - Gola switcher, sync status badge, global search, notifications bell (due alerts).
@@ -453,16 +489,16 @@ Indexes: every business index is prefixed with `businessId, godownId` (server) o
 | Card | Definition |
 |---|---|
 | আজকের মোট কেনা / Total purchase | Σ purchase totals (₹) and quantity, by `transactionDate` in range |
-| মোট বিক্রি / Total sales | Σ confirmed sales (₹, qty), by `transactionDate` |
+| মোট বিক্রি / Total sales | Σ confirmed sales (₹, qty), by `transactionDate`. Sub-line "মিলে পাঠানো ₹X" = Σ mill dispatch value in range, so all income is visible (dispatches are not listed in the Sales section) |
 | খরচ / Expenses | Σ expenses incurred, by `expenseDate` (+ vehicle costs, labelled) |
 | নগদ ব্যালেন্স / Cash balance | CASH account balance at range end |
 | ব্যাংক ব্যালেন্স / Bank balance | Σ BANK accounts at range end (tap → per account) |
 | গোলার ধান / Warehouse paddy stock | PADDY @ WAREHOUSE (qtl, with kg/mon on tap) |
 | চালের স্টক / Rice stock | RICE @ WAREHOUSE (separate) |
 | মিলে থাকা ধান / Mill stock | PADDY @ MILL (tap → per mill) |
-| ক্রেতার কাছে পাওনা / Customer receivables | Σ positive balances of customers & mills (sales side) |
+| ক্রেতার কাছে পাওনা / Customer receivables | Σ positive balances of customers, vehicle customers and other Golas (mills have their own card) |
 | কৃষক/সরবরাহকারীর দেনা / Farmer-supplier payables | Σ negative balances of farmers/suppliers |
-| মিলের দেনা / Mill payable | Σ amounts owed to mills (milling charges etc.) |
+| মিলের কাছে পাওনা / Receivable from mills | Σ positive mill balances. Only when some mill balance is negative, a small line "মিলকে ফেরত দিতে হবে ₹X" |
 | গাড়ির আয় / Vehicle income | Σ trip income in range |
 | নগদ পেলাম / Cash received | Σ IN CASH payments by `paymentDate` in range |
 | নগদ দিলাম / Cash paid | Σ OUT CASH payments (paid + expenses) in range |
@@ -530,7 +566,7 @@ Save → toast "কেনা সেভ হয়েছে" → options: Print/Sh
 
 ### 12.3 Section 3 — Sales (ধান বিক্রি)
 
-**New sale form:** buyer/mill (party with CUSTOMER or MILL role; create inline), mobile, sales date, product (ধান / চাল), variety, quantity (bag-wise or manual, same component), rate/qtl → **Sales total = Quantity × Rate** (auto), **advance received** (amount, date, mode, reference → IN payment, `isInitial`), remaining due (auto), due date, vehicle number, driver, delivery status, source (Gola stock / direct delivery / from mill consignment), optional collapsed charges (loading, freight, vehicle advance), notes. Save as **Confirmed** (default; stock deducted once) or **Order** (no stock effect until confirmed).
+**New sale form:** buyer/mill (party with CUSTOMER or MILL role; create inline), mobile, sales date, product (ধান / চাল), variety, quantity (bag-wise or manual, same component), rate/qtl → **Sales total = Quantity × Rate** (auto), **advance received** (amount, date, mode, reference → IN payment, `isInitial`), remaining due (auto), due date, vehicle number, driver, delivery status, source (Gola stock / direct delivery), optional collapsed charges (loading, freight, vehicle advance), notes. Save as **Confirmed** (default; stock deducted once) or **Order** (no stock effect until confirmed).
 
 **Features:** multiple sales to the same buyer; **Add collection** (date, amount, mode, reference) any number of times; payment history; customer-wise ledger; remaining due; **sales invoice** (print/PDF/share; bilingual; business logo, Gola, invoice no., bag list optional, amount in words); **delivery tracking** (status timeline PENDING → LOADED → IN_TRANSIT → DELIVERED with timestamps; filter by status); search and filters; edit/void with confirmation; each collection updates the cashbook on its own payment date.
 
@@ -538,7 +574,7 @@ Save → toast "কেনা সেভ হয়েছে" → options: Print/Sh
 
 ### 12.4 Section 4 — Daily Expenses (দৈনিক খরচ)
 
-**Categories (seeded, editable; bilingual):** কৃষক পেমেন্ট (Farmer payment, special flow, section 7.3) · লেবার খরচ (Labour) · লোডিং/আনলোডিং · পরিবহন (Transport) · ডিজেল (Diesel) · গাড়ির খরচ (Vehicle expense) · অফিস খরচ (Office) · অন্যান্য (Other). Custom categories allowed.
+**Categories (seeded, editable; bilingual):** কৃষক পেমেন্ট (Farmer payment, special flow, section 7.3) · লেবার খরচ (Labour) · লোডিং/আনলোডিং · পরিবহন (Transport) · ডিজেল (Diesel) · গাড়ির খরচ (Vehicle expense) · অফিস খরচ (Office) · মিলের খরচ (Mill charges: e.g. unloading or milling charge paid to a mill; pick the mill as the party) · অন্যান্য (Other). Custom categories allowed.
 
 **Fields:** expense title, category, amount, person/party (optional; pick or type), **expense date**, **entry date** (auto, shown read-only), **payment**: "এখনই পুরো দিলাম / Paid fully now" (default) | "কিছু দিলাম / Part paid" | "এখনও দিইনি / Unpaid"; for paid/part: amount, **actual payment date** (defaults to expense date, editable), mode, reference. Notes.
 
@@ -566,7 +602,8 @@ Save → toast "কেনা সেভ হয়েছে" → options: Print/Sh
 
 A **unified view** over parties and their linked transactions and payments. It creates no independent financial records, **except** party-level entries that genuinely have no other home: opening balance (initial balance), on-account advance given/received, and payments recorded here against a chosen source.
 
-- **Categories (tabs):** ক্রেতার পাওনা (Customer receivable) · কৃষক/সরবরাহকারীর দেনা (Farmer/supplier payable) · মিলের দেনা (Mill payable) · অগ্রিম (Party advance: given and received) · অন্যান্য (Other party balances: second parties, drivers, labour…).
+- **Categories (tabs):** ক্রেতার পাওনা (Customer receivable) · কৃষক/সরবরাহকারীর দেনা (Farmer/supplier payable) · মিলের কাছে পাওনা (Receivable from mills) · অগ্রিম (Party advance: given and received) · অন্যান্য (Other party balances: second parties, drivers, labour…, and mills that paid too much: "মিলকে ফেরত দিতে হবে").
+- **Classification by the sign of the balance first, then the role:** > 0 (they owe us) → মিলের কাছে পাওনা for mills, ক্রেতার পাওনা for customers / vehicle customers / Golas, অগ্রিম for farmers / suppliers (advance given), else অন্যান্য; < 0 (we owe them) → দেনা for farmers / suppliers, অগ্রিম for customers (advance received), অন্যান্য for mills ("to refund") and others. A positive mill balance is never shown as দেনা.
 - **Per row:** party, mobile, last transaction date, initial balance, total amount, paid, remaining, earliest due date / overdue days, WhatsApp and call buttons.
 - **Party ledger:** chronological lines from every source (purchase, sale, expense, mill dispatch/return, vehicle trip, second-party entry, opening, advance, payments) with running balance and links to the source. Date-range filter, print/share statement.
 - **Add payment / collection here:** choose which open bill(s) it settles (default FIFO oldest first, editable) or "advance". This creates the same Payment records as the source screens.
@@ -574,7 +611,7 @@ A **unified view** over parties and their linked transactions and payments. It c
 - **Reminder interface:** due today / overdue / upcoming; mark done, snooze, edit due date. Reminders come automatically from `dueDate`s plus manual ones. In-app badge; optional daily web-push digest when online.
 - **WhatsApp reminder:** button opens `wa.me` with the party's mobile and a prepared message (Bengali default, English option, editable before sending), for example:
   > নমস্কার {name}, {business} ({gola}) থেকে জানাচ্ছি — আপনার {amount} টাকা বাকি আছে, পরিশোধের তারিখ {dueDate}। অনুগ্রহ করে সময়মতো পরিশোধ করবেন। ধন্যবাদ।
-  A separate template is used when **we** owe money (payment-promise/confirmation message). The UI says "WhatsApp খুলুন / Open WhatsApp", never "Sent".
+  A separate template is used when **we** owe money (payment-promise/confirmation message). The template follows the sign of the balance; for a mill that owes us (the normal case) it is always the collection reminder ("আপনার কাছে আমাদের ₹X পাওনা আছে…"). The UI says "WhatsApp খুলুন / Open WhatsApp", never "Sent".
 
 ### 12.7 Section 7 — Vehicle Business (গাড়ির ব্যবসা)
 
@@ -588,20 +625,20 @@ A **unified view** over parties and their linked transactions and payments. It c
 
 **A. Second Party Ledger:** party (create inline), mobile; entries of kind **"আমরা দেব / We owe"** or **"ওরা দেবে / They owe"** (amount, transaction date, due date, notes), plus money **given/received** (payment date, amount, mode, bank account/reference, cash/bank details, person who paid/received, notes) as Payments. Party-wise history, payment history, outstanding balance, multiple and partial payments, search and filters, statement print/share.
 
-**B. Mill Dispatch (মিলে পাঠানো):**
-- **Dispatch type** (required, big two-option toggle with a one-line explanation):
-  - **ভাঙানোর জন্য / For milling:** we still own the paddy; the mill mills it and returns rice/paddy/by-products. Rate = milling charge per quintal (can be 0). Total = milling charges **payable to the mill**. Payments to the mill = OUT payments.
-  - **কনসাইনমেন্ট / Consignment (sell later):** paddy sits at the mill until the mill confirms. Rate = expected price; total = expected value (informational). Money received from the mill before settlement = IN payments (advance). **Settle** later via tab E.
-- **Fields:** mill name, dispatch date, variety, quantity (bag-wise/manual), rate, total value (auto), vehicle number, driver, paid/received amount (initial payment), remaining payable/receivable (auto; label switches with type), due date, notes, optional linked load.
-- **Rules:** warehouse paddy decreases once; mill stock increases once; **a dispatch is never a sale** and never creates a sale by itself; dispatch-wise history (quantity sent, returned, consumed, settled, remaining at mill); multiple payments with separate dates.
+**B. Mill Dispatch (মিলে পাঠানো):** paddy delivered to a mill **that the mill pays for**. A mill is the broker's customer/debtor; the broker never owes a mill money because of a dispatch.
+- **Fields:** mill name, dispatch date, variety, quantity (bag-wise/manual), **"মিলের রেট (মিল দেবে) / Rate the mill pays"** (per quintal), **"মোট পাওনা / Total receivable"** (= quantity × rate, auto), **"মিল দিয়েছে / Received from mill"** (initial collection: amount, date, mode, reference → an IN payment), **"মিলের কাছে বাকি পাওনা / Remaining receivable"** (auto), due date (creates a COLLECT reminder), vehicle number, driver, notes, optional linked load. No dispatch-type choice (v2.0's "for milling / consignment" toggle is removed; old records keep the field, posting ignores it).
+- **Posting:** Dr PARTY:mill / Cr MILL_SALES (total); Dr COGS / Cr STOCK_PADDY at average cost. **No cash effect at dispatch.**
+- **Detail page:** quantity sent / returned / accepted / still at the mill; value, return credits, final-settlement adjustment, collected, remaining receivable; **"+ মিল থেকে টাকা পেলাম / Add collection from mill"** (green, incoming; any number of collections, each with its own date and mode); the final settlement; WhatsApp with the collection-reminder template. Only when the mill has paid more than it owes: "মিলকে ফেরত দিতে হবে ₹X" and **"টাকা ফেরত দিলাম / Refund to mill"** (an OUT `MILL_REFUND` payment, Cash paid).
+- **Rules:** warehouse paddy decreases once; mill stock increases once; dispatches are not listed in the Sales section (their value shows on the Total sales card's sub-line); multiple collections with separate dates; a collection can't exceed the remaining receivable unless the owner keeps the extra as the mill's advance.
 
 **C. Mill Return (মিল থেকে ফেরত):**
-- **Fields:** original dispatch (required; picker shows mill, date, variety, qty remaining at mill), mill name (auto), return date, product type **ধান / চাল / অন্যান্য** (+ name for other), variety, number of bags + **individual bag weights** (same bag component) or manual total, total quantity, rate (optional valuation), total value, amount received (optional IN payment, linked), remaining receivable, payment date, notes.
-- **Rules:** returned paddy → back to warehouse paddy and out of mill stock. Rice → rice stock; other → its own product stock. **Rice never offsets paddy quantity.** The paddy consumed is recorded through tab D. Returned paddy can't exceed the paddy remaining at the mill for that dispatch (warn + confirm). **Duplicate prevention:** same dispatch + date + product + quantity within 10 minutes → "একই ফেরত আগে সেভ হয়েছে? / Possible duplicate" confirmation; idempotent save IDs prevent double submit.
+- **Fields:** original dispatch (required; picker shows mill, date, variety, qty remaining at mill), mill name (auto), return date, product type **ধান / চাল / অন্যান্য** (+ name for other), variety, number of bags + **individual bag weights** (same bag component) or manual total, total quantity; for paddy a **"Credit value"** (auto = returned qty × that dispatch's rate, editable) with its effect shown: "মিলের পাওনা ₹X কমবে / Receivable from mill reduces by ₹X"; notes. **No payment fields**: a return is a credit, not cash.
+- **Posting (paddy):** Dr MILL_SALES / Cr PARTY:mill for the credit; stock back MILL → WAREHOUSE at cost (Dr STOCK_PADDY / Cr COGS). **No cash effect.** Rice / other: stock only (separate rice / other stock, never added to paddy).
+- **Rules:** returned paddy → back to warehouse paddy and out of mill stock. **Rice never offsets paddy quantity.** The paddy consumed is recorded through tab D. Returned paddy can't exceed the paddy remaining at the mill for that dispatch (warn + confirm). A dispatch with a final settlement takes no more returns. **Duplicate prevention:** same dispatch + date + product + quantity within 10 minutes → "একই ফেরত আগে সেভ হয়েছে? / Possible duplicate" confirmation; idempotent save IDs prevent double submit.
 
-**D. Milling Conversion (ভাঙানোর হিসাব):** for MILLING dispatches. Fields: linked dispatch, conversion date, original paddy quantity consumed, rice returned (linked return(s)), by-products (name + quantity, linked returns), milling loss. The user enters actual figures; the app **never assumes a conversion ratio**. It shows `consumed − rice − by-products = difference` and asks the user to confirm the loss. Posting removes the consumed paddy from mill stock (section 9.2). Shows conversion % for information only.
+**D. Milling Conversion (ভাঙানোর হিসাব):** a **stock-only** record for any dispatch. Fields: linked dispatch, conversion date, original paddy quantity consumed, rice returned (linked return(s)), by-products (name + quantity, linked returns), milling loss. The user enters actual figures; the app **never assumes a conversion ratio**. It shows `consumed − rice − by-products = difference` and asks the user to confirm the loss. Posting removes the consumed paddy from mill stock (section 9.2); money and the mill's receivable don't change. Shows conversion % for information only.
 
-**E. Consignment settlement (কনসাইনমেন্ট নিষ্পত্তি):** for CONSIGNMENT dispatches: quantity accepted by the mill, final rate, date → creates a **Sale** (source = MILL, the mill as buyer) that is linked back. Advances already received from the mill appear against it. Unaccepted paddy can be returned via tab C.
+**E. Final settlement (চূড়ান্ত হিসাব):** on the dispatch (tab "চূড়ান্ত হিসাব" lists dispatches waiting for it, and the dispatch page has the button). Fields: weight the mill accepted, final rate, moisture / quality cut (₹), date; the rest of the paddy still at the mill for that dispatch is a weight shortfall with a reason. Before saving it shows the value at the dispatch rate, what the mill finally pays, the difference ("মিলের পাওনা ₹X কমবে / বাড়বে") and the new receivable. It **adjusts the same dispatch's receivable**: a cut posts Dr MILL_DEDUCTION / Cr PARTY:mill, extra value the reverse; accepted + shortfall leave mill stock. **It never creates a Sale** (no double income). One active settlement per dispatch; reversing it restores the receivable and the mill stock. Paddy the mill did not accept and sent back is recorded as a return first (tab C).
 
 ---
 
@@ -617,7 +654,7 @@ A **unified view** over parties and their linked transactions and payments. It c
 | Load register (date/party/mill/vehicle) | Load Khata |
 | Due & advance; party ledger; aging; reminders | Due & Advance |
 | Vehicle income; vehicle profit (trip/vehicle/month) | Vehicle Business |
-| Mill dispatch; mill return; mill stock; milling conversion; second-party ledger | Mill & Second Party |
+| Mill dispatch (value, collected, receivable); mill return (credit); mill stock; milling conversion; second-party ledger | Mill & Second Party |
 | Daily cashbook; bank book; daily stock; paddy stock; rice stock; daily overview; monthly business summary (purchase, sales, expenses, gross profit, cash/bank movement, stock); date-range report; Gola-wise report; **combined report** | Dashboard |
 
 **Every report:** uses real database records (never sample data); date range presets + custom; filters; totals row; header with **business name, logo, Gola name (or "সব গোলা"), date range, generated-at time**; labels in the current language (bn/en); **Print** (print-optimised CSS, A4 and 80 mm thermal-friendly receipt layouts) → **PDF** via browser "Save as PDF"; **Excel (.xlsx)** and **CSV** export; share as image for short reports. Empty state when there's no data.
@@ -768,12 +805,26 @@ Automate each as Vitest (domain/sync) and/or Playwright (UI, mobile viewport, **
 
 **Test 11 — UX:** mobile responsiveness (360 px, 768 px, 1280 px), Bengali and English complete, forms and validation, navigation (exactly 8 sections), Gola switching, print/PDF, empty and error states, reduced-motion mode.
 
+**Test 12 — Mill money direction** (Vitest domain test + Playwright in Bengali and English):
+
+| Step | Expected |
+|---|---|
+| Gola opening cash ₹2,00,000. Buy 56 qtl @ ₹2,400 = ₹1,34,400; pay the farmer ₹1,34,400 cash | cash **₹65,600**; farmer due 0 |
+| Dispatch 56 qtl to a mill @ ₹2,600 | mill receivable **₹1,45,600** (shown under পাওনা, never দেনা); cash still ₹65,600; warehouse −56 qtl; mill stock +56 qtl |
+| The mill pays ₹1,00,000 cash | cash **₹1,65,600**; Cash received +₹1,00,000; receivable **₹45,600** |
+| The mill returns 5 qtl paddy | credit ₹13,000 → receivable **₹32,600**; warehouse +5 qtl; mill stock 51 qtl; cash unchanged |
+| The mill pays ₹32,600 by bank | bank +₹32,600; receivable **0**; cash unchanged |
+| Profit | gross profit **₹10,200** (51 × (2,600 − 2,400)) |
+| Global check | no "mill payable" anywhere; "Cash paid" unaffected by mill collections |
+
+Property tests: every MILL_DISPATCH payment increases CASH or BANK; a mill's balance goes negative only if collections exceed dispatched − returned − settlement-adjusted value; the direction map rejects wrong directions on the device and on the server.
+
 **Plus (from v1.1):** golden money tests (6.4), property tests, sync idempotency/conflict tests, cold-offline Playwright test for all 8 sections, voice number-parser unit tests, i18n key parity test.
 
 ---
 
 ## 22. Defaults decided (confirm with client later; build with these)
-1. Mill dispatch supports both **milling** and **consignment**; the type is chosen per dispatch.
+1. **Mills pay the broker** (v2.1). A mill dispatch is paddy the mill pays for (a receivable at "rate the mill pays"); collections are IN; a paddy return is a credit (default qty × dispatch rate); the final settlement adjusts the same dispatch (no separate sale); the milling conversion is stock-only. The broker pays a mill only through an explicit "Refund to mill" or a "মিলের খরচ / Mill charges" expense. (Replaces v2.0's "milling or consignment, chosen per dispatch".)
 2. Load khata = register; stock/money only via a linked sale or dispatch.
 3. One deployment per client; owner-only login; registration closes after the first owner.
 4. Password reset by recovery code + developer CLI reset.
@@ -781,7 +832,7 @@ Automate each as Vitest (domain/sync) and/or Playwright (UI, mobile viewport, **
 6. Weight deductions (ধলতা etc.) optional and off by default.
 7. 1 mon = 40 kg, configurable.
 8. Sales default to Confirmed (stock out on save); Order status available.
-9. Mill return money fields are optional; the mill's outstanding is tracked on the mill's party ledger.
+9. A mill return has no money fields (a return is a credit to the mill, never cash); money from the mill is collected against its dispatch, and the mill's outstanding is its party ledger balance.
 
 ## 23. Out of scope for v2
 Staff/munshi logins, GST/e-way bills, SMS/automated WhatsApp, Bluetooth printer, weighbridge integration, AI features, native app stores, multi-owner SaaS (code stays businessId-safe for later).

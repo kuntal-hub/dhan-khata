@@ -2,14 +2,16 @@
 
 /**
  * Purchase detail (requirement_v2 §12.2): all fields, bag list, payment ledger with
- * "+ বাকি টাকা দিন", edit / reverse per payment, remaining due (big), receipts, purchase bill,
- * WhatsApp, and the change history.
+ * "+ বাকি টাকা দিন" (any amount, any day; `?pay=1` opens it), edit / reverse per payment with the
+ * remaining due after each, remaining due (big), the optional due date with "তারিখ বদলান" (D54),
+ * receipts, purchase bill, WhatsApp, and the change history.
  */
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { History, Pencil, Printer, Undo2 } from "lucide-react";
+import { DueDatePanel } from "@/components/entry/DueDate";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { varietyName } from "@/components/entry/Variety";
 import { Panel, QtyTriple, StatusPill } from "@/components/kit/Kit";
@@ -52,7 +54,7 @@ function Detail() {
     ]);
     return { doc, party, variety, payments, audit };
   }, [id]);
-  const [paying, setPaying] = useState(false);
+  const [paying, setPaying] = useState(useParam("pay") === "1");
   const [reversing, setReversing] = useState(false);
   const [reason, setReason] = useState("");
   if (data === undefined) return <Loading />;
@@ -118,12 +120,6 @@ function Detail() {
               </dd>
             </div>
           ) : null}
-          {doc.dueDate ? (
-            <div>
-              <dt className="text-muted-foreground text-xs">{t("pur.dueDate")}</dt>
-              <dd>{date(doc.dueDate, "short")}</dd>
-            </div>
-          ) : null}
           {doc.notes ? (
             <div className="col-span-2">
               <dt className="text-muted-foreground text-xs">{t("pur.notes")}</dt>
@@ -169,13 +165,22 @@ function Detail() {
           <div className="rounded-xl bg-red-50 p-3">
             <span className="text-xs text-red-900">{t("pur.remainingDue")}</span>
             <p
-              className="tabular text-2xl font-semibold text-red-800"
+              key={st.duePaise.toString()}
+              className="tabular anim-pop text-2xl font-semibold text-red-800"
               data-testid="detail-due"
               data-paise={st.duePaise.toString()}
             >
               {money(st.duePaise)}
             </p>
           </div>
+        </div>
+        <div className="mt-3">
+          <DueDatePanel
+            doc={doc}
+            label={t("pur.dueDate")}
+            remainingPaise={voided ? 0n : st.duePaise}
+            writable={!voided && !readOnly}
+          />
         </div>
       </Panel>
 
@@ -189,7 +194,11 @@ function Detail() {
           ) : null
         }
       >
-        <PaymentList payments={payments} godownId={godown._id} />
+        <PaymentList
+          payments={payments}
+          godownId={godown._id}
+          bill={{ totalPaise: st.bill.totalPaise, direction: "OUT", date: doc.transactionDate }}
+        />
       </Panel>
 
       {!voided && !readOnly ? (
@@ -244,7 +253,7 @@ function Detail() {
         </ul>
       </Panel>
 
-      {paying ? (
+      {paying && !voided && !readOnly && st.duePaise > 0n ? (
         <AddPaymentSheet
           open={paying}
           onOpenChange={setPaying}
@@ -252,6 +261,8 @@ function Detail() {
           source={doc}
           duePaise={st.duePaise}
           direction="OUT"
+          totalPaise={st.bill.totalPaise}
+          paidPaise={st.paidPaise}
         />
       ) : null}
       <ConfirmDialog

@@ -39,7 +39,14 @@ import {
 } from "@/domain/scope";
 import { cashEffects } from "@/domain/v2/cashbook";
 import { applyDocDerived } from "@/domain/v2/derive";
-import { linkedDocIds, validateLinks } from "@/domain/v2/links";
+import {
+  DUE_DATE_FIELD_TYPES,
+  checkDueDate,
+  dealDateOf,
+  dueDateOf,
+  isDueDateType,
+} from "@/domain/v2/dueDate";
+import { linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
 import { recomputeDoc, validateDocRules, verifyDoc } from "@/domain/v2/recompute";
 import { audit, logChanges, type ChangeEntry } from "../changelog";
 import { publicDoc } from "../convert";
@@ -255,6 +262,7 @@ async function applyDoc(
   const g = op.godownId;
   const isVoid = op.op === "void";
   const today = ctx.today ?? todayIST();
+  if (op.op === "dueDate") return applyDueDate(ctx, op, session, role, incoming, current, today);
   if (isVoid !== (incoming.status === "void")) throw new Reject("VALIDATION_FAILED", "status");
 
   // ── AuthZ ──
@@ -326,6 +334,21 @@ async function applyDoc(
       asReject(e);
     }
     await checkLoadLinkUnique(db, session, incoming);
+    // v2.1: one final settlement per dispatch; a settled dispatch is closed.
+    const guard = settlementGuard(incoming, current ?? undefined);
+    if (guard) {
+      const other = await k.vouchers.findOne(
+        {
+          godownId: g,
+          type: "MILL_SETTLEMENT",
+          status: "active",
+          dispatchId: guard.dispatchId,
+          ...(guard.exceptId ? { _id: { $ne: guard.exceptId } } : {}),
+        },
+        { session, projection: { _id: 1 } },
+      );
+      if (other) throw new Reject("ALREADY_LINKED", `settlement:${guard.dispatchId}`);
+    }
     if (
       current &&
       "partyId" in current &&
@@ -376,7 +399,7 @@ async function applyDoc(
     ) {
       throw new Reject("VALIDATION_FAILED", "immutable");
     }
-    next = incoming;
+    next = keepDueDate(incoming, current);
   }
   if (!isVoid) next = recomputeDoc(next);
 
@@ -432,6 +455,90 @@ async function applyDoc(
     lines: res.derived.lines,
     moves: res.derived.moves,
   };
+}
+
+/**
+ * A full edit never changes the due date (D54): it has its own op, so a device that has not yet
+ * pulled a newer due date can't put the old one back. Legacy due dates on other types stay too.
+ */
+function keepDueDate(incoming: Doc, current: Doc): Doc {
+  if (!DUE_DATE_FIELD_TYPES.includes(current.type)) return incoming;
+  const { dueDate: _mine, ...rest } = incoming as Doc & { dueDate?: string };
+  const keep = (current as { dueDate?: string }).dueDate;
+  return (keep ? { ...rest, dueDate: keep } : rest) as Doc;
+}
+
+/**
+ * Due date change of a deal (D54): a field update, last writer wins. The revision, ledger lines
+ * and stock moves are untouched, so no day lock applies (no cash effect). Audited "old→new".
+ */
+async function applyDueDate(
+  ctx: ApplyContext,
+  op: PushOp,
+  session: ClientSession,
+  role: EffectiveRole,
+  incoming: Doc,
+  current: Doc | null,
+  today: string,
+): Promise<PushOpResult> {
+  const { db, user } = ctx;
+  const k = cols(db);
+  const g = op.godownId;
+  if (!current) throw new Reject("NOT_FOUND");
+  if (current.type !== incoming.type || !isDueDateType(current.type)) {
+    throw new Reject("TYPE_IMMUTABLE", current.type);
+  }
+  if (!can(user, g, "voucher.edit", { voucherType: current.type })) {
+    throw new Reject("FORBIDDEN", current.type);
+  }
+  if (
+    role === "entry" &&
+    !entryMayChange(current, user._id, op.createdAt, { requireUnsynced: false })
+  ) {
+    throw new Reject("EDIT_WINDOW_EXPIRED");
+  }
+  // A reversed deal reminds of nothing: acknowledge, change nothing.
+  if (current.status === "void") return appliedNoop(ctx, op, session, current);
+  const due = dueDateOf(incoming);
+  const check = checkDueDate(due, dealDateOf(current)!, today);
+  if (check.error) throw new Reject(check.error, due);
+  const old = dueDateOf(current);
+  const { serverSeq: _seq, dueDate: _old, ...base } = current as Doc & {
+    serverSeq?: number;
+    dueDate?: string;
+  };
+  const next = (due ? { ...base, dueDate: due } : base) as Doc;
+  let serverSeq = current.serverSeq;
+  if (old !== due) {
+    await k.vouchers.replaceOne({ _id: next._id }, next, { session });
+    [serverSeq] = await logChanges(db, session, [
+      { godownId: g, entity: "voucher", entityId: next._id, rev: next.rev },
+    ]);
+    await k.vouchers.updateOne({ _id: next._id }, { $set: { serverSeq: serverSeq! } }, { session });
+    await audit(db, session, {
+      userId: user._id,
+      deviceId: ctx.deviceId,
+      godownId: g,
+      entity: "voucher",
+      entityId: next._id,
+      action: "due_date",
+      opId: op.opId,
+      rev: next.rev,
+      detail: `${old ?? ""}→${due ?? ""}`,
+    });
+  }
+  const result: PushOpResult = {
+    opId: op.opId,
+    result: "applied",
+    rev: next.rev,
+    ...(serverSeq !== undefined ? { serverSeq } : {}),
+  };
+  await k.appliedOps.insertOne(
+    { _id: op.opId, deviceId: ctx.deviceId, userId: user._id, appliedAt: new Date(), result },
+    { session },
+  );
+  // No lines / moves: the device keeps its derived rows (nothing that posts changed).
+  return { ...result, doc: { ...next, ...(serverSeq !== undefined ? { serverSeq } : {}) } };
 }
 
 function businessDateOf(d: Doc): string {

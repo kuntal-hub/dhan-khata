@@ -94,7 +94,7 @@ const ROUTES = [
   "/mill?tab=dispatch",
   "/mill?tab=return",
   "/mill?tab=conversion",
-  "/mill?tab=consignment",
+  "/mill?tab=settlement",
   "/mill/dispatch/new",
   "/mill/dispatch/edit?id=x",
   "/mill/dispatch/view?id=x",
