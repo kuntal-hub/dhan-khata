@@ -84,6 +84,29 @@ export async function setReminderState(
   return out;
 }
 
+/**
+ * A deal's due date moved (inside the caller's transaction): its automatic reminder starts over,
+ * open at the new date, so an old "done" / snooze never comes back if the date moves back.
+ */
+export async function reopenAutoReminderInTx(
+  ctx: WriteCtx,
+  sourceId: string,
+  dueDate: string,
+): Promise<void> {
+  const id = autoReminderId(sourceId);
+  const existing = await db().reminders.get(id);
+  if (!existing || (existing.status === "open" && existing.dueDate === dueDate)) return;
+  const { snoozeUntil: _drop, ...rest } = existing;
+  await write(ctx, existing, {
+    ...rest,
+    dueDate,
+    status: "open",
+    rev: existing.rev + 1,
+    updatedAt: ctx.nowIso,
+    updatedBy: ctx.userId,
+  });
+}
+
 export interface ManualReminderInput {
   title: string;
   dueDate: string;

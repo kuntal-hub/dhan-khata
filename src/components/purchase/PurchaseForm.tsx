@@ -3,7 +3,8 @@
 /**
  * New / edit purchase (requirement_v2 §12.2): farmer (+ mobile), date, variety, bag-wise or total
  * weight, rate per quintal → total (tap: formula), initial payment (0 = full credit; date, mode,
- * bank + reference), remaining due + due date, notes; storage under "আরও". One transaction:
+ * bank + reference), remaining due + optional due date (a reminder only, D54; changed later from
+ * the detail page), notes; storage under "আরও". One transaction:
  * purchase + initial payment (one op group). After saving: print receipt · add another · detail.
  */
 import { useRouter } from "next/navigation";
@@ -25,6 +26,8 @@ import { formatWeightNumber } from "@/domain/units";
 import { computeBill } from "@/domain/v2/weightBlock";
 import { useI18n } from "@/i18n/I18nProvider";
 import { DateField, FieldBox, PartyPicker, Segmented } from "@/components/entry/Fields";
+import { DueDateField } from "@/components/entry/DueDate";
+import { checkDueDate } from "@/domain/v2/dueDate";
 import { VarietyPicker } from "@/components/entry/Variety";
 import { emptyPay, PaymentFields, toPart, type PayState } from "@/components/entry/Payments";
 import {
@@ -106,7 +109,8 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
     w.result && rate.value !== undefined
       ? computeBill(w.result.netG, rate.value, settings?.rounding.roundToRupee ?? false)
       : undefined;
-  const payPart = existing ? { part: null } : toPart(s.pay, true);
+  const payPart = existing ? { part: null } : toPart(s.pay, true, s.date);
+  const dueCheck = checkDueDate(existing ? undefined : s.dueDate || undefined, s.date, todayIST());
   const paid = payPart.part ? BigInt(payPart.part.amountPaise) : 0n;
   const due = bill ? bill.totalPaise - paid : undefined;
 
@@ -128,6 +132,7 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
       return;
     }
     if (payPart.error) return setError(t(payPart.error));
+    if (dueCheck.error) return setError(t("errors.domain.DUE_BEFORE_DEAL"));
     if (paid > bill.totalPaise) return setError(t("errors.domain.OVERPAYMENT"));
     setSaving(true);
     try {
@@ -144,7 +149,7 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
         ...(settings?.rounding.roundToRupee ? { roundToRupee: true } : {}),
         roundOffPaise: "0",
         totalPaise: "0",
-        ...(s.dueDate ? { dueDate: s.dueDate } : {}),
+        ...(!existing && s.dueDate ? { dueDate: s.dueDate } : {}),
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
         ...(existing?.linkedLoadId ? { linkedLoadId: existing.linkedLoadId } : {}),
         ...(existing?.legacyCharges ? { legacyCharges: existing.legacyCharges } : {}),
@@ -304,6 +309,7 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
               hint={t("pur.initialHint")}
               testId="purchase-pay"
               allowZero
+              minDate={s.date}
             />
             <div className="flex items-center justify-between rounded-xl bg-red-50 px-3 py-2">
               <span className="text-sm text-red-900">{t("pur.remainingDue")}</span>
@@ -314,15 +320,16 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
                 {due !== undefined ? money(due) : "—"}
               </span>
             </div>
+            <DueDateField
+              label={t("pur.dueDate")}
+              value={s.dueDate}
+              onChange={(dueDate) => set({ dueDate })}
+              dealDate={s.date}
+              dealType="PURCHASE"
+              testId="purchase-due-date"
+            />
           </section>
         )}
-        <DateField
-          label={t("pur.dueDate")}
-          value={s.dueDate}
-          onChange={(dueDate) => set({ dueDate })}
-          testId="purchase-due-date"
-          allowFuture
-        />
         <FieldBox label={t("pur.notes")}>
           <VoiceText value={s.notes} onChange={(notes) => set({ notes })} />
         </FieldBox>

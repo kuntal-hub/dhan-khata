@@ -13,7 +13,8 @@ import {
   billsOf,
   millCredits,
   type BillState,
-  type PayStatus,
+  matchesPayFilter,
+  type PayFilter,
 } from "@/domain/v2/payments";
 import { dispatchBalance, type DispatchBalance } from "@/domain/v2/stock";
 import type { Doc, DocOf, Party, Payment, Variety } from "@/domain/schemas";
@@ -123,7 +124,7 @@ export interface DispatchFilter {
   /** Only active dispatches without a final settlement. */
   unsettled?: boolean;
   q?: string;
-  status?: PayStatus | "ALL";
+  status?: PayFilter | "ALL";
 }
 
 export async function dispatchRows(
@@ -152,7 +153,7 @@ export async function dispatchRows(
     const pays = (await paymentsOf(doc._id)).filter((p) => p.status === "active");
     const { money, state } = dispatchMoney(doc, mine, pays, today);
     if (f.status && f.status !== "ALL") {
-      if (doc.status !== "active" || state.status !== f.status) continue;
+      if (doc.status !== "active" || !matchesPayFilter(state, f.status)) continue;
     }
     const row: DispatchRow = {
       doc,

@@ -3,7 +3,7 @@
  * the ACTIVE collections of each sale (never stored). Stock figures come from derived stock moves.
  */
 import { todayIST } from "@/domain/dates";
-import type { PayStatus } from "@/domain/v2/payments";
+import { matchesPayFilter, type PayFilter } from "@/domain/v2/payments";
 import type { DocOf, Location, Party, Product, Variety } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { godownBalances } from "./ledger";
@@ -23,7 +23,7 @@ export interface SaleRow {
 export interface SaleFilter {
   from?: string;
   to?: string;
-  status?: PayStatus | "ALL";
+  status?: PayFilter | "ALL";
   delivery?: DeliveryStatus | "ALL";
   saleStatus?: Sale["saleStatus"] | "ALL";
   partyId?: string;
@@ -58,7 +58,7 @@ export async function saleRows(godownId: string, f: SaleFilter = {}): Promise<Sa
       state,
     };
     if (f.status && f.status !== "ALL") {
-      if (doc.status === "void" || state.status !== f.status) continue;
+      if (doc.status === "void" || !matchesPayFilter(state, f.status)) continue;
     }
     if (f.q && !matchesQuery(row, f.q)) continue;
     out.push(row);

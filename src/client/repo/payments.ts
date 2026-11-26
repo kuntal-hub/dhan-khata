@@ -7,6 +7,7 @@
  */
 import { v7 as uuidv7 } from "uuid";
 import { DomainError } from "@/domain/errors";
+import { dealDateOf } from "@/domain/v2/dueDate";
 import { billState, billsOf, millCredits, splitOverpayment, type Bill } from "@/domain/v2/payments";
 import type { Doc, Payment } from "@/domain/schemas";
 import { db } from "../db/dexie";
@@ -47,6 +48,15 @@ async function owedBill(source: Doc, bill: Bill): Promise<Bill> {
   return { ...bill, totalPaise: bill.totalPaise - credit };
 }
 
+/**
+ * A deal is paid on its own date or later (backdating allowed, never before the deal). Checked on
+ * the device only, so records and queued ops from before this rule never bounce on the server.
+ */
+function assertNotBeforeDeal(source: Doc, paymentDate: string): void {
+  const dealDate = dealDateOf(source);
+  if (dealDate && paymentDate < dealDate) throw new RepoError("PAYMENT_BEFORE_DEAL", dealDate);
+}
+
 /** The remaining due of a document's main bill (bill total − active payments). */
 export async function dueOf(doc: Doc): Promise<bigint> {
   const bill = billsOf(doc)[0];
@@ -75,8 +85,10 @@ export async function saveBillWithInitialPayment(
   const id = bill._id ?? newId();
   const items: SaveItem[] = [{ draft: { ...bill, _id: id } as DocDraft }];
   if (initial && BigInt(initial.amountPaise || "0") > 0n) {
-    const probe = billsOf({ ...(bill as object), _id: id, status: "active" } as unknown as Doc)[0];
+    const probeDoc = { ...(bill as object), _id: id, status: "active" } as unknown as Doc;
+    const probe = billsOf(probeDoc)[0];
     if (!probe) throw new RepoError("SOURCE_MISMATCH");
+    assertNotBeforeDeal(probeDoc, initial.paymentDate);
     items.push({
       draft: {
         ...initial,
@@ -174,6 +186,7 @@ export async function payBill(
   const bills = billsOf(source);
   const bill = opts.sourceId ? bills.find((b) => b.sourceId === opts.sourceId) : bills[0];
   if (!bill) throw new RepoError("SOURCE_MISMATCH");
+  assertNotBeforeDeal(source, part.paymentDate);
   const due = billState(
     await owedBill(source, bill),
     await activePaymentsOf(source._id),

@@ -14,6 +14,7 @@ import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { Factory, PackageOpen, Pencil, RotateCcw, Scale, Undo2 } from "lucide-react";
+import { DueDatePanel } from "@/components/entry/DueDate";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { varietyName } from "@/components/entry/Variety";
 import { Panel, QtyTriple, StatusPill, TxnCard } from "@/components/kit/Kit";
@@ -39,7 +40,7 @@ function Detail() {
   const { readOnly } = useWriteGodown();
   const business = useBusiness();
   const data = useLiveQuery(() => (id ? dispatchDetail(id) : null), [id]);
-  const [paying, setPaying] = useState(false);
+  const [paying, setPaying] = useState(useParam("pay") === "1");
   const [refunding, setRefunding] = useState(false);
   if (data === undefined) return <Loading />;
   if (data === null || !godown || data.doc.godownId !== godown._id)
@@ -102,7 +103,6 @@ function Detail() {
           <Cell label={t("mill.total")} testId="dispatch-detail-total">
             <span className="tabular text-emerald-700">{money(BigInt(doc.totalValuePaise))}</span>
           </Cell>
-          {doc.dueDate ? <Cell label={t("mill.dueDate")}>{date(doc.dueDate, "short")}</Cell> : null}
           {doc.vehicleNumber || doc.driverName ? (
             <Cell label={t("mill.vehicle")}>
               {[doc.vehicleNumber && displayVehicleNumber(doc.vehicleNumber), doc.driverName]
@@ -239,7 +239,8 @@ function Detail() {
             <div className="rounded-xl bg-emerald-50 p-3">
               <span className="text-xs text-emerald-900">{t("mill.remaining")}</span>
               <p
-                className="tabular text-xl font-semibold text-emerald-800"
+                key={receivable.toString()}
+                className="tabular anim-pop text-xl font-semibold text-emerald-800"
                 data-testid="detail-due"
                 data-paise={receivable.toString()}
               >
@@ -259,6 +260,14 @@ function Detail() {
             </div>
           )}
         </div>
+        <div className="mb-2">
+          <DueDatePanel
+            doc={doc}
+            label={t("mill.dueDate")}
+            remainingPaise={voided ? 0n : receivable}
+            writable={writable}
+          />
+        </div>
         {writable && receivable < 0n ? (
           <Button
             variant="outline"
@@ -270,7 +279,11 @@ function Detail() {
             {t("mill.refund")}
           </Button>
         ) : null}
-        <PaymentList payments={payments} godownId={godown._id} />
+        <PaymentList
+          payments={payments}
+          godownId={godown._id}
+          bill={{ totalPaise: state.bill.totalPaise, direction: "IN", date: doc.dispatchDate }}
+        />
       </Panel>
 
       {settlements.length ? (
@@ -407,7 +420,7 @@ function Detail() {
 
       <HistoryPanel doc={doc} />
 
-      {paying ? (
+      {paying && writable && receivable > 0n ? (
         <AddPaymentSheet
           open={paying}
           onOpenChange={setPaying}
@@ -415,6 +428,8 @@ function Detail() {
           source={doc}
           duePaise={receivable}
           direction="IN"
+          totalPaise={state.bill.totalPaise}
+          paidPaise={mm.collectedPaise}
         />
       ) : null}
       {refunding ? (

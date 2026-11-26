@@ -7,6 +7,7 @@
 import { agingBucketOf, type AgingBucket } from "@/domain/aging";
 import { addDays, todayIST } from "@/domain/dates";
 import { cashEffects, cashbookDayFromEffects } from "@/domain/v2/cashbook";
+import { displayStatus } from "@/domain/v2/payments";
 import { millDay, paddyDay, productDay, valueAt, qtyAt } from "@/domain/v2/stock";
 import type { ExpenseCategory, Variety } from "@/domain/schemas";
 import type { TKey } from "@/i18n/translate";
@@ -167,7 +168,7 @@ const purchaseRegister: ReportDef = {
         m(r.doc.totalPaise),
         m(r.state.paidPaise),
         m(r.state.duePaise > 0n ? r.state.duePaise : 0n),
-        status(t, r.state.status),
+        status(t, displayStatus(r.state)),
       ]),
       t,
     );
@@ -284,7 +285,7 @@ const salesRegister: ReportDef = {
         m(r.doc.saleStatus === "ORDER" ? 0n : BigInt(r.doc.totalPaise)),
         m(r.state.paidPaise),
         m(r.doc.saleStatus === "ORDER" || r.state.duePaise < 0n ? 0n : r.state.duePaise),
-        r.doc.saleStatus === "ORDER" ? status(t, "ORDER") : status(t, r.state.status),
+        r.doc.saleStatus === "ORDER" ? status(t, "ORDER") : status(t, displayStatus(r.state)),
       ]),
       t,
     );
@@ -497,7 +498,6 @@ const expenseUnpaid: ReportDef = {
       col(t("rep.c.title")),
       col(t("rep.c.category")),
       col(t("rep.c.person")),
-      col(t("rep.c.dueDate"), "date"),
       col(t("rep.c.amount"), "money"),
       col(t("rep.c.due"), "money"),
     ];
@@ -508,7 +508,6 @@ const expenseUnpaid: ReportDef = {
         r.doc.title,
         catName(c.get(r.doc.categoryCode), t, r.doc.categoryCode),
         r.party?.name ?? r.doc.personText ?? "",
-        r.doc.dueDate ? d(r.doc.dueDate) : null,
         m(r.doc.amountPaise),
         m(r.state.duePaise),
       ]),

@@ -23,6 +23,7 @@ import {
   type DispatchRow,
 } from "@/client/queries/mill";
 import { formatWeightNumber } from "@/domain/units";
+import { displayStatus } from "@/domain/v2/payments";
 import { useI18n } from "@/i18n/I18nProvider";
 
 function Chip({
@@ -77,7 +78,7 @@ function DispatchCard({ r, index }: { r: DispatchRow; index: number }) {
       {...(r.doc.status === "void"
         ? { status: "VOID" as const }
         : r.money.netValuePaise > 0n
-          ? { status: r.state.status }
+          ? { status: displayStatus(r.state) }
           : {})}
       href={`/mill/dispatch/view?id=${r.doc._id}`}
       testId="dispatch-row"

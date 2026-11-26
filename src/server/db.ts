@@ -121,7 +121,8 @@ export interface AuditDoc {
     | "register"
     | "password_reset"
     | "recovery_regenerate"
-    | "business_edit";
+    | "business_edit"
+    | "due_date";
   opId?: string;
   rev?: number;
   detail?: string;

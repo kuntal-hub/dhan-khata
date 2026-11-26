@@ -47,7 +47,10 @@ export type DomainErrorCode =
   | "CATEGORY_IS_PAYMENT"
   | "DUPLICATE_VARIETY"
   // v2.1: payment direction comes from the source type (domain/v2/direction.ts).
-  | "PAYMENT_DIRECTION_MISMATCH";
+  | "PAYMENT_DIRECTION_MISMATCH"
+  // Due dates are references only (DECISIONS D54).
+  | "DUE_BEFORE_DEAL"
+  | "PAYMENT_BEFORE_DEAL";
 
 export class DomainError extends Error {
   constructor(

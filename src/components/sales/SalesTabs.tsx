@@ -26,7 +26,7 @@ import {
 } from "@/client/queries/sales";
 import { setDeliveryStatus } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
-import type { PayStatus } from "@/domain/v2/payments";
+import { displayStatus, type PayFilter } from "@/domain/v2/payments";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 
@@ -87,7 +87,11 @@ function SaleCard({ r, index }: { r: SaleRow; index: number }) {
   const business = useBusiness();
   const o = { digits, monKg: business?.monKg };
   const status =
-    r.doc.status === "void" ? "VOID" : r.doc.saleStatus === "ORDER" ? "ORDER" : r.state.status;
+    r.doc.status === "void"
+      ? "VOID"
+      : r.doc.saleStatus === "ORDER"
+        ? "ORDER"
+        : displayStatus(r.state);
   return (
     <TxnCard
       index={index}
@@ -119,7 +123,7 @@ export function SalesList() {
   const { readOnly } = useWriteGodown();
   const business = useBusiness();
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState<PayStatus | "ALL">("ALL");
+  const [status, setStatus] = useState<PayFilter | "ALL">("ALL");
   const [from, setFrom] = useState("");
   const [to, setTo] = useState("");
   const dq = useDeferredValue(q);

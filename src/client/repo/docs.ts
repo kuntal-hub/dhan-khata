@@ -18,6 +18,7 @@ import { can } from "@/domain/rbac";
 import { assertGodownUnchanged, checkSameGodown, collectRefs } from "@/domain/scope";
 import { cashEffects } from "@/domain/v2/cashbook";
 import { applyDocDerived } from "@/domain/v2/derive";
+import { DUE_DATE_FIELD_TYPES, checkDueDate, isDueDateType } from "@/domain/v2/dueDate";
 import { linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
 import { recomputeDoc, validateDocRules } from "@/domain/v2/recompute";
 import { DocSchema, businessDate, type Doc, type DocType } from "@/domain/v2/schemas";
@@ -336,6 +337,12 @@ export async function createInTx(
     ...(season ? { season } : {}),
     ...(groupId ? { groupId } : {}),
   };
+  // Only deals carry a due date (D54); it may be in the future but not before the deal.
+  if (!isDueDateType(draft.type)) delete raw.dueDate;
+  else if (typeof raw.dueDate === "string") {
+    const c = checkDueDate(raw.dueDate, date, ctx.today);
+    if (c.error) throw new RepoError(c.error, raw.dueDate);
+  }
   const doc = await finalize(ctx, raw);
   await assertRefsAndLinks(doc, opts.extra);
   await assertSettlementGuard(doc);
@@ -406,6 +413,13 @@ async function prepareEdit(
     ...(reason?.trim() ? { editReason: reason.trim() } : {}),
   };
   if (!(draft as { season?: string }).season && existing.season) raw.season = existing.season;
+  // A full edit never changes the due date: it has its own op (`setDueDate`, last writer wins),
+  // and legacy due dates on other types stay untouched (D54).
+  if (DUE_DATE_FIELD_TYPES.includes(existing.type)) {
+    const keep = (existing as { dueDate?: string }).dueDate;
+    if (keep) raw.dueDate = keep;
+    else delete raw.dueDate;
+  }
   const next = await finalize(ctx, raw);
   assertGodownUnchanged(existing, next);
   await assertRefsAndLinks(next);

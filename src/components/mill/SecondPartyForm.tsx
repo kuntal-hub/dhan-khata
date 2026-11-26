@@ -41,7 +41,6 @@ export function SecondPartyForm({
   const [kind, setKind] = useState<Kind>(existing?.kind ?? "WE_OWE");
   const [amount, setAmount] = useState(existing ? paiseToInput(existing.amountPaise) : "");
   const [date, setDate] = useState(existing?.transactionDate ?? today);
-  const [dueDate, setDueDate] = useState(existing?.dueDate ?? "");
   const [notes, setNotes] = useState(existing?.notes ?? "");
   const [pay, setPay] = useState<PayState>(emptyPay(today, "0"));
   const [id] = useState(() => existing?._id ?? newId());
@@ -70,7 +69,6 @@ export function SecondPartyForm({
         transactionDate: date,
         kind,
         amountPaise: amt.value.toString(),
-        ...(dueDate ? { dueDate } : {}),
         ...(notes.trim() ? { notes: notes.trim() } : {}),
       };
       await saveBillWithInitialPayment(
@@ -158,15 +156,6 @@ export function SecondPartyForm({
             touch();
           }}
           testId="sp-date"
-        />
-        <DateField
-          label={t("mill.dueDate")}
-          value={dueDate}
-          onChange={(d) => {
-            setDueDate(d);
-            touch();
-          }}
-          allowFuture
         />
         {existing ? null : (
           <section className="bg-card shadow-card flex flex-col gap-3 rounded-2xl border p-4">

@@ -43,6 +43,7 @@ import { MetricCard, Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
 import { QUICK_ACTIONS, SECTION_OF } from "@/components/shell/QuickAdd";
 import { useWriteGodown } from "@/components/system/page";
+import { Button } from "@/components/ui/button";
 import { varietyName } from "@/components/entry/Variety";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
@@ -691,13 +692,22 @@ export function Overview() {
                           <Clock className="size-3" aria-hidden />
                           {a.overdue
                             ? t("dsh.overdue", { days: count(diffDays(a.dueDate, today)) })
-                            : t("dsh.dueOn", { date: date(a.dueDate, "short") })}
+                            : a.dueDate === today
+                              ? t("dsh.dueToday")
+                              : t("dsh.dueOn", { date: date(a.dueDate, "short") })}
                         </span>
                       </Link>
                     ) : (
                       <span className="min-w-0 flex-1 truncate text-sm">{a.party?.name ?? ""}</span>
                     )}
                     <span className="tabular text-sm font-semibold">{money(a.duePaise)}</span>
+                    {href && !readOnly && !consolidated ? (
+                      <Button asChild variant="outline" className="h-10 shrink-0 px-2.5 text-xs">
+                        <Link href={`${href}&pay=1`} data-testid="due-alert-pay">
+                          {a.direction === "IN" ? t("dsh.collectNow") : t("dsh.payNow")}
+                        </Link>
+                      </Button>
+                    ) : null}
                     <WhatsAppButton
                       phone={a.party?.phone}
                       text={msg}

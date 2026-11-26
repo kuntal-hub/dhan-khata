@@ -310,15 +310,31 @@ describe("posting per event", () => {
 });
 
 describe("dues", () => {
-  it("statuses: paid / partial / unpaid / overdue", () => {
+  it("statuses: paid / partial / unpaid, overdue an extra flag (D54)", () => {
     const p = purchase(D, "F1", "V1", QTL, 1000n * RS, {}, { dueDate: "2026-11-22" });
     const [b] = billsOf(p);
-    expect(billState(b!, [], "2026-11-21").status).toBe("UNPAID");
-    expect(billState(b!, [], "2026-11-25")).toMatchObject({ status: "OVERDUE", overdueDays: 3 });
+    expect(billState(b!, [], "2026-11-21")).toMatchObject({ status: "UNPAID", overdue: false });
+    // On the due date itself: not overdue yet.
+    expect(billState(b!, [], "2026-11-22")).toMatchObject({ status: "UNPAID", overdue: false });
+    expect(billState(b!, [], "2026-11-25")).toMatchObject({
+      status: "UNPAID",
+      overdue: true,
+      overdueDays: 3,
+    });
     const half = payment(D, "OUT", 500n * RS, { type: "PURCHASE", id: p._id }, { partyId: "F1" });
     expect(billState(b!, [half], "2026-11-21").status).toBe("PARTIAL");
+    // Partly paid AND overdue: both, the status is not replaced.
+    expect(billState(b!, [half], "2026-11-25")).toMatchObject({ status: "PARTIAL", overdue: true });
     const rest = payment(D, "OUT", 500n * RS, { type: "PURCHASE", id: p._id }, { partyId: "F1" });
-    expect(billState(b!, [half, rest], "2026-11-25").status).toBe("PAID");
+    // Fully paid is never overdue.
+    expect(billState(b!, [half, rest], "2026-11-25")).toMatchObject({
+      status: "PAID",
+      overdue: false,
+      overdueDays: 0,
+    });
+    // No due date = never overdue.
+    const [noDue] = billsOf(purchase(D, "F1", "V1", QTL, 1000n * RS));
+    expect(billState(noDue!, [], "2027-06-01")).toMatchObject({ status: "UNPAID", overdue: false });
     const voided = { ...rest, status: "void" as const };
     expect(billState(b!, [half, voided], "2026-11-21").duePaise).toBe(500n * RS);
   });

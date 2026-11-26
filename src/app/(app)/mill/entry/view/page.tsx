@@ -63,7 +63,6 @@ function Detail() {
           <Cell label={t("mill.spAmount")}>
             <span className="tabular">{money(BigInt(doc.amountPaise))}</span>
           </Cell>
-          {doc.dueDate ? <Cell label={t("mill.dueDate")}>{date(doc.dueDate, "short")}</Cell> : null}
           {doc.notes ? (
             <Cell label={t("mill.notes")} wide>
               {doc.notes}

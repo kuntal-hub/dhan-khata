@@ -8,10 +8,13 @@
  *    party's role picks the tab (DECISIONS D41, v2.1). A mill is a debtor: a positive mill
  *    balance is "মিলের কাছে পাওনা"; a negative one (it paid too much) is "মিলকে ফেরত দিতে হবে"
  *    under অন্যান্য, never a receivable.
- *  - Reminders: automatic from open bills' due dates + manual ones, with the owner's state.
+ *  - Reminders: automatic from open deals' due dates (purchase, sale, mill dispatch: D54) + manual
+ *    ones. An automatic reminder's date is always the deal's; the owner's stored done / snooze
+ *    state counts only while it was made for that same date (`autoReminderState`).
  */
 import { addDays, diffDays, todayIST } from "@/domain/dates";
 import { AGING_BUCKETS, agingBucketOf, type AgingBucket } from "@/domain/aging";
+import { autoReminderState } from "@/domain/v2/dueDate";
 import { billState, dueBillsOf, millCredits, type BillState } from "@/domain/v2/payments";
 import type { Doc, Party, PartyRole, Payment, Reminder } from "@/domain/schemas";
 import { db } from "../db/dexie";
@@ -303,17 +306,17 @@ export async function reminderRows(godownId: string, today = todayIST()): Promis
       const st = billState(b, pays.get(b.sourceId) ?? [], today);
       if (st.duePaise <= 0n) continue;
       const id = `auto:${b.sourceId}`;
-      const s = state.get(id);
+      const s = autoReminderState(b.dueDate, state.get(id));
       out.push({
         id,
         kind: b.direction === "IN" ? "COLLECT" : "PAY",
         auto: true,
         ...(b.partyId && p.get(b.partyId) ? { party: p.get(b.partyId) } : {}),
-        dueDate: s?.dueDate ?? b.dueDate,
+        dueDate: b.dueDate,
         amountPaise: st.duePaise,
         title: "",
-        status: s?.status ?? "open",
-        ...(s?.snoozeUntil ? { snoozeUntil: s.snoozeUntil } : {}),
+        status: s.status,
+        ...(s.snoozeUntil ? { snoozeUntil: s.snoozeUntil } : {}),
         source: { type: b.sourceType, id: b.sourceId },
         doc,
       });

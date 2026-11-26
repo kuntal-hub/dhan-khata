@@ -22,6 +22,7 @@ import {
   Users,
 } from "lucide-react";
 import { Donut } from "@/components/charts/Donut";
+import { ChangeDueDateSheet, DUE_LABEL } from "@/components/entry/DueDate";
 import { DateField, FieldBox, PartyPicker } from "@/components/entry/Fields";
 import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
 import { EmptyState, MetricCard, Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
@@ -50,6 +51,7 @@ import { createManualReminder, setReminderState } from "@/client/repo";
 import { parseAmountField } from "@/client/ui/parse";
 import { AGING_BUCKETS } from "@/domain/aging";
 import { addDays, todayIST } from "@/domain/dates";
+import { isDueDateType } from "@/domain/v2/dueDate";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
@@ -311,6 +313,9 @@ function ReminderItem({ r }: { r: ReminderRow }) {
   const wa = useDueWhatsApp();
   const [editing, setEditing] = useState(false);
   const [newDate, setNewDate] = useState(r.dueDate);
+  // An automatic reminder's date IS the deal's due date: change it there (D54).
+  const deal = r.auto && r.doc && isDueDateType(r.doc.type) ? r.doc : null;
+  const [changingDeal, setChangingDeal] = useState(false);
   const input = {
     ...(r.auto && r.source ? { source: r.source } : { reminderId: r.id }),
     kind: r.kind,
@@ -375,7 +380,12 @@ function ReminderItem({ r }: { r: ReminderRow }) {
               >
                 {t("dues.snooze")}
               </Button>
-              <Button variant="outline" className="h-10" onClick={() => setEditing((x) => !x)}>
+              <Button
+                variant="outline"
+                className="h-10"
+                onClick={() => (deal ? setChangingDeal(true) : setEditing((x) => !x))}
+                data-testid="reminder-change-date"
+              >
                 {t("dues.changeDate")}
               </Button>
             </>
@@ -393,7 +403,15 @@ function ReminderItem({ r }: { r: ReminderRow }) {
           ) : null}
         </div>
       )}
-      {editing ? (
+      {changingDeal && deal && isDueDateType(deal.type) && godownId ? (
+        <ChangeDueDateSheet
+          godownId={godownId}
+          doc={deal}
+          label={t(DUE_LABEL[deal.type])}
+          onClose={() => setChangingDeal(false)}
+        />
+      ) : null}
+      {editing && !deal ? (
         <div className="flex items-end gap-2">
           <div className="flex-1">
             <DateField

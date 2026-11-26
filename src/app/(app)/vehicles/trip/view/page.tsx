@@ -65,12 +65,11 @@ function Detail() {
     doc.costs.filter((c) => c.kind === k).reduce((s, c) => s + BigInt(c.amountPaise), 0n);
   const waText =
     row.income && row.income.duePaise > 0n && customer
-      ? t(doc.dueDate ? "wa.collect" : "wa.collectNoDate", {
+      ? t("wa.collectNoDate", {
           name: customer.name,
           business: business?.name ?? "",
           gola: godown.name,
           amount: money(row.income.duePaise),
-          dueDate: doc.dueDate ? date(doc.dueDate, "short") : "",
         })
       : "";
 
@@ -102,7 +101,6 @@ function Detail() {
           <Cell label={t("veh.income")} testId="trip-detail-income">
             <span className="tabular">{money(BigInt(doc.totalIncomePaise))}</span>
           </Cell>
-          {doc.dueDate ? <Cell label={t("veh.dueDate")}>{date(doc.dueDate, "short")}</Cell> : null}
           {doc.notes ? (
             <Cell label={t("mill.notes")} wide>
               {doc.notes}

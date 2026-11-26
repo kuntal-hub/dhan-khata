@@ -12,6 +12,8 @@ import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import { AlertTriangle, CheckCircle2, Info } from "lucide-react";
 import { DateField, FieldBox, PartyPicker } from "@/components/entry/Fields";
+import { DueDateField } from "@/components/entry/DueDate";
+import { checkDueDate } from "@/domain/v2/dueDate";
 import { emptyPay, PaymentFields, toPart, type PayState } from "@/components/entry/Payments";
 import { VarietyPicker } from "@/components/entry/Variety";
 import {
@@ -122,7 +124,8 @@ export function DispatchForm({
   const rate = parseRateField(s.rate, false, 0n);
   const rateValue = rate.value ?? 0n;
   const total = w.result ? amountForWeight(w.result.netG, rateValue) : undefined;
-  const payPart = existing ? { part: null } : toPart(s.pay, true);
+  const payPart = existing ? { part: null } : toPart(s.pay, true, s.date);
+  const dueCheck = checkDueDate(existing ? undefined : s.dueDate || undefined, s.date, todayIST());
   const paid = payPart.part ? BigInt(payPart.part.amountPaise) : 0n;
   const remaining = total !== undefined ? total - paid : undefined;
 
@@ -144,6 +147,7 @@ export function DispatchForm({
       return;
     }
     if (payPart.error) return setError(t(payPart.error));
+    if (dueCheck.error) return setError(t("errors.domain.DUE_BEFORE_DEAL"));
     if (paid > total) return setError(t("errors.domain.OVERPAYMENT"));
     if (!anyway && available !== undefined && w.result && w.result.netG > available) {
       setStockWarn({ have: available, need: w.result.netG });
@@ -164,7 +168,7 @@ export function DispatchForm({
         totalValuePaise: "0",
         ...(s.vehicle.trim() ? { vehicleNumber: s.vehicle.trim().toUpperCase() } : {}),
         ...(s.driver.trim() ? { driverName: s.driver.trim() } : {}),
-        ...(s.dueDate ? { dueDate: s.dueDate } : {}),
+        ...(!existing && s.dueDate ? { dueDate: s.dueDate } : {}),
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
         ...((existing?.linkedLoadId ?? fromLoad?._id)
           ? { linkedLoadId: existing?.linkedLoadId ?? fromLoad?._id }
@@ -326,6 +330,7 @@ export function DispatchForm({
               hint={t("mill.payHint")}
               testId="dispatch-pay"
               allowZero
+              minDate={s.date}
             />
             <div className="flex items-center justify-between rounded-xl bg-emerald-50 px-3 py-2">
               <span className="text-sm text-emerald-900">{t("mill.remaining")}</span>
@@ -336,14 +341,16 @@ export function DispatchForm({
                 {remaining !== undefined ? money(remaining) : "—"}
               </span>
             </div>
+          <DueDateField
+              label={t("mill.dueDate")}
+              value={s.dueDate}
+              onChange={(dueDate) => set({ dueDate })}
+              dealDate={s.date}
+              dealType="MILL_DISPATCH"
+              testId="dispatch-due-date"
+            />
           </section>
         )}
-        <DateField
-          label={t("mill.dueDate")}
-          value={s.dueDate}
-          onChange={(dueDate) => set({ dueDate })}
-          allowFuture
-        />
         <div className="grid grid-cols-2 gap-3">
           <FieldBox label={t("mill.vehicle")}>
             <Input

@@ -223,6 +223,8 @@ export const en = {
       DUPLICATE_VARIETY: "A variety with this name already exists",
       PAYMENT_DIRECTION_MISMATCH:
         "Wrong money direction — money from a mill is 'Received', a refund to a mill is 'Gave'",
+      DUE_BEFORE_DEAL: "The due date can't be before the deal's date",
+      PAYMENT_BEFORE_DEAL: "The payment date can't be before the deal's date",
     },
     api: {
       UNAUTHORIZED: "Please log in again",

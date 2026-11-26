@@ -74,9 +74,10 @@ beforeAll(async () => {
     GA,
     paymentDraft("OUT", 500000n, { type: "PURCHASE", id: pa._id }, { partyId: fa._id }),
   );
-  // A bill due yesterday: an automatic (derived) reminder, counted as overdue in the digest.
+  // A purchase of 3 days ago due yesterday: an automatic (derived) reminder, counted as overdue
+  // in the digest. (A due date may not be before its deal, D54.)
   await saveDoc(GB, {
-    ...purchaseDraft(fb._id, await swarna(GB), 4n * QTL, 210_000n),
+    ...purchaseDraft(fb._id, await swarna(GB), 4n * QTL, 210_000n, addDays(todayIST(), -3)),
     dueDate: addDays(todayIST(), -1),
   });
   await saveDoc(GB, expenseDraft(30_000n));

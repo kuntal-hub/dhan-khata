@@ -99,7 +99,6 @@ function ExpenseCard({
           {r.doc.status === "active" && r.state.duePaise > 0n ? (
             <span className="tabular text-xs text-red-700">
               {t("xp.due", { amount: money(r.state.duePaise) })}
-              {r.doc.dueDate ? ` · ${t("xp.dueBy", { date: date(r.doc.dueDate, "short") })}` : ""}
             </span>
           ) : null}
           {action}
@@ -281,7 +280,7 @@ export function AllExpenses() {
     <div className="flex flex-col gap-3">
       <SearchBox value={q} onChange={setQ} placeholder={t("xp.search")} testId="expense-search" />
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
-        {(["ALL", "UNPAID", "PARTIAL", "PAID", "OVERDUE"] as const).map((s) => (
+        {(["ALL", "UNPAID", "PARTIAL", "PAID"] as const).map((s) => (
           <button
             key={s}
             type="button"

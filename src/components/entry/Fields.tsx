@@ -51,19 +51,25 @@ export function FieldBox({
   );
 }
 
-/** Business date (YYYY-MM-DD, IST). Future dates are blocked; older dates show a note. */
+/**
+ * Business date (YYYY-MM-DD, IST). Future dates are blocked; older dates show a note. Not for due
+ * dates (they may be in the future): use `DueDateField` (components/entry/DueDate).
+ */
 export function DateField({
   label,
   value,
   onChange,
   testId,
   allowFuture = false,
+  min,
 }: {
   label: string;
   value: string;
   onChange: (v: string) => void;
   testId?: string;
   allowFuture?: boolean;
+  /** Earliest date allowed (e.g. a payment never before its deal). */
+  min?: string;
 }) {
   const { t, date } = useI18n();
   const id = useId();
@@ -89,6 +95,7 @@ export function DateField({
         className="h-12 text-base"
         value={value}
         max={allowFuture ? undefined : today}
+        min={min}
         onChange={(e) => onChange(e.target.value)}
         data-testid={testId}
       />

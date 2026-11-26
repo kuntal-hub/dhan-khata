@@ -20,6 +20,7 @@ import { payBill, RepoError, saveDoc, voidDoc, type PaymentPart } from "@/client
 import { parseAmountField, paiseToInput } from "@/client/ui/parse";
 import { todayIST } from "@/domain/dates";
 import type { Doc, Payment, PayMode } from "@/domain/schemas";
+import { dealDateOf, dueDateOf } from "@/domain/v2/dueDate";
 import { useI18n } from "@/i18n/I18nProvider";
 import type { TKey } from "@/i18n/translate";
 import { cn } from "@/lib/utils";
@@ -47,10 +48,14 @@ export function payFromDoc(p: Payment): PayState {
   };
 }
 
-/** Validate; `allowZero` for an initial payment (0 = full credit). */
+/**
+ * Validate; `allowZero` for an initial payment (0 = full credit). `minDate`: the deal's date (a
+ * payment may be backdated, never before its deal, never in the future; the due date plays no part).
+ */
 export function toPart(
   s: PayState,
   allowZero: boolean,
+  minDate?: string,
 ): { part: PaymentPart | null; error?: TKey } {
   const a = parseAmountField(s.amount, !allowZero, allowZero ? 0n : 1n);
   if (a.error) return { part: null, error: a.error };
@@ -59,6 +64,8 @@ export function toPart(
   if (s.mode !== "CASH" && !s.bankId)
     return { part: null, error: "errors.domain.BANK_ACCOUNT_REQUIRED" };
   if (s.date > todayIST()) return { part: null, error: "errors.domain.FUTURE_DATE" };
+  if (minDate && s.date < minDate)
+    return { part: null, error: "errors.domain.PAYMENT_BEFORE_DEAL" };
   return {
     part: {
       amountPaise: amount.toString(),
@@ -79,6 +86,7 @@ export function PaymentFields({
   allowZero = false,
   hint,
   hideAmount = false,
+  minDate,
 }: {
   godownId: string;
   value: PayState;
@@ -89,6 +97,8 @@ export function PaymentFields({
   hint?: string;
   /** The amount is entered elsewhere (e.g. "paid fully now" = the expense amount). */
   hideAmount?: boolean;
+  /** The deal's date: the earliest payment date. */
+  minDate?: string;
 }) {
   const { t } = useI18n();
   return (
@@ -108,6 +118,7 @@ export function PaymentFields({
         value={value.date}
         onChange={(date) => onChange({ ...value, date })}
         testId={`${testId}-date`}
+        {...(minDate ? { min: minDate } : {})}
       />
       <FieldBox label={t("pay.mode")}>
         <Segmented
@@ -146,13 +157,48 @@ export function PaymentFields({
   );
 }
 
-export function PaymentList({ payments, godownId }: { payments: Payment[]; godownId: string }) {
+/**
+ * The remaining due after each active payment, in payment-date order (a payment in the other
+ * direction, e.g. a refund, adds back). Reversed payments don't count.
+ */
+export function runningDue(
+  payments: readonly Payment[],
+  totalPaise: bigint,
+  direction: "IN" | "OUT",
+): Map<string, bigint> {
+  const order = payments
+    .filter((p) => p.status === "active")
+    .sort((a, b) =>
+      a.paymentDate === b.paymentDate
+        ? a.createdAt.localeCompare(b.createdAt)
+        : a.paymentDate.localeCompare(b.paymentDate),
+    );
+  const out = new Map<string, bigint>();
+  let left = totalPaise;
+  for (const p of order) {
+    left -= p.direction === direction ? BigInt(p.amountPaise) : -BigInt(p.amountPaise);
+    out.set(p._id, left);
+  }
+  return out;
+}
+
+export function PaymentList({
+  payments,
+  godownId,
+  bill,
+}: {
+  payments: Payment[];
+  godownId: string;
+  /** The deal's bill: shows the remaining due after each payment; `date` = earliest payment date. */
+  bill?: { totalPaise: bigint; direction: "IN" | "OUT"; date?: string };
+}) {
   const { t, money, date } = useI18n();
   const [reverse, setReverse] = useState<Payment | null>(null);
   const [edit, setEdit] = useState<Payment | null>(null);
   const [reason, setReason] = useState("");
   if (payments.length === 0)
     return <p className="text-muted-foreground py-3 text-sm">{t("pay.none")}</p>;
+  const after = bill ? runningDue(payments, bill.totalPaise, bill.direction) : null;
   return (
     <>
       <ul className="flex flex-col divide-y" data-testid="payment-list">
@@ -190,6 +236,11 @@ export function PaymentList({ payments, godownId }: { payments: Payment[]; godow
                   {date(p.paymentDate, "short")} · {t(`pay.${p.mode}` as TKey)}
                   {p.reference ? ` · ${p.reference}` : ""}
                 </span>
+                {after?.has(p._id) ? (
+                  <span className="tabular text-muted-foreground text-xs" data-testid="payment-after">
+                    {t("pay.after", { amount: money(after.get(p._id)!) })}
+                  </span>
+                ) : null}
                 <span className="flex gap-1.5">
                   {p.isInitial ? (
                     <span className="bg-gold-100 text-accent-foreground rounded-full px-2 text-[11px]">
@@ -279,7 +330,12 @@ export function PaymentList({ payments, godownId }: { payments: Payment[]; godow
         />
       </ConfirmDialog>
       {edit ? (
-        <EditPaymentSheet payment={edit} godownId={godownId} onClose={() => setEdit(null)} />
+        <EditPaymentSheet
+          payment={edit}
+          godownId={godownId}
+          onClose={() => setEdit(null)}
+          {...(bill?.date ? { minDate: bill.date } : {})}
+        />
       ) : null}
     </>
   );
@@ -289,17 +345,19 @@ function EditPaymentSheet({
   payment,
   godownId,
   onClose,
+  minDate,
 }: {
   payment: Payment;
   godownId: string;
   onClose: () => void;
+  minDate?: string;
 }) {
   const { t } = useI18n();
   const [s, setS] = useState<PayState>(payFromDoc(payment));
   const [reason, setReason] = useState("");
   const [error, setError] = useState<string | null>(null);
   const save = async () => {
-    const r = toPart(s, false);
+    const r = toPart(s, false, minDate);
     if (r.error || !r.part) return setError(t(r.error ?? "errors.validation.required"));
     const { _id: _drop, ...rest } = payment;
     const { bankAccountId: _b, reference: _r, ...base } = rest as Payment;
@@ -321,6 +379,7 @@ function EditPaymentSheet({
         onChange={setS}
         amountLabel={t("pay.amount")}
         testId="edit-pay"
+        {...(minDate ? { minDate } : {})}
       />
       <Input
         className="h-12 text-base"
@@ -345,6 +404,8 @@ export function AddPaymentSheet({
   duePaise,
   direction,
   sourceId,
+  totalPaise,
+  paidPaise,
 }: {
   open: boolean;
   onOpenChange: (o: boolean) => void;
@@ -354,17 +415,23 @@ export function AddPaymentSheet({
   direction: "IN" | "OUT";
   /** Which bill of the source (a trip cost: `trip:cost`); default the source's main bill. */
   sourceId?: string;
+  /** Context shown above the form: the deal total and what is already paid / received. */
+  totalPaise?: bigint;
+  paidPaise?: bigint;
 }) {
-  const { t, money } = useI18n();
+  const { t, money, date } = useI18n();
   const [s, setS] = useState<PayState>(
     emptyPay(todayIST(), duePaise > 0n ? paiseToInput(duePaise) : ""),
   );
   const [over, setOver] = useState<bigint | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
+  // Any day from the deal's date to today; before, on or after the due date alike.
+  const dealDate = sourceId ? undefined : dealDateOf(source);
+  const dueDate = sourceId ? undefined : dueDateOf(source);
   const save = async (extraAsAdvance: boolean) => {
     setError(null);
-    const r = toPart(s, false);
+    const r = toPart(s, false, dealDate);
     if (r.error || !r.part) return setError(t(r.error ?? "errors.validation.required"));
     setBusy(true);
     try {
@@ -372,7 +439,9 @@ export function AddPaymentSheet({
         extraAsAdvance,
         ...(sourceId ? { sourceId } : {}),
       });
-      lazyToast(t("pay.saved"), "success");
+      const paid = BigInt(r.part.amountPaise);
+      const left = duePaise > paid ? duePaise - paid : 0n;
+      lazyToast(t("pay.newDue", { amount: money(left) }), "success");
       setOver(null);
       onOpenChange(false);
     } catch (e) {
@@ -391,12 +460,36 @@ export function AddPaymentSheet({
       description={t("pay.due", { amount: money(duePaise > 0n ? duePaise : 0n) })}
       testId="add-payment"
     >
+      {totalPaise !== undefined ? (
+        <dl
+          className="bg-muted/50 grid grid-cols-2 gap-x-3 gap-y-1.5 rounded-xl p-3 text-sm"
+          data-testid="add-pay-context"
+        >
+          <dt className="text-muted-foreground">{t("pay.ctxTotal")}</dt>
+          <dd className="tabular text-right">{money(totalPaise)}</dd>
+          <dt className="text-muted-foreground">
+            {t(direction === "OUT" ? "pay.ctxPaidOut" : "pay.ctxPaidIn")}
+          </dt>
+          <dd className="tabular text-right">{money(paidPaise ?? 0n)}</dd>
+          <dt className="font-medium">{t("pay.ctxDue")}</dt>
+          <dd className="tabular text-right font-semibold">
+            {money(duePaise > 0n ? duePaise : 0n)}
+          </dd>
+          {dueDate ? (
+            <>
+              <dt className="text-muted-foreground">{t("pay.ctxDueDate")}</dt>
+              <dd className="text-right">{date(dueDate, "short")}</dd>
+            </>
+          ) : null}
+        </dl>
+      ) : null}
       <PaymentFields
         godownId={godownId}
         value={s}
         onChange={setS}
         amountLabel={t("pay.amount")}
         testId="add-pay"
+        {...(dealDate ? { minDate: dealDate } : {})}
       />
       {over !== null ? (
         <div

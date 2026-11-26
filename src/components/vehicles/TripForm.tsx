@@ -59,7 +59,6 @@ interface State {
   qty: WeightState;
   rate: string;
   pay: PayState;
-  dueDate: string;
   costs: CostState[];
   notes: string;
 }
@@ -90,7 +89,6 @@ function initial(existing?: Trip): State {
       },
       rate: paiseToInput(existing.ratePaise),
       pay: emptyPay(existing.transactionDate),
-      dueDate: existing.dueDate ?? "",
       costs: existing.costs.map((c) => ({
         id: c.id,
         kind: c.kind,
@@ -113,7 +111,6 @@ function initial(existing?: Trip): State {
     qty: emptyWeight("MANUAL"),
     rate: "",
     pay: emptyPay(today, "0"),
-    dueDate: "",
     costs: [costRow("DRIVER", today), costRow("DIESEL", today), costRow("OTHER", today)],
     notes: "",
   };
@@ -194,7 +191,6 @@ export function TripForm({ godown, existing }: { godown: Godown; existing?: Trip
         rateMode: s.rateMode,
         ratePaise: rate.toString(),
         totalIncomePaise: "0",
-        ...(s.dueDate ? { dueDate: s.dueDate } : {}),
         costs,
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
       };
@@ -367,12 +363,6 @@ export function TripForm({ godown, existing }: { godown: Godown; existing?: Trip
             </div>
           </section>
         )}
-        <DateField
-          label={t("veh.dueDate")}
-          value={s.dueDate}
-          onChange={(dueDate) => set({ dueDate })}
-          allowFuture
-        />
 
         <section className="flex flex-col gap-3">
           <h2 className="text-[15px] font-semibold">{t("veh.costs")}</h2>

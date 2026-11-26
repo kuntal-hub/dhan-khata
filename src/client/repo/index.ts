@@ -19,6 +19,7 @@ export {
   type ReminderStateInput,
   type ManualReminderInput,
 } from "./reminders";
+export { setDueDate } from "./dueDate";
 export { rebuildDailyAgg } from "./dailyAgg";
 export { RepoError } from "./context";
 export { onLocalWrite } from "./notify";

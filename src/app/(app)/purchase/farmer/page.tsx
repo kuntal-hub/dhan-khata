@@ -19,6 +19,7 @@ import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { partyLedger, purchaseRows } from "@/client/queries/purchases";
 import { formatWeightNumber } from "@/domain/units";
+import { displayStatus } from "@/domain/v2/payments";
 import { useI18n } from "@/i18n/I18nProvider";
 
 function Farmer() {
@@ -108,7 +109,7 @@ function Farmer() {
                   title={`${varietyName(r.variety, t)} · ${formatWeightNumber(BigInt(r.doc.weight.netG), "QTL", o)} ${t("ui.unitQtlShort")}`}
                   date={`${date(r.doc.transactionDate, "short")} · ${r.doc.number}`}
                   amountPaise={BigInt(r.doc.totalPaise)}
-                  status={r.doc.status === "void" ? "VOID" : r.state.status}
+                  status={r.doc.status === "void" ? "VOID" : displayStatus(r.state)}
                   href={`/purchase/view?id=${r.doc._id}`}
                   extra={
                     r.doc.status === "active" && r.state.duePaise > 0n ? (

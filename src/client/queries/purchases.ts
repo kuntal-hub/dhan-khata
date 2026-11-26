@@ -3,7 +3,13 @@
  * derived from the ACTIVE payments of each purchase (never stored).
  */
 import { todayIST } from "@/domain/dates";
-import { billState, billsOf, type BillState, type PayStatus } from "@/domain/v2/payments";
+import {
+  billState,
+  billsOf,
+  matchesPayFilter,
+  type BillState,
+  type PayFilter,
+} from "@/domain/v2/payments";
 import type { BankAccount, Doc, DocOf, Party, Payment, Variety } from "@/domain/schemas";
 import { db } from "../db/dexie";
 import { godownBalances } from "./ledger";
@@ -49,7 +55,7 @@ export function stateOf(
 export interface PurchaseFilter {
   from?: string;
   to?: string;
-  status?: PayStatus | "ALL";
+  status?: PayFilter | "ALL";
   varietyId?: string;
   q?: string;
 }
@@ -83,7 +89,7 @@ export async function purchaseRows(
     };
     if (f.varietyId && doc.varietyId !== f.varietyId) continue;
     if (f.status && f.status !== "ALL") {
-      if (doc.status === "void" || state.status !== f.status) continue;
+      if (doc.status === "void" || !matchesPayFilter(state, f.status)) continue;
     }
     if (f.q && !matchesQuery(row, f.q)) continue;
     out.push(row);

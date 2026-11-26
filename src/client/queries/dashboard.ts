@@ -401,8 +401,11 @@ export interface DueAlert {
   overdue: boolean;
 }
 
-/** Bills overdue or due within `withinDays` days (collect = IN, pay = OUT). */
-export async function dueAlerts(godownId: string, withinDays = 3): Promise<DueAlert[]> {
+/**
+ * Deals overdue, due today or due within `withinDays` days (collect = IN, pay = OUT). Deals
+ * without a due date are only in the outstanding lists, never here (D54).
+ */
+export async function dueAlerts(godownId: string, withinDays = 7): Promise<DueAlert[]> {
   const today = todayIST();
   const limit = addDays(today, withinDays);
   const docs = await golaDocs(godownId);

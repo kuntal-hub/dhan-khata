@@ -10,7 +10,8 @@ import { directionFor } from "./direction";
 import type { Doc, Payment, PaymentSourceType, Trip } from "./schemas";
 
 export type Direction = "IN" | "OUT";
-export type PayStatus = "PAID" | "PARTIAL" | "UNPAID" | "OVERDUE";
+/** Derived, never stored: no payments / some paid / nothing left. Overdue is a separate flag. */
+export type PayStatus = "PAID" | "PARTIAL" | "UNPAID";
 
 /** A bill that payments can settle. */
 export interface Bill {
@@ -36,7 +37,8 @@ export function billsOf(d: Doc): Bill[] {
     case "SALE":
       return [bill("SALE", d._id, "IN", d.totalPaise, d.transactionDate, d.partyId, d.dueDate)];
     case "EXPENSE":
-      return [bill("EXPENSE", d._id, "OUT", d.amountPaise, d.expenseDate, d.partyId, d.dueDate)];
+      // Legacy `dueDate`s on expenses, trips and second-party entries are ignored (D54).
+      return [bill("EXPENSE", d._id, "OUT", d.amountPaise, d.expenseDate, d.partyId)];
     case "MILL_DISPATCH":
       // The mill pays us for the paddy (v2.1): always a collection, whatever the old type was.
       return [
@@ -61,7 +63,6 @@ export function billsOf(d: Doc): Bill[] {
                 d.totalIncomePaise,
                 d.transactionDate,
                 d.customerPartyId,
-                d.dueDate,
               ),
             ]
           : []),
@@ -85,7 +86,6 @@ export function billsOf(d: Doc): Bill[] {
           d.amountPaise,
           d.transactionDate,
           d.partyId,
-          d.dueDate,
         ),
       ];
     case "OPENING":
@@ -183,19 +183,31 @@ export interface BillState {
   /** total − paid (negative = paid more than the bill). */
   duePaise: bigint;
   status: PayStatus;
+  /** Extra badge: something is still due, a due date is set and today is after it. */
+  overdue: boolean;
   overdueDays: number;
 }
 
 export function billState(b: Bill, payments: readonly Payment[], today: string): BillState {
   const paid = paidFor(b, payments);
   const due = b.totalPaise - paid;
-  let status: PayStatus;
-  if (due <= 0n) status = "PAID";
-  else if (b.dueDate && compareYmd(b.dueDate, today) < 0) status = "OVERDUE";
-  else if (paid > 0n) status = "PARTIAL";
-  else status = "UNPAID";
-  const overdueDays = status === "OVERDUE" && b.dueDate ? diffDays(b.dueDate, today) : 0;
-  return { bill: b, paidPaise: paid, duePaise: due, status, overdueDays };
+  const status: PayStatus = due <= 0n ? "PAID" : paid > 0n ? "PARTIAL" : "UNPAID";
+  // No due date = never overdue; the due date never changes what may be paid.
+  const overdue = due > 0n && !!b.dueDate && compareYmd(b.dueDate, today) < 0;
+  const overdueDays = overdue && b.dueDate ? diffDays(b.dueDate, today) : 0;
+  return { bill: b, paidPaise: paid, duePaise: due, status, overdue, overdueDays };
+}
+
+/** A list filter: a status, or "OVERDUE" (the extra flag). */
+export type PayFilter = PayStatus | "OVERDUE";
+
+export function matchesPayFilter(s: Pick<BillState, "status" | "overdue">, f: PayFilter): boolean {
+  return f === "OVERDUE" ? s.overdue : s.status === f;
+}
+
+/** One pill for a compact row: overdue wins over the status it is an extra badge to. */
+export function displayStatus(s: Pick<BillState, "status" | "overdue">): PayFilter {
+  return s.overdue ? "OVERDUE" : s.status;
 }
 
 /**

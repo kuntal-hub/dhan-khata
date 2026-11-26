@@ -34,6 +34,7 @@ import { Input } from "@/components/ui/input";
 import { db } from "@/client/db/dexie";
 import { errorKey } from "@/client/errors";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
+import { DueDatePanel } from "@/components/entry/DueDate";
 import { paymentsOf, stateOf } from "@/client/queries/purchases";
 import {
   confirmSaleOrder,
@@ -70,7 +71,7 @@ function Detail() {
     ]);
     return { doc, party, variety, payments, mill, counter };
   }, [id]);
-  const [paying, setPaying] = useState(false);
+  const [paying, setPaying] = useState(useParam("pay") === "1");
   const [reversing, setReversing] = useState(false);
   const [confirming, setConfirming] = useState(false);
   const [reason, setReason] = useState("");
@@ -173,12 +174,6 @@ function Detail() {
               </dd>
             </div>
           ) : null}
-          {doc.dueDate ? (
-            <div>
-              <dt className="text-muted-foreground text-xs">{t("sl.dueDate")}</dt>
-              <dd>{date(doc.dueDate, "short")}</dd>
-            </div>
-          ) : null}
           {doc.vehicleNumber || doc.driverName ? (
             <div>
               <dt className="text-muted-foreground text-xs">{t("sl.vehicle")}</dt>
@@ -258,13 +253,22 @@ function Detail() {
           <div className="rounded-xl bg-emerald-50 p-3">
             <span className="text-xs text-emerald-900">{t("sl.remainingDue")}</span>
             <p
-              className="tabular text-2xl font-semibold text-emerald-800"
+              key={st.duePaise.toString()}
+              className="tabular anim-pop text-2xl font-semibold text-emerald-800"
               data-testid="detail-due"
               data-paise={st.duePaise.toString()}
             >
               {money(st.duePaise)}
             </p>
           </div>
+        </div>
+        <div className="mt-3">
+          <DueDatePanel
+            doc={doc}
+            label={t("sl.dueDate")}
+            remainingPaise={voided || isOrder ? 0n : st.duePaise}
+            writable={!voided && !readOnly}
+          />
         </div>
       </Panel>
 
@@ -278,7 +282,11 @@ function Detail() {
           ) : null
         }
       >
-        <PaymentList payments={payments} godownId={godown._id} />
+        <PaymentList
+          payments={payments}
+          godownId={godown._id}
+          bill={{ totalPaise: st.bill.totalPaise, direction: "IN", date: doc.transactionDate }}
+        />
       </Panel>
 
       <Panel title={t("sl.timeline")}>
@@ -399,7 +407,7 @@ function Detail() {
         </ul>
       </Panel>
 
-      {paying ? (
+      {paying && !voided && !readOnly && st.duePaise > 0n ? (
         <AddPaymentSheet
           open={paying}
           onOpenChange={setPaying}
@@ -407,6 +415,8 @@ function Detail() {
           source={doc}
           duePaise={st.duePaise}
           direction="IN"
+          totalPaise={st.bill.totalPaise}
+          paidPaise={st.paidPaise}
         />
       ) : null}
       <ConfirmDialog
