@@ -61,6 +61,7 @@ Keep this list up to date.
 - `pnpm check:bundle`: Home route JS size (gzipped) after `pnpm build`; `node scripts/bundle-size.mjs --why` marks the libraries per chunk
 - `pnpm lighthouse`: Lighthouse mobile audit of Home, logged in (after `pnpm build`; boots the e2e server). Fails below Performance 85 or when Chrome reports the app not installable
 - `pnpm restore --file=backup.json [--db=…]`: restore an in-app JSON backup into an EMPTY database (`docs/RESTORE.md`)
+- `pnpm fix:due-dates [--apply] [--db=…] [--godown=…]`: one-off D54 repair, copies due dates set on the old reminders tab onto their deals (dry run by default)
 - `pnpm fix:mill-direction [--apply] [--db=…] [--godown=…] [--decisions=…]`: one-off v2.1 repair of mill data (dry run by default; run on a copy first)
 
 ## Key building blocks (from Phase 1)
@@ -102,6 +103,11 @@ Keep this list up to date.
 - Mill: `repo/mill.ts` (`saveMillReturn`, `findDuplicateReturn`, `saveMillSettlement`, `saveMillRefund`); dispatches and second-party entries use `saveBillWithInitialPayment`, conversions `saveDoc`. One settlement per dispatch (`settlementGuard`). Reads in `queries/mill.ts` (`dispatchMoney`, `dispatchBalance`). UI in `components/mill/*` (forms, `MillTabs`, `SettleForm` = `FinalSettlementForm`, `RefundSheet`, `common.tsx`), routes under `/mill/*`.
 - On-account second-party money: `payAdvance(..., "SECOND_PARTY")` / `AdvanceSheet sourceType`.
 - Data repair for v2.0 mill data: `pnpm fix:mill-direction` (`src/server/fixMillDirection.ts`; `docs/OPERATIONS.md` §6a).
+
+## Key building blocks (due dates, D54)
+- Only PURCHASE / SALE / MILL_DISPATCH carry `dueDate` (`domain/v2/dueDate.ts`: `isDueDateType`, `dueDateOf`, `checkDueDate`, `autoReminderState`). It is a reminder, never a rule: never use `DateField` (business dates, no future) for it; use `DueDateField` / `DueDatePanel` / `ChangeDueDateSheet` (`components/entry/DueDate`).
+- Change it only with `setDueDate` (push op `dueDate`, same rev, no posting, no day lock, LWW); full edits keep the stored value (device `prepareEdit`, server `keepDueDate`). Legacy `dueDate` on other types is kept and ignored.
+- `BillState` = status (UNPAID / PARTIAL / PAID) + `overdue` flag; lists use `displayStatus` / `matchesPayFilter`. Deal payments can't predate the deal (`PAYMENT_BEFORE_DEAL`, device only). `?pay=1` on a deal page opens the pay sheet.
 
 ## Key building blocks (v2 Phase 12)
 - Header: `layout/HeaderTools` (search → `/search`, bell → due reminders), loaded lazily. Settings `/settings` (theme, links, Excel export, JSON backup, integrity check incl. `negativePositions`).

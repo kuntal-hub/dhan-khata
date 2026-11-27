@@ -90,6 +90,16 @@ The v2.1 release changes how mill dispatches post (the mill pays the broker; see
    A phone with unsynced mill entries should sync **before** step 4.
 5. Run it again: every Gola must report `unchanged`.
 
+## 6b. Due dates fix (D54, one-off per client)
+Before D54, "তারিখ বদলান" on the reminders tab saved the new date only in the reminder, not on the
+purchase / sale / mill dispatch. After deploying D54 (which reads due dates from the deal only):
+1. `pnpm fix:due-dates` (dry run): lists each deal whose reminder holds a different date, and the
+   ones skipped (a date before the deal, a reversed deal, or an expense / trip / second-party record,
+   which no longer has a due date).
+2. `pnpm fix:due-dates --apply`: copies the dates onto the deals (only `dueDate`; no money, stock or
+   revision change; audited). Phones get them on their next sync.
+3. Run the dry run again: nothing left to change. (`--db=<copy>` / `--godown=<id>` as in §6a.)
+
 ## 7. Year close and archival (spec §17.4)
 1. Owner → Settings → Backup & export → **Download full backup (All godowns)**; keep the file
    (and the nightly archive of the same day) somewhere safe.

@@ -503,7 +503,11 @@ async function applyDueDate(
   const check = checkDueDate(due, dealDateOf(current)!, today);
   if (check.error) throw new Reject(check.error, due);
   const old = dueDateOf(current);
-  const { serverSeq: _seq, dueDate: _old, ...base } = current as Doc & {
+  const {
+    serverSeq: _seq,
+    dueDate: _old,
+    ...base
+  } = current as Doc & {
     serverSeq?: number;
     dueDate?: string;
   };
