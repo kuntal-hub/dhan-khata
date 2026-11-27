@@ -341,7 +341,7 @@ export function DispatchForm({
                 {remaining !== undefined ? money(remaining) : "—"}
               </span>
             </div>
-          <DueDateField
+            <DueDateField
               label={t("mill.dueDate")}
               value={s.dueDate}
               onChange={(dueDate) => set({ dueDate })}

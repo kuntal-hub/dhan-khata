@@ -237,7 +237,10 @@ export function PaymentList({
                   {p.reference ? ` · ${p.reference}` : ""}
                 </span>
                 {after?.has(p._id) ? (
-                  <span className="tabular text-muted-foreground text-xs" data-testid="payment-after">
+                  <span
+                    className="tabular text-muted-foreground text-xs"
+                    data-testid="payment-after"
+                  >
                     {t("pay.after", { amount: money(after.get(p._id)!) })}
                   </span>
                 ) : null}

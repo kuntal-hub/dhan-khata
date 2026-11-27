@@ -204,7 +204,7 @@ describe("mill dispatch and return (Tests 2 and 3)", () => {
 
   it("flags a possible duplicate return (same dispatch, date, product, quantity within 10 minutes)", async () => {
     const dispatch = await setupTest2();
-    useClock("2026-11-25T05:00:00.000Z");
+    useClock(`${TODAY}T05:00:00.000Z`);
     const first = await saveMillReturn(GA, returnDraft(dispatch, "PADDY", 2n * QTL));
     const probe = {
       dispatchId: dispatch._id,
@@ -212,11 +212,11 @@ describe("mill dispatch and return (Tests 2 and 3)", () => {
       product: "PADDY",
       netG: (2n * QTL).toString(),
     };
-    const now = Date.parse("2026-11-25T05:05:00.000Z");
+    const now = Date.parse(`${TODAY}T05:05:00.000Z`);
     expect((await findDuplicateReturn(GA, probe, undefined, now))?._id).toBe(first._id);
     expect(await findDuplicateReturn(GA, probe, first._id, now)).toBeUndefined();
     expect(
-      await findDuplicateReturn(GA, probe, undefined, Date.parse("2026-11-25T05:11:00.000Z")),
+      await findDuplicateReturn(GA, probe, undefined, Date.parse(`${TODAY}T05:11:00.000Z`)),
     ).toBeUndefined();
     expect(
       await findDuplicateReturn(GA, { ...probe, netG: (3n * QTL).toString() }, undefined, now),

@@ -235,14 +235,14 @@ Each record uses only the dates relevant to it:
 | `returnDate` | Product came back from the mill | Mill return |
 | `conversionDate` | Milling conversion record | Conversion |
 | `paymentDate` | When money **actually** moved | Payment (drives the cashbook) |
-| `dueDate` | When remaining due should be paid/collected | Purchase, Sale, Expense, Dispatch, Second-party, Trip |
+| `dueDate` | **Optional reminder** of when the remaining due is expected to be paid (farmer) / collected (mill, buyer). A reference only: never blocks, splits or schedules payments (§7.4) | Purchase, Sale, Mill dispatch **only** |
 | `entryDate` | Business date the user entered the record (auto = today IST, read-only) | Every document and payment |
 | `createdAt` / `updatedAt` | ISO timestamps (audit) | Everything |
 
 **Rules**
 - The cashbook and bank books use **`paymentDate` only**.
 - Purchase/sale/expense reports use their own business date (`transactionDate` / `expenseDate`).
-- Backdated records are allowed and affect their historical date. Future business dates are blocked, except `dueDate`.
+- Backdated records are allowed and affect their historical date. Future business dates (`transactionDate`, `expenseDate`, `dispatchDate`, `returnDate`, `conversionDate`, `paymentDate`) are blocked. `dueDate` is **not** a business date: it may be in the future (§7.4).
 - If a backdated entry falls on a day already closed in the cashbook, the day shows "পরে এন্ট্রি হয়েছে — আবার মেলান / Entry added later — re-check", and its expected closing is recalculated.
 
 ### 7.2 Unified payment ledger (the only place money movement is recorded)
@@ -289,6 +289,7 @@ interface Payment extends BaseDoc {            // BaseDoc: _id(uuid v7), busines
   | SECOND_PARTY, PARTY_ADVANCE, OPENING_DUE | the user's explicit choice: "দিলাম / Gave" = OUT, "পেলাম / Received" = IN |
 
 - **The broker pays a mill only when the user records it explicitly:** a "Refund to mill" (OUT, `MILL_REFUND`), or a Daily Expense in category "মিলের খরচ / Mill charges" with the mill as party (e.g. unloading or milling charge). Nothing creates a mill payable automatically.
+- **Part-payments:** a deal (purchase, sale, mill dispatch) takes **any number** of payments / collections, each with its own amount, actual date, mode and reference, any day from the deal's own date up to today (backdating allowed, never before the deal, never in the future). The initial payment on the form is optional (0 = fully on credit). The due date never restricts when or how much is paid. Each payment affects the cashbook / bank book only on its own `paymentDate`.
 
 ### 7.3 Cashbook categories (how each payment is classified)
 
@@ -300,6 +301,30 @@ interface Payment extends BaseDoc {            // BaseDoc: _id(uuid v7), busines
 | Bank (separate book) | same lines for BANK/UPI mode, per bank account |
 
 Note: the client listed **"Farmer payment" as an expense category**. In the Daily Expenses form it is selectable, but choosing it opens the farmer-payment flow (pick farmer → pick open purchase(s) or "advance") and saves a `PURCHASE`/`PARTY_ADVANCE` payment. It appears in the Daily Expenses list with a "পেমেন্ট" badge for visibility. It counts under **Cash paid**, not **Cash expenses**, and is never an expense in profit. Showing it in both places is a view, not a second record.
+
+### 7.4 Due dates (DECISIONS D54)
+
+**Where:** only on the deal itself.
+
+| Record | Field (bn / en) | Settled by |
+|---|---|---|
+| Purchase from a farmer / supplier | বাকি দেওয়ার তারিখ / Pay-by date (optional) | OUT payments |
+| Mill dispatch | টাকা পাওয়ার তারিখ / Expected payment date (optional) | IN collections |
+| Sale (mill or other buyer) | টাকা পাওয়ার তারিখ / Expected payment date (optional) | IN collections |
+
+No other form has a due date: payment / collection sheets, mill return, final settlement, milling conversion, load khata, expenses, vehicle trips, second-party entries, stock adjustments, contra, day close. A `dueDate` stored on an older record of another type (v2.0 allowed it on expenses, trips and second-party entries) stays in the database untouched and is hidden and ignored everywhere. The payment-date field reads "যেদিন টাকা দেওয়া/নেওয়া হল / Date paid / received" so it is never mistaken for a due date.
+
+**Picker:** optional, empty by default, ✕ মুছুন / Clear. Today or any future date; quick chips "+৭ দিন", "+১৫ দিন", "+১ মাস" (from today, or from the deal date if that is later) plus the calendar. A date before the deal's own date is rejected ("বাকির তারিখ কেনার তারিখের আগে হতে পারে না"); a past date on/after the deal date is allowed with the soft warning "এই তারিখ পেরিয়ে গেছে / This date has already passed". On the new-deal form it sits under "Remaining due" in the payment block, marked optional; empty never blocks saving. Display: "বাকির তারিখ: ১৫ ডিসেম্বর (আর ১৯ দিন)" / "(৫ দিন পেরিয়ে গেছে)".
+
+**Changing it later:** "তারিখ বদলান / Change due date" on the purchase, mill dispatch and sale detail pages, on each open bill of the party ledger (Due & Advance) and on the deal's automatic reminder: a small sheet with the same picker plus Clear. It is a **field update, not an edit**: money, stock, ledger lines, payments and the document revision used for postings are untouched. One push op `dueDate` (server: last writer wins on this field only, never a conflict; allowed on a day already closed in the cashbook since it has no cash effect; a date before the deal is rejected with `DUE_BEFORE_DEAL`); audited "old→new" with who and when. A full edit of the deal never changes the due date (the stored value is kept on the device and on the server), so a device that has not pulled the newer date can't put the old one back.
+
+**Status (derived, never stored):** বাকি / Unpaid (no payments) · আংশিক / Partly paid (some paid, remaining > 0) · পরিশোধিত / Fully paid (remaining = 0); plus the extra badge **মেয়াদ পেরিয়েছে / Overdue** when remaining > 0 and a due date is set and today is after it. No due date = never overdue. Lists filter by status and by "overdue".
+
+**Reminders and alerts:** an automatic reminder exists only for a deal with a due date and remaining > 0; its date is always the deal's due date; it closes by itself when fully paid and moves when the due date changes (a stored done / snooze applies only to the date it was set for). Dashboard due alerts and the reminders tab show due today, overdue and upcoming (next 7 days); deals without a due date appear in the outstanding lists only. WhatsApp templates mention the due date only when one is set. Manual (custom) reminders keep their own date.
+
+**Payment sheet:** shows the deal total, already paid / received, remaining due and due date (if any); amount > 0 up to the remaining due, more only after "বাড়তি ₹X অগ্রিম হিসেবে রাখবেন?" (bill part + `PARTY_ADVANCE`); after saving it shows the new remaining due. The payment history lists every payment with the remaining due after it; each can be edited or reversed (confirmation, reason, audit). "+ বাকি টাকা দিন / Pay due" (purchase) and "+ টাকা পেলাম / Add collection" (sale, mill dispatch) are on the deal's detail page, on each open bill of the party ledger, and on the dashboard due alerts (opens the deal with the sheet).
+
+**Existing data:** dates changed on the reminders tab before D54 were stored only in the reminder record; `pnpm fix:due-dates` (dry run by default, `--apply` to write) copies them onto their deals the same way as the `dueDate` op.
 
 ---
 
@@ -416,7 +441,7 @@ interface Sale extends BaseDoc {
   // v2.1: `consignmentDispatchId` is removed (v2.0 consignment-settlement sales are converted
   // into final settlements by scripts/fix-mill-direction.ts; the field only parses old records).
 }
-interface Expense extends BaseDoc { title; categoryCode; amountPaise; partyId?; personText?; expenseDate; dueDate?; notes?; vehicleId?; linkedTripId? }
+interface Expense extends BaseDoc { title; categoryCode; amountPaise; partyId?; personText?; expenseDate; dueDate? /* legacy, ignored (§7.4) */; notes?; vehicleId?; linkedTripId? }
    // paid / unpaid / partial is DERIVED from payments
 interface LoadEntry extends BaseDoc { transactionDate /* loading date */; fromPartyId; destinationMillId; varietyId; weight: WeightBlock; ratePaisePerQtl; totalPaise; vehicleNumber; driverName?; secondPartyId?; notes?; link?: { type: 'SALE'|'MILL_DISPATCH'; id: string } }
 interface MillDispatch extends BaseDoc {
@@ -424,7 +449,7 @@ interface MillDispatch extends BaseDoc {
   millPartyId; dispatchDate; varietyId; weight: WeightBlock;
   ratePaisePerQtl;   // price per quintal THE MILL PAYS
   totalValuePaise;   // quantity × rate = what the mill owes for this dispatch (receivable)
-  vehicleNumber?; driverName?; dueDate? /* COLLECT reminder */; notes?; linkedLoadId?;
+  vehicleNumber?; driverName?; dueDate? /* optional COLLECT reminder, §7.4 */; notes?; linkedLoadId?;
 }
 interface MillReturn extends BaseDoc { dispatchId; millPartyId; returnDate; product: 'PADDY'|'RICE'|'OTHER'; otherProductName?; varietyId?; weight: WeightBlock;
   ratePaisePerQtl?;  // paddy: the dispatch's rate (credit = qty × rate); absent when the credit is typed
@@ -437,9 +462,9 @@ interface MillSettlement extends BaseDoc {   // "the dispatch's settlement": its
   billedPaise /* (accepted + shortfall) × dispatch rate */; finalValuePaise /* accepted × final rate − deduction */;
   adjustmentPaise /* billed − final: > 0 cut, < 0 extra */;
 }   // one active settlement per dispatch; v2.0's ConsignmentSettlement (a Sale) is removed
-interface VehicleTrip extends BaseDoc { transactionDate; customerPartyId; vehicleId; driverName?; loadingLocation; destination; qtyG?; rateMode: 'PER_QTL'|'FIXED'; ratePaise; totalIncomePaise; dueDate?; notes?; costs: Array<{ id; kind: 'DRIVER'|'DIESEL'|'OTHER'; amountPaise; litresMl?; payeeText?; note? }> }
+interface VehicleTrip extends BaseDoc { transactionDate; customerPartyId; vehicleId; driverName?; loadingLocation; destination; qtyG?; rateMode: 'PER_QTL'|'FIXED'; ratePaise; totalIncomePaise; dueDate? /* legacy, ignored (§7.4) */; notes?; costs: Array<{ id; kind: 'DRIVER'|'DIESEL'|'OTHER'; amountPaise; litresMl?; payeeText?; note? }> }
    // cost payments = Payment(source VEHICLE_COST, id = trip._id + ':' + cost.id); income collections = Payment(source VEHICLE_TRIP)
-interface SecondPartyEntry extends BaseDoc { partyId; transactionDate; kind: 'WE_OWE'|'THEY_OWE'; amountPaise; dueDate?; notes? }
+interface SecondPartyEntry extends BaseDoc { partyId; transactionDate; kind: 'WE_OWE'|'THEY_OWE'; amountPaise; dueDate? /* legacy, ignored (§7.4) */; notes? }
    // money given/received = Payment(source SECOND_PARTY, id = entry or null for on-account)
 interface StockCount extends BaseDoc { transactionDate; product; varietyId?; location; millPartyId?; systemG; countedG; diffG; bags?; reason; approved: boolean }
 interface DayClose extends BaseDoc { date; expectedClosingPaise; actualClosingPaise; diffPaise; note?; recheckNeeded: boolean }
@@ -546,14 +571,14 @@ Date-wise summary table (each row = a day in range; also a single-day card view)
    - Optional deductions block (only when enabled in Settings).
 5. **Rate per quintal** (₹) → **Total amount** (auto, large, with a tappable formula `৫৬ কু. × ₹২,৪০০ = ₹১,৩৪,৪০০`).
 6. **Initial payment:** amount (0 allowed = full credit), date (default = purchase date), mode (নগদ / ব্যাংক / UPI; bank/UPI → bank account + reference).
-7. **Remaining due** (auto) and **due date** (creates a reminder).
+7. **Remaining due** (auto) and an optional **pay-by date** right under it (a reminder only; §7.4).
 8. **Notes.** Optional: storage = Gola / direct delivery (direct needs a linked sale or load).
 
 Save → toast "কেনা সেভ হয়েছে" → options: Print/Share receipt · Add another · Open detail.
 
-**Purchase detail page:** all fields, bag list, payment ledger (each payment: date, amount, mode, reference, initial badge, status) with **+ বাকি টাকা দিন (Add due payment)**, edit/reverse per payment, remaining due (big), receipt per payment and a purchase bill, audit history (who/when/what changed).
+**Purchase detail page:** all fields, bag list, payment ledger (each payment: date, amount, mode, reference, initial badge, status, remaining due after it) with **+ বাকি টাকা দিন (Add due payment)**, edit/reverse per payment, remaining due (big), the due date with **তারিখ বদলান**, receipt per payment and a purchase bill, audit history (who/when/what changed).
 
-**Purchase list:** search (farmer, mobile, variety, bill no., amount), filters (date range, variety, paid status: paid / partial / unpaid / overdue), sort, pagination/virtual scroll, totals for the filter.
+**Purchase list:** search (farmer, mobile, variety, bill no., amount), filters (date range, variety, paid status: paid / partial / unpaid, and overdue), sort, pagination/virtual scroll, totals for the filter.
 
 **Farmer history (কৃষকের হিসাব):** farmer list with outstanding; per farmer: purchase history (date, variety, qty, rate, amount, paid, due), payment history, totals (quantity bought, amount, paid, remaining payable), date filter, statement print/share, WhatsApp, Add payment / Add advance.
 
@@ -566,7 +591,7 @@ Save → toast "কেনা সেভ হয়েছে" → options: Print/Sh
 
 ### 12.3 Section 3 — Sales (ধান বিক্রি)
 
-**New sale form:** buyer/mill (party with CUSTOMER or MILL role; create inline), mobile, sales date, product (ধান / চাল), variety, quantity (bag-wise or manual, same component), rate/qtl → **Sales total = Quantity × Rate** (auto), **advance received** (amount, date, mode, reference → IN payment, `isInitial`), remaining due (auto), due date, vehicle number, driver, delivery status, source (Gola stock / direct delivery), optional collapsed charges (loading, freight, vehicle advance), notes. Save as **Confirmed** (default; stock deducted once) or **Order** (no stock effect until confirmed).
+**New sale form:** buyer/mill (party with CUSTOMER or MILL role; create inline), mobile, sales date, product (ধান / চাল), variety, quantity (bag-wise or manual, same component), rate/qtl → **Sales total = Quantity × Rate** (auto), **advance received** (amount, date, mode, reference → IN payment, `isInitial`), remaining due (auto), optional expected payment date (§7.4), vehicle number, driver, delivery status, source (Gola stock / direct delivery), optional collapsed charges (loading, freight, vehicle advance), notes. Save as **Confirmed** (default; stock deducted once) or **Order** (no stock effect until confirmed).
 
 **Features:** multiple sales to the same buyer; **Add collection** (date, amount, mode, reference) any number of times; payment history; customer-wise ledger; remaining due; **sales invoice** (print/PDF/share; bilingual; business logo, Gola, invoice no., bag list optional, amount in words); **delivery tracking** (status timeline PENDING → LOADED → IN_TRANSIT → DELIVERED with timestamps; filter by status); search and filters; edit/void with confirmation; each collection updates the cashbook on its own payment date.
 
@@ -584,7 +609,7 @@ Save → toast "কেনা সেভ হয়েছে" → options: Print/Sh
 - An unpaid expense doesn't reduce cash. Each payment reduces cash/bank on its own date.
 - Edit/reverse with audit trail; full payment history on the detail page.
 
-**Screens:** Today's expenses (grouped by category with subtotals; farmer payments block with "পেমেন্ট" badge; grand total of cash out), All expenses (filters: date range by expense date or payment date, category, status, person), Unpaid expenses (with due dates, pay buttons), Reports (category-wise, month comparison, chart).
+**Screens:** Today's expenses (grouped by category with subtotals; farmer payments block with "পেমেন্ট" badge; grand total of cash out), All expenses (filters: date range by expense date or payment date, category, status, person), Unpaid expenses (oldest first, pay buttons; expenses carry no due date, §7.4), Reports (category-wise, month comparison, chart).
 
 ### 12.5 Section 5 — Daily Load Khata (দৈনিক লোড খাতা)
 
@@ -608,7 +633,7 @@ A **unified view** over parties and their linked transactions and payments. It c
 - **Party ledger:** chronological lines from every source (purchase, sale, expense, mill dispatch/return, vehicle trip, second-party entry, opening, advance, payments) with running balance and links to the source. Date-range filter, print/share statement.
 - **Add payment / collection here:** choose which open bill(s) it settles (default FIFO oldest first, editable) or "advance". This creates the same Payment records as the source screens.
 - **Outstanding summary:** totals per category, aging buckets (0–30, 31–60, 61–90, 90+ days), top dues.
-- **Reminder interface:** due today / overdue / upcoming; mark done, snooze, edit due date. Reminders come automatically from `dueDate`s plus manual ones. In-app badge; optional daily web-push digest when online.
+- **Reminder interface:** due today / overdue / upcoming (7 days); mark done, snooze, change date (for an automatic reminder this changes the deal's due date, §7.4). Reminders come automatically from the due dates of purchases, sales and mill dispatches with something still due, plus manual ones. In-app badge; optional daily web-push digest when online.
 - **WhatsApp reminder:** button opens `wa.me` with the party's mobile and a prepared message (Bengali default, English option, editable before sending), for example:
   > নমস্কার {name}, {business} ({gola}) থেকে জানাচ্ছি — আপনার {amount} টাকা বাকি আছে, পরিশোধের তারিখ {dueDate}। অনুগ্রহ করে সময়মতো পরিশোধ করবেন। ধন্যবাদ।
   A separate template is used when **we** owe money (payment-promise/confirmation message). The template follows the sign of the balance; for a mill that owes us (the normal case) it is always the collection reminder ("আপনার কাছে আমাদের ₹X পাওনা আছে…"). The UI says "WhatsApp খুলুন / Open WhatsApp", never "Sent".
@@ -623,10 +648,10 @@ A **unified view** over parties and their linked transactions and payments. It c
 
 ### 12.8 Section 8 — Mill & Second Party (মিল ও পার্টির হিসাব)
 
-**A. Second Party Ledger:** party (create inline), mobile; entries of kind **"আমরা দেব / We owe"** or **"ওরা দেবে / They owe"** (amount, transaction date, due date, notes), plus money **given/received** (payment date, amount, mode, bank account/reference, cash/bank details, person who paid/received, notes) as Payments. Party-wise history, payment history, outstanding balance, multiple and partial payments, search and filters, statement print/share.
+**A. Second Party Ledger:** party (create inline), mobile; entries of kind **"আমরা দেব / We owe"** or **"ওরা দেবে / They owe"** (amount, transaction date, notes; no due date, §7.4), plus money **given/received** (payment date, amount, mode, bank account/reference, cash/bank details, person who paid/received, notes) as Payments. Party-wise history, payment history, outstanding balance, multiple and partial payments, search and filters, statement print/share.
 
 **B. Mill Dispatch (মিলে পাঠানো):** paddy delivered to a mill **that the mill pays for**. A mill is the broker's customer/debtor; the broker never owes a mill money because of a dispatch.
-- **Fields:** mill name, dispatch date, variety, quantity (bag-wise/manual), **"মিলের রেট (মিল দেবে) / Rate the mill pays"** (per quintal), **"মোট পাওনা / Total receivable"** (= quantity × rate, auto), **"মিল দিয়েছে / Received from mill"** (initial collection: amount, date, mode, reference → an IN payment), **"মিলের কাছে বাকি পাওনা / Remaining receivable"** (auto), due date (creates a COLLECT reminder), vehicle number, driver, notes, optional linked load. No dispatch-type choice (v2.0's "for milling / consignment" toggle is removed; old records keep the field, posting ignores it).
+- **Fields:** mill name, dispatch date, variety, quantity (bag-wise/manual), **"মিলের রেট (মিল দেবে) / Rate the mill pays"** (per quintal), **"মোট পাওনা / Total receivable"** (= quantity × rate, auto), **"মিল দিয়েছে / Received from mill"** (initial collection: amount, date, mode, reference → an IN payment), **"মিলের কাছে বাকি পাওনা / Remaining receivable"** (auto), optional expected payment date (§7.4; creates a COLLECT reminder), vehicle number, driver, notes, optional linked load. No dispatch-type choice (v2.0's "for milling / consignment" toggle is removed; old records keep the field, posting ignores it).
 - **Posting:** Dr PARTY:mill / Cr MILL_SALES (total); Dr COGS / Cr STOCK_PADDY at average cost. **No cash effect at dispatch.**
 - **Detail page:** quantity sent / returned / accepted / still at the mill; value, return credits, final-settlement adjustment, collected, remaining receivable; **"+ মিল থেকে টাকা পেলাম / Add collection from mill"** (green, incoming; any number of collections, each with its own date and mode); the final settlement; WhatsApp with the collection-reminder template. Only when the mill has paid more than it owes: "মিলকে ফেরত দিতে হবে ₹X" and **"টাকা ফেরত দিলাম / Refund to mill"** (an OUT `MILL_REFUND` payment, Cash paid).
 - **Rules:** warehouse paddy decreases once; mill stock increases once; dispatches are not listed in the Sales section (their value shows on the Total sales card's sub-line); multiple collections with separate dates; a collection can't exceed the remaining receivable unless the owner keeps the extra as the mill's advance.
