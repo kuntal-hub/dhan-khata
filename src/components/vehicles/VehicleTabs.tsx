@@ -6,7 +6,6 @@
  * add / edit vehicles), খদ্দের অনুযায়ী (customers: income, received, due), আয়-খরচ (by day or by
  * month, optionally one vehicle).
  */
-import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useDeferredValue, useState } from "react";
 import { BarChart3, Pencil, Plus, Truck, Users } from "lucide-react";
@@ -32,19 +31,6 @@ import type { TKey } from "@/i18n/translate";
 import { VehicleForm } from "./VehiclePicker";
 import { displayVehicleNumber } from "@/domain/vehicleNumber";
 
-function NewTrip() {
-  const { t } = useI18n();
-  const { readOnly } = useWriteGodown();
-  if (readOnly) return null;
-  return (
-    <Button asChild className="h-12 self-start">
-      <Link href="/vehicles/trip/new" data-testid="trip-new">
-        {t("quick.trip")}
-      </Link>
-    </Button>
-  );
-}
-
 export function TripList() {
   const { t, date, money } = useI18n();
   const { godownId } = useActiveGodown();
@@ -53,7 +39,6 @@ export function TripList() {
   const rows = useLiveQuery(() => (godownId ? tripRows(godownId, { q: dq }) : []), [godownId, dq]);
   return (
     <div className="flex flex-col gap-3">
-      <NewTrip />
       <SearchBox value={q} onChange={setQ} placeholder={t("veh.search")} testId="trip-search" />
       {rows === undefined ? (
         <Skeleton rows={4} />

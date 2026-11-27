@@ -9,7 +9,6 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Pencil } from "lucide-react";
 import { PaymentList } from "@/components/entry/Payments";
 import { varietyName } from "@/components/entry/Variety";
 import { Panel, QtyTriple, StatusPill } from "@/components/kit/Kit";
@@ -17,7 +16,6 @@ import { Loading } from "@/components/lists/common";
 import { Cell, HistoryPanel, ReverseButton } from "@/components/mill/common";
 import { PageTitle } from "@/components/shell/PageTitle";
 import { PageSuspense, ReadOnlyNotice, useParam, useWriteGodown } from "@/components/system/page";
-import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { paymentsOf } from "@/client/queries/purchases";
@@ -69,6 +67,15 @@ function Detail() {
         subtitle={`${t("mill.returnTitle", { number: doc.number })} · ${date(doc.returnDate)}`}
         back="/mill?tab=return"
         actions={voided ? <StatusPill status="VOID" /> : null}
+        edit={
+          !voided && !readOnly
+            ? {
+                href: `/mill/return/edit?id=${doc._id}`,
+                label: t("act.edit"),
+                testId: "return-edit",
+              }
+            : null
+        }
       />
       <Panel>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
@@ -136,12 +143,6 @@ function Detail() {
 
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3">
-          <Button asChild variant="outline" className="h-12">
-            <Link href={`/mill/return/edit?id=${doc._id}`} data-testid="return-edit">
-              <Pencil className="size-5" aria-hidden />
-              {t("mill.edit")}
-            </Link>
-          </Button>
           {usedBy ? (
             <p className="text-muted-foreground self-center text-sm">{t("mill.reverseBlocked")}</p>
           ) : (

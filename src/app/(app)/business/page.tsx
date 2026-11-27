@@ -9,10 +9,11 @@ import { lazyToast } from "@/components/system/IdleToaster";
 import { Loading } from "@/components/lists/common";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Switch } from "@/components/ui/switch";
 import { updateBusinessProfile } from "@/client/auth/account";
 import { META } from "@/client/db/meta";
 import { errorKey } from "@/client/errors";
-import { useMeta } from "@/client/hooks";
+import { riceShown, useMeta } from "@/client/hooks";
 import type { Business } from "@/domain/schemas";
 import { useI18n } from "@/i18n/I18nProvider";
 
@@ -47,6 +48,7 @@ function BusinessForm({ business }: { business: Business }) {
     mobile: business.mobile ?? "",
     monKg: String(business.monKg),
     deductions: business.settings.deductionsEnabled,
+    rice: riceShown(business),
     logo: business.logoDataUrl ?? "",
   });
   const [error, setError] = useState<string | null>(null);
@@ -76,6 +78,7 @@ function BusinessForm({ business }: { business: Business }) {
         logoDataUrl: f.logo,
         monKg: mon,
         deductionsEnabled: f.deductions,
+        riceEnabled: f.rice,
       });
       lazyToast(t("biz.saved"), "success");
     } catch (e) {
@@ -176,6 +179,20 @@ function BusinessForm({ business }: { business: Business }) {
               <span className="text-muted-foreground text-sm">{t("biz.deductionsHint")}</span>
             </span>
           </label>
+        </CardContent>
+      </Card>
+      <Card className="rounded-2xl">
+        <CardHeader>
+          <CardTitle className="text-lg">{t("biz.products")}</CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-2">
+          <Switch
+            checked={f.rice}
+            onChange={(rice) => setF({ ...f, rice })}
+            label={t("biz.rice")}
+            hint={f.rice ? t("biz.riceOnHint") : t("biz.riceOffHint")}
+            testId="biz-rice"
+          />
         </CardContent>
       </Card>
       <FormError message={error} />

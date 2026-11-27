@@ -187,6 +187,26 @@ async function ux(page: Page, lang: "bn" | "en") {
           cw: document.documentElement.clientWidth,
         }));
         expect(sw, `${w}px ${path}?tab=${tab} wider than the screen`).toBeLessThanOrEqual(cw);
+        // The app frame clips sideways overflow, so also look for any box past the screen edge
+        // that is not inside its own scroller (tab bars, chip rows) or a clipped decoration.
+        const wide = await page.evaluate(() => {
+          const W = document.documentElement.clientWidth;
+          const inScroller = (e: Element) => {
+            for (let p = e.parentElement; p && p !== document.body; p = p.parentElement) {
+              if (p.hasAttribute("data-app-frame")) return false;
+              if (/(auto|scroll|hidden|clip)/.test(getComputedStyle(p).overflowX)) return true;
+            }
+            return false;
+          };
+          return [...document.querySelectorAll("body *")]
+            .filter((e) => {
+              const r = e.getBoundingClientRect();
+              return r.width > 0 && r.right > W + 1 && !inScroller(e);
+            })
+            .slice(0, 3)
+            .map((e) => `${e.tagName}[${e.getAttribute("data-testid") ?? ""}]`);
+        });
+        expect(wide, `${w}px ${path}?tab=${tab} has boxes past the screen edge`).toEqual([]);
       }
     }
   }

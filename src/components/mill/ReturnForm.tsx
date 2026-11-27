@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { VoiceText } from "@/components/voice/VoiceText";
 import { errorKey } from "@/client/errors";
-import { useBusiness } from "@/client/hooks";
+import { riceShown, useBusiness } from "@/client/hooks";
 import { dispatchRows } from "@/client/queries/mill";
 import { findDuplicateReturn, newId, saveMillReturn, type DraftOf } from "@/client/repo";
 import { paiseToInput, parseAmountField } from "@/client/ui/parse";
@@ -100,6 +100,7 @@ export function ReturnForm({
   const router = useRouter();
   const business = useBusiness();
   const monKg = business?.monKg ?? 40;
+  const rice = riceShown(business);
   const [s, setS] = useState<State>(() => initial(existing, dispatchId));
   const [id] = useState(() => existing?._id ?? newId());
   const [dirty, setDirty] = useState(false);
@@ -304,19 +305,22 @@ export function ReturnForm({
           onChange={(d) => set({ date: d })}
           testId="return-date"
         />
-        <FieldBox label={t("mill.product")} hint={t("mill.riceOnly")}>
-          <Segmented
-            label={t("mill.product")}
-            value={s.product}
-            options={[
-              ["PADDY", t("mill.PADDY")],
-              ["RICE", t("mill.RICE")],
-              ["OTHER", t("mill.OTHER")],
-            ]}
-            onChange={(product) => set({ product })}
-            testId="return-product"
-          />
-        </FieldBox>
+        {/* Rice hidden (business profile): paddy only, unless this return already is not. */}
+        {rice || s.product !== "PADDY" ? (
+          <FieldBox label={t("mill.product")} hint={t("mill.riceOnly")}>
+            <Segmented
+              label={t("mill.product")}
+              value={s.product}
+              options={[
+                ["PADDY", t("mill.PADDY")],
+                ["RICE", t("mill.RICE")],
+                ["OTHER", t("mill.OTHER")],
+              ]}
+              onChange={(product) => set({ product })}
+              testId="return-product"
+            />
+          </FieldBox>
+        ) : null}
         {s.product === "OTHER" ? (
           <FieldBox
             label={t("mill.otherName")}

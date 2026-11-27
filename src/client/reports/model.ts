@@ -20,6 +20,8 @@ export interface Column {
   kind: ColumnKind;
   /** Not additive (a rate per quintal): the totals row leaves it empty. */
   noTotal?: boolean;
+  /** A rice / other-product figure: left out when rice is hidden (business profile). */
+  rice?: boolean;
 }
 
 export interface ReportModel {
@@ -70,6 +72,19 @@ export function mergeGolas(
     rows,
     ...(hasTotals ? { totals: autoTotals(columns, rows, totalLabel) } : {}),
     ...(first.note ? { note: first.note } : {}),
+  };
+}
+
+/** The model without its rice columns (rice hidden). Totals stay aligned with the columns. */
+export function withoutRice(m: ReportModel): ReportModel {
+  if (!m.columns.some((c) => c.rice)) return m;
+  const keep = m.columns.map((c) => !c.rice);
+  const pick = <V>(row: readonly V[]): V[] => row.filter((_, i) => keep[i]);
+  return {
+    ...m,
+    columns: pick(m.columns),
+    rows: m.rows.map(pick),
+    ...(m.totals ? { totals: pick(m.totals) } : {}),
   };
 }
 

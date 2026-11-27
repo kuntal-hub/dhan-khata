@@ -67,6 +67,8 @@ export interface BusinessProfileInput {
   logoDataUrl?: string;
   monKg?: number;
   deductionsEnabled?: boolean;
+  /** Show rice and other milled products (default on). */
+  riceEnabled?: boolean;
 }
 
 /** Owner, online: update the business profile; the device copy updates at once. */

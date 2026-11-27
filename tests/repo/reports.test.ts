@@ -6,8 +6,14 @@
 import { beforeEach, describe, expect, it } from "vitest";
 import { cashbookView, dailyRows, golaOverview } from "@/client/queries/dashboard";
 import { godownBalances } from "@/client/queries/ledger";
-import { reportById, REPORTS, type T } from "@/client/reports/defs";
-import { cellCsv, modelToCsv, type CellValue, type ReportModel } from "@/client/reports/model";
+import { reportById, reportsOf, REPORTS, type T } from "@/client/reports/defs";
+import {
+  cellCsv,
+  modelToCsv,
+  withoutRice,
+  type CellValue,
+  type ReportModel,
+} from "@/client/reports/model";
 import { runReport } from "@/client/reports/run";
 import {
   payBill,
@@ -208,5 +214,55 @@ describe("export cells are exact", () => {
     expect(csv.charCodeAt(0)).toBe(0xfeff);
     expect(csv).toContain('"রহিম, শেখ",134400.00');
     expect(csv).toContain("মোট,134400.00");
+  });
+});
+
+describe("rice hidden (business profile)", () => {
+  it("rice-only reports are not offered; every other report still is", () => {
+    for (const s of ["dashboard", "mill", "sales"] as const) {
+      const shown = reportsOf(s).map((r) => r.id);
+      const hidden = reportsOf(s, false).map((r) => r.id);
+      expect(hidden).toEqual(shown.filter((id) => id !== "rice-stock" && id !== "mill-conversion"));
+    }
+    expect(reportsOf("dashboard")).toContainEqual(expect.objectContaining({ id: "rice-stock" }));
+    expect(reportsOf("dashboard", false).some((r) => r.id === "rice-stock")).toBe(false);
+    expect(reportsOf("mill", false).some((r) => r.id === "mill-conversion")).toBe(false);
+  });
+
+  it("drops only the rice columns / row; every other cell and total is unchanged", async () => {
+    for (const id of ["sales-daily", "customer-ledger", "daily-overview", "monthly-summary"]) {
+      const full = await runReport(reportById(id)!, scope([GA]));
+      const lean = await runReport(reportById(id)!, { ...scope([GA]), rice: false });
+      const keep = full.columns.map((c) => !c.rice);
+      expect(
+        full.columns.some((c) => c.rice),
+        id,
+      ).toBe(true);
+      expect(
+        lean.columns.some((c) => c.rice),
+        id,
+      ).toBe(false);
+      expect(lean.columns).toEqual(full.columns.filter((_, i) => keep[i]));
+      expect(lean.rows).toEqual(full.rows.map((r) => r.filter((_, i) => keep[i])));
+      if (full.totals) expect(lean.totals).toEqual(full.totals.filter((_, i) => keep[i]));
+    }
+    // Gola-wise (business report, all Golas) and the range summary (a rice row).
+    const gw = await runReport(reportById("gola-wise")!, { ...scope([GA, GB]), rice: false });
+    expect(gw.columns.map((c) => c.label)).not.toContain(t("rep.c.riceEnd"));
+    expect(gw.totals).toHaveLength(gw.columns.length);
+    const rs = await runReport(reportById("range-summary")!, { ...scope([GA]), rice: false });
+    const full = await runReport(reportById("range-summary")!, scope([GA]));
+    expect(rs.rows.map((r) => r[0])).toEqual(
+      full.rows.map((r) => r[0]).filter((l) => l !== t("rep.c.riceEnd")),
+    );
+  });
+
+  it("withoutRice leaves a model with no rice column as it is", () => {
+    const m: ReportModel = {
+      columns: [{ label: "a", kind: "text" }],
+      rows: [["x"]],
+      totals: ["t"],
+    };
+    expect(withoutRice(m)).toBe(m);
   });
 });

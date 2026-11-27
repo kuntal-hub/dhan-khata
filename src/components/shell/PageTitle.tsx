@@ -2,22 +2,28 @@
 
 import { usePathname, useRouter } from "next/navigation";
 import type { ReactNode } from "react";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Pencil } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useT } from "@/i18n/I18nProvider";
+import { ActionLink } from "./ActionLink";
 import { sectionOf } from "./sections";
 
-/** Page title row with an optional back button and actions (right). */
+/**
+ * Page title row with an optional back button and actions (right). `edit` adds the highlighted
+ * edit button under the actions, so a detail page's edit form is found without scrolling.
+ */
 export function PageTitle({
   title,
   back,
   actions,
   subtitle,
+  edit,
 }: {
   title: string;
   back?: string | true;
   actions?: ReactNode;
   subtitle?: string;
+  edit?: { href: string; label: string; testId?: string } | null;
 }) {
   const t = useT();
   const router = useRouter();
@@ -42,7 +48,14 @@ export function PageTitle({
         </h1>
         {subtitle ? <p className="text-muted-foreground text-sm">{subtitle}</p> : null}
       </div>
-      {actions ? <div className="flex shrink-0 gap-2">{actions}</div> : null}
+      {actions || edit ? (
+        <div className="flex shrink-0 flex-col items-end gap-2">
+          {actions ? <div className="flex gap-2">{actions}</div> : null}
+          {edit ? (
+            <ActionLink href={edit.href} label={edit.label} icon={Pencil} testId={edit.testId} />
+          ) : null}
+        </div>
+      ) : null}
     </div>
   );
 }

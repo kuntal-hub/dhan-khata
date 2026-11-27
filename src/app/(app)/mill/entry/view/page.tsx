@@ -5,11 +5,9 @@
  * every payment with its own date ("+ টাকা দিন / + টাকা পেলাম", edit / reverse), edit, reverse,
  * history.
  */
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { Pencil } from "lucide-react";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { Panel, StatusPill } from "@/components/kit/Kit";
 import { Loading } from "@/components/lists/common";
@@ -56,6 +54,11 @@ function Detail() {
         subtitle={`${t("mill.spEntryTitle", { number: doc.number })} · ${date(doc.transactionDate)}`}
         back={`/mill/party?id=${doc.partyId}`}
         actions={<StatusPill status={voided ? "VOID" : st.status} />}
+        edit={
+          !voided && !readOnly
+            ? { href: `/mill/entry/edit?id=${doc._id}`, label: t("act.edit"), testId: "sp-edit" }
+            : null
+        }
       />
       <Panel>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
@@ -104,12 +107,6 @@ function Detail() {
       </Panel>
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3">
-          <Button asChild variant="outline" className="h-12">
-            <Link href={`/mill/entry/edit?id=${doc._id}`}>
-              <Pencil className="size-5" aria-hidden />
-              {t("mill.edit")}
-            </Link>
-          </Button>
           <ReverseButton
             label={t("mill.spReverse")}
             body={`${t("mill.spReverseConfirm", { amount: money(BigInt(doc.amountPaise)) })}${active.length ? ` ${t("mill.reverseWithPayments", { count: count(active.length) })}` : ""}`}

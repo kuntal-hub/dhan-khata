@@ -34,7 +34,7 @@ import { db } from "@/client/db/dexie";
 import { downloadText } from "@/client/download";
 import { errorKey } from "@/client/errors";
 import { downloadWorkbook } from "@/client/export/excel";
-import { useActiveGodown, useGodownRole } from "@/client/hooks";
+import { useActiveGodown, useGodownRole, useRiceShown } from "@/client/hooks";
 import { reportById } from "@/client/reports/defs";
 import { excelCell, runReport } from "@/client/reports/run";
 import { todayIST } from "@/domain/dates";
@@ -128,6 +128,7 @@ export default function SettingsPage() {
   const role = useGodownRole();
   const owner = role === "owner";
   const scope = useReportScope();
+  const rice = useRiceShown();
   const [online, setOnline] = useState(true);
   const [busy, setBusy] = useState<string | null>(null);
   const [results, setResults] = useState<IntegrityReport[] | null>(null);
@@ -171,6 +172,7 @@ export default function SettingsPage() {
           from: "2000-01-01",
           to: todayIST(),
           t,
+          rice,
         });
         sheets.push({
           name: t(def.title),

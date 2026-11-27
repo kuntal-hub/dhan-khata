@@ -23,7 +23,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { db } from "@/client/db/dexie";
 import { errorKey } from "@/client/errors";
-import { useActiveGodown, useBusiness } from "@/client/hooks";
+import { riceShown, useActiveGodown, useBusiness } from "@/client/hooks";
 import { movesFor } from "@/client/queries/consolidated/dashboard";
 import { approveStockCount, saveOpeningStock, type AdjustReason } from "@/client/repo";
 import { parseRateField } from "@/client/ui/parse";
@@ -55,9 +55,12 @@ export default function StockTab() {
     const p = urlParam("date");
     return p && /^\d{4}-\d{2}-\d{2}$/.test(p) && p <= today ? p : today;
   });
-  const [product, setProduct] = useState<Product>(() =>
+  const rice = riceShown(business);
+  const [picked, setProduct] = useState<Product>(() =>
     urlParam("product") === "RICE" ? "RICE" : "PADDY",
   );
+  // Rice hidden (business profile): paddy only.
+  const product: Product = rice ? picked : "PADDY";
   const [varietyId, setVarietyId] = useState("");
   const [unit, setUnit] = useState<WeightUnit>("QTL");
   const [open, setOpen] = useState<string | null>(null);
@@ -217,17 +220,19 @@ export default function StockTab() {
         </Button>
       </div>
       <div className="grid gap-2 sm:grid-cols-2">
-        <Segmented
-          label={t("sl.product")}
-          value={product}
-          options={[
-            ["PADDY", t("stk.PADDY")],
-            ["RICE", t("stk.RICE")],
-            ["OTHER", t("stk.OTHER")],
-          ]}
-          onChange={setProduct}
-          testId="stock-product"
-        />
+        {rice ? (
+          <Segmented
+            label={t("sl.product")}
+            value={product}
+            options={[
+              ["PADDY", t("stk.PADDY")],
+              ["RICE", t("stk.RICE")],
+              ["OTHER", t("stk.OTHER")],
+            ]}
+            onChange={setProduct}
+            testId="stock-product"
+          />
+        ) : null}
         <Segmented
           label={t("stk.unit")}
           value={unit}

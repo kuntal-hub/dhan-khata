@@ -38,6 +38,8 @@ export interface ReportCtx {
   /** Report-specific choice (group by, account, party). */
   opt?: string;
   t: T;
+  /** Rice / other products shown (business profile). Absent = shown. */
+  rice?: boolean;
 }
 
 export interface ReportOption {
@@ -56,10 +58,14 @@ export interface ReportDef {
   option?: ReportOption;
   /** Built once for all Golas (Gola-wise / combined). */
   business?: boolean;
+  /** Only about rice / other products: not offered when rice is hidden (business profile). */
+  rice?: boolean;
   build(ctx: ReportCtx): Promise<ReportModel>;
 }
 
 const col = (label: string, kind: Column["kind"] = "text"): Column => ({ label, kind });
+/** A rice quantity column: dropped when rice is hidden (`withoutRice`). */
+const riceCol = (label: string): Column => ({ label, kind: "qty", rice: true });
 const m = (p: bigint | string): CellValue => ({ m: BigInt(p) });
 const q = (g: bigint | string): CellValue => ({ q: BigInt(g) });
 const n = (x: number): CellValue => ({ n: x });
@@ -221,7 +227,7 @@ const salesDaily: ReportDef = {
       col(t("rep.c.date"), "date"),
       col(t("rep.c.count"), "count"),
       col(t("rep.c.paddy"), "qty"),
-      col(t("rep.c.rice"), "qty"),
+      riceCol(t("rep.c.rice")),
       col(t("rep.c.amount"), "money"),
       col(t("rep.c.received"), "money"),
       col(t("rep.c.due"), "money"),
@@ -303,7 +309,7 @@ const customerLedger: ReportDef = {
       col(t("rep.c.buyer")),
       col(t("rep.c.mobile")),
       col(t("rep.c.paddy"), "qty"),
-      col(t("rep.c.rice"), "qty"),
+      riceCol(t("rep.c.rice")),
       col(t("rep.c.amount"), "money"),
       col(t("rep.c.receivable"), "money"),
       col(t("rep.c.advance"), "money"),
@@ -985,6 +991,7 @@ const millConversion: ReportDef = {
   section: "mill",
   title: "rep.r.mill-conversion",
   period: "range",
+  rice: true,
   async build({ godownId, from, to, t }) {
     const rows = (await conversionRows(godownId))
       .filter(
@@ -1190,6 +1197,7 @@ const riceStock: ReportDef = {
   section: "dashboard",
   title: "rep.r.rice-stock",
   period: "range",
+  rice: true,
   async build({ godownId, from, to, t }) {
     const moves = await golaMoves(godownId);
     const columns = [
@@ -1240,7 +1248,7 @@ const dailyOverview: ReportDef = {
       col(t("dly.stockOut"), "qty"),
       col(t("dly.closingCash"), "money"),
       col(t("dly.closingPaddy"), "qty"),
-      col(t("dly.closingRice"), "qty"),
+      riceCol(t("dly.closingRice")),
     ];
     const out = rows.map((r) => [
       d(r.date),
@@ -1320,7 +1328,7 @@ const monthlySummary: ReportDef = {
       col(t("rep.c.cashIn"), "money"),
       col(t("rep.c.cashOut"), "money"),
       col(t("rep.c.paddyEnd"), "qty"),
-      col(t("rep.c.riceEnd"), "qty"),
+      riceCol(t("rep.c.riceEnd")),
     ];
     const rows: CellValue[][] = [];
     for (const mo of monthsOf(from, to)) {
@@ -1350,6 +1358,7 @@ function summaryRows(
   o: Awaited<ReturnType<typeof golaOverview>>,
   gross: bigint,
   t: T,
+  rice = true,
 ): CellValue[][] {
   return [
     [t("rep.c.purchase"), m(o.purchasePaise), q(o.purchaseG)],
@@ -1361,7 +1370,7 @@ function summaryRows(
     [t("dsh.cash"), m(o.cashPaise), null],
     [t("dsh.bank"), m(o.bankPaise), null],
     [t("rep.c.paddyEnd"), null, q(o.paddyG)],
-    [t("rep.c.riceEnd"), null, q(o.riceG)],
+    ...(rice ? [[t("rep.c.riceEnd"), null, q(o.riceG)]] : []),
     [t("rep.c.atMill"), null, q(o.millPaddyG)],
     [t("rep.c.receivable"), m(o.receivablePaise), null],
     [t("rep.c.payable"), m(o.farmerPayablePaise), null],
@@ -1376,11 +1385,11 @@ const rangeSummary: ReportDef = {
   section: "dashboard",
   title: "rep.r.range-summary",
   period: "range",
-  async build({ godownId, from, to, t }) {
+  async build({ godownId, from, to, t, rice }) {
     const o = await golaOverview(godownId, from, to);
     return {
       columns: [col(t("rep.c.item")), col(t("rep.c.amount"), "money"), col(t("rep.c.qty"), "qty")],
-      rows: summaryRows(o, await grossProfit(godownId, from, to), t),
+      rows: summaryRows(o, await grossProfit(godownId, from, to), t, rice),
       note: t("rep.balanceNote"),
     };
   },
@@ -1402,7 +1411,7 @@ const golaWise: ReportDef = {
       col(t("dsh.cash"), "money"),
       col(t("dsh.bank"), "money"),
       col(t("rep.c.paddyEnd"), "qty"),
-      col(t("rep.c.riceEnd"), "qty"),
+      riceCol(t("rep.c.riceEnd")),
       col(t("rep.c.receivable"), "money"),
       col(t("rep.c.payable"), "money"),
     ];
@@ -1438,7 +1447,7 @@ const combined: ReportDef = {
   title: "rep.r.combined",
   period: "range",
   business: true,
-  async build({ godownIds, from, to, t }) {
+  async build({ godownIds, from, to, t, rice }) {
     const list = await Promise.all(godownIds.map((g) => golaOverview(g, from, to)));
     const gross = (await Promise.all(godownIds.map((g) => grossProfit(g, from, to)))).reduce(
       (s, x) => s + x,
@@ -1447,7 +1456,7 @@ const combined: ReportDef = {
     const { sumOverviews } = await import("../queries/consolidated/dashboard");
     return {
       columns: [col(t("rep.c.item")), col(t("rep.c.amount"), "money"), col(t("rep.c.qty"), "qty")],
-      rows: summaryRows(sumOverviews(list), gross, t),
+      rows: summaryRows(sumOverviews(list), gross, t, rice),
       note: t("rep.combinedNote"),
     };
   },
@@ -1488,8 +1497,9 @@ export const REPORTS: readonly ReportDef[] = [
   riceStock,
 ];
 
-export function reportsOf(section: ReportSection): ReportDef[] {
-  return REPORTS.filter((r) => r.section === section);
+/** A section's reports; `rice = false` leaves out the rice-only ones (business profile). */
+export function reportsOf(section: ReportSection, rice = true): ReportDef[] {
+  return REPORTS.filter((r) => r.section === section && (rice || !r.rice));
 }
 
 export function reportById(id: string): ReportDef | undefined {

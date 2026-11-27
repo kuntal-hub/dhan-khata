@@ -4,10 +4,13 @@
  * params on the section's static route (offline precache: no dynamic segments).
  */
 import {
+  ArrowDownLeft,
+  ArrowUpRight,
   ClipboardList,
   Factory,
   HandCoins,
   LayoutDashboard,
+  Plus,
   Receipt,
   Scale,
   Truck,
@@ -19,8 +22,24 @@ import type { TKey } from "@/i18n/translate";
 export interface SectionTab {
   key: string;
   label: TKey;
-  /** A tab that opens another page (e.g. "নতুন কেনা" → the purchase form). */
-  href?: string;
+  /** Only about rice / other products: hidden when rice is off (business profile). */
+  rice?: boolean;
+}
+
+/**
+ * A highlighted "add" button in the section heading that opens an entry form, so every section
+ * offers its own forms right where the user is (not only through the floating + button).
+ */
+export interface SectionAction {
+  key: string;
+  label: TKey;
+  href: string;
+  icon: LucideIcon;
+  testId: string;
+  /** The tabs it shows on (every tab when absent). */
+  tabs?: readonly string[];
+  /** A rice / other-product form: hidden when rice is off. */
+  rice?: boolean;
 }
 
 export interface Section {
@@ -34,7 +53,11 @@ export interface Section {
   /** Path prefixes that belong to this section (sub-pages, forms, detail views). */
   match: string[];
   tabs: SectionTab[];
+  actions: readonly SectionAction[];
 }
+
+const DUE_TABS_IN = ["summary", "receivable", "mill", "advance", "other", "reports"];
+const DUE_TABS_OUT = ["summary", "payable", "advance", "other", "reports"];
 
 export const SECTIONS: readonly Section[] = [
   {
@@ -52,6 +75,8 @@ export const SECTIONS: readonly Section[] = [
       { key: "daily", label: "sections.dashboardTabs.daily" },
       { key: "reports", label: "sections.dashboardTabs.reports" },
     ],
+    // The dashboard keeps the floating + (every form in one place).
+    actions: [],
   },
   {
     key: "purchase",
@@ -63,10 +88,18 @@ export const SECTIONS: readonly Section[] = [
     match: ["/purchase"],
     tabs: [
       { key: "list", label: "sections.purchaseTabs.list" },
-      { key: "new", label: "sections.purchaseTabs.new", href: "/purchase/new" },
       { key: "farmers", label: "sections.purchaseTabs.farmers" },
       { key: "varieties", label: "sections.purchaseTabs.varieties" },
       { key: "reports", label: "sections.purchaseTabs.reports" },
+    ],
+    actions: [
+      {
+        key: "new",
+        label: "act.purchase",
+        href: "/purchase/new",
+        icon: Plus,
+        testId: "purchase-new",
+      },
     ],
   },
   {
@@ -79,10 +112,12 @@ export const SECTIONS: readonly Section[] = [
     match: ["/sales"],
     tabs: [
       { key: "list", label: "sections.salesTabs.list" },
-      { key: "new", label: "sections.salesTabs.new", href: "/sales/new" },
       { key: "customers", label: "sections.salesTabs.customers" },
       { key: "delivery", label: "sections.salesTabs.delivery" },
       { key: "reports", label: "sections.salesTabs.reports" },
+    ],
+    actions: [
+      { key: "new", label: "act.sale", href: "/sales/new", icon: Plus, testId: "sale-new" },
     ],
   },
   {
@@ -99,6 +134,15 @@ export const SECTIONS: readonly Section[] = [
       { key: "unpaid", label: "sections.expensesTabs.unpaid" },
       { key: "reports", label: "sections.expensesTabs.reports" },
     ],
+    actions: [
+      {
+        key: "new",
+        label: "act.expense",
+        href: "/expenses/new",
+        icon: Plus,
+        testId: "expense-new",
+      },
+    ],
   },
   {
     key: "loads",
@@ -114,6 +158,9 @@ export const SECTIONS: readonly Section[] = [
       { key: "mill", label: "sections.loadsTabs.mill" },
       { key: "vehicle", label: "sections.loadsTabs.vehicle" },
       { key: "reports", label: "sections.loadsTabs.reports" },
+    ],
+    actions: [
+      { key: "new", label: "act.load", href: "/loads/new", icon: Plus, testId: "load-new" },
     ],
   },
   {
@@ -134,6 +181,25 @@ export const SECTIONS: readonly Section[] = [
       { key: "reminders", label: "sections.duesTabs.reminders" },
       { key: "reports", label: "sections.duesTabs.reports" },
     ],
+    // Reminders has its own "new reminder" button.
+    actions: [
+      {
+        key: "received",
+        label: "quick.received",
+        href: "/dues/pay?direction=IN",
+        icon: ArrowDownLeft,
+        testId: "due-pay-in",
+        tabs: DUE_TABS_IN,
+      },
+      {
+        key: "paid",
+        label: "quick.paid",
+        href: "/dues/pay?direction=OUT",
+        icon: ArrowUpRight,
+        testId: "due-pay-out",
+        tabs: DUE_TABS_OUT,
+      },
+    ],
   },
   {
     key: "vehicles",
@@ -150,6 +216,15 @@ export const SECTIONS: readonly Section[] = [
       { key: "pnl", label: "sections.vehiclesTabs.pnl" },
       { key: "reports", label: "sections.vehiclesTabs.reports" },
     ],
+    actions: [
+      {
+        key: "new",
+        label: "act.trip",
+        href: "/vehicles/trip/new",
+        icon: Plus,
+        testId: "trip-new",
+      },
+    ],
   },
   {
     key: "mill",
@@ -163,12 +238,58 @@ export const SECTIONS: readonly Section[] = [
       { key: "secondParty", label: "sections.millTabs.secondParty" },
       { key: "dispatch", label: "sections.millTabs.dispatch" },
       { key: "return", label: "sections.millTabs.return" },
-      { key: "conversion", label: "sections.millTabs.conversion" },
+      { key: "conversion", label: "sections.millTabs.conversion", rice: true },
       { key: "settlement", label: "sections.millTabs.settlement" },
       { key: "reports", label: "sections.millTabs.reports" },
     ],
+    // One form per tab (final settlement starts from a dispatch: its own button on each row).
+    actions: [
+      {
+        key: "entry",
+        label: "act.entry",
+        href: "/mill/entry/new",
+        icon: Plus,
+        testId: "sp-new",
+        tabs: ["secondParty"],
+      },
+      {
+        key: "dispatch",
+        label: "act.dispatch",
+        href: "/mill/dispatch/new",
+        icon: Plus,
+        testId: "dispatch-new",
+        tabs: ["dispatch", "settlement", "reports"],
+      },
+      {
+        key: "return",
+        label: "act.return",
+        href: "/mill/return/new",
+        icon: Plus,
+        testId: "return-new",
+        tabs: ["return"],
+      },
+      {
+        key: "conversion",
+        label: "act.conversion",
+        href: "/mill/conversion/new",
+        icon: Plus,
+        testId: "conversion-new",
+        tabs: ["conversion"],
+        rice: true,
+      },
+    ],
   },
 ];
+
+/** The heading buttons of `tab` (rice forms only when rice is shown). */
+export function actionsOf(section: Section, tab: string, rice: boolean): SectionAction[] {
+  return section.actions.filter((a) => (!a.tabs || a.tabs.includes(tab)) && (rice || !a.rice));
+}
+
+/** The section's tabs (the rice-only ones only when rice is shown). */
+export function tabsOf(section: Section, rice: boolean): SectionTab[] {
+  return section.tabs.filter((t) => rice || !t.rice);
+}
 
 export function sectionOf(path: string): Section | undefined {
   if (path === "/") return SECTIONS[0];

@@ -46,7 +46,7 @@ import { useWriteGodown } from "@/components/system/page";
 import { Button } from "@/components/ui/button";
 import { varietyName } from "@/components/entry/Variety";
 import { db } from "@/client/db/dexie";
-import { useActiveGodown, useBusiness } from "@/client/hooks";
+import { riceShown, useActiveGodown, useBusiness } from "@/client/hooks";
 import {
   alertsFor,
   overviewFor,
@@ -267,6 +267,7 @@ export function Overview() {
   const { godownId, godowns, consolidated } = useActiveGodown();
   const { readOnly } = useWriteGodown();
   const business = useBusiness();
+  const rice = riceShown(business);
   const range = useDashRange();
   const ids = consolidated
     ? (godowns ?? []).filter((g) => g.status === "active").map((g) => g._id)
@@ -458,19 +459,21 @@ export function Overview() {
         className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-4"
         data-testid="overview-cards"
       >
-        {cards.map((c, i) => (
-          <MetricCard
-            key={c.id}
-            index={i}
-            icon={c.icon}
-            label={c.label}
-            value={c.value}
-            tone={c.tone}
-            testId={c.id}
-            href={c.href}
-            {...("sub" in c && c.sub ? { sub: c.sub } : {})}
-          />
-        ))}
+        {cards
+          .filter((c) => rice || c.id !== "m-rice")
+          .map((c, i) => (
+            <MetricCard
+              key={c.id}
+              index={i}
+              icon={c.icon}
+              label={c.label}
+              value={c.value}
+              tone={c.tone}
+              testId={c.id}
+              href={c.href}
+              {...("sub" in c && c.sub ? { sub: c.sub } : {})}
+            />
+          ))}
       </div>
       {consolidated && ov.perGola.length > 1 ? (
         <Panel title={t("dsh.perGola")} icon={Package}>
@@ -552,12 +555,16 @@ export function Overview() {
       </div>
       <div className="grid gap-4 lg:grid-cols-2">
         <Panel title={t("dsh.stockSummary")} icon={Wheat} tone="gold">
-          <div className="grid grid-cols-3 gap-2 text-center text-sm">
+          <div
+            className={cn("grid gap-2 text-center text-sm", rice ? "grid-cols-3" : "grid-cols-2")}
+          >
             {(
               [
                 ["/?tab=stock", t("dsh.paddy"), o.paddyG, Wheat],
                 ["/?tab=stock", t("dsh.mill"), o.millPaddyG, Factory],
-                ["/?tab=stock&product=RICE", t("dsh.rice"), o.riceG, Package],
+                ...(rice
+                  ? ([["/?tab=stock&product=RICE", t("dsh.rice"), o.riceG, Package]] as const)
+                  : []),
               ] as const
             ).map(([href, label, g, I], i) => (
               <Link
@@ -661,59 +668,69 @@ export function Overview() {
                         dueDate: date(a.dueDate, "short"),
                       });
                 return (
-                  <li key={`${a.doc._id}:${a.dueDate}`} className="flex items-center gap-2 py-2">
-                    <span
-                      className={cn(
-                        "flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
-                        a.direction === "IN"
-                          ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
-                          : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
-                      )}
-                    >
-                      {a.direction === "IN" ? (
-                        <ArrowDownLeft className="size-3" aria-hidden />
+                  // Two lines (who / how much, then the buttons): one line was ~430 px wide and
+                  // pushed the whole page (and the bottom bar) wider than a 360 px phone.
+                  <li key={`${a.doc._id}:${a.dueDate}`} className="flex flex-col gap-1.5 py-2.5">
+                    <div className="flex min-w-0 items-center gap-2">
+                      <span
+                        className={cn(
+                          "flex shrink-0 items-center gap-1 rounded-full px-2 py-0.5 text-[11px] font-bold",
+                          a.direction === "IN"
+                            ? "bg-emerald-100 text-emerald-800 dark:bg-emerald-950 dark:text-emerald-300"
+                            : "bg-rose-100 text-rose-800 dark:bg-rose-950 dark:text-rose-300",
+                        )}
+                      >
+                        {a.direction === "IN" ? (
+                          <ArrowDownLeft className="size-3" aria-hidden />
+                        ) : (
+                          <ArrowUpRight className="size-3" aria-hidden />
+                        )}
+                        {a.direction === "IN" ? t("dsh.collect") : t("dsh.pay")}
+                      </span>
+                      {href ? (
+                        <Link href={href} className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-medium">
+                            {a.party?.name ?? ""}
+                          </span>
+                          <span
+                            className={cn(
+                              "text-xs",
+                              "flex items-center gap-1",
+                              a.overdue ? "font-semibold text-red-700" : "text-muted-foreground",
+                            )}
+                          >
+                            <Clock className="size-3" aria-hidden />
+                            {a.overdue
+                              ? t("dsh.overdue", { days: count(diffDays(a.dueDate, today)) })
+                              : a.dueDate === today
+                                ? t("dsh.dueToday")
+                                : t("dsh.dueOn", { date: date(a.dueDate, "short") })}
+                          </span>
+                        </Link>
                       ) : (
-                        <ArrowUpRight className="size-3" aria-hidden />
-                      )}
-                      {a.direction === "IN" ? t("dsh.collect") : t("dsh.pay")}
-                    </span>
-                    {href ? (
-                      <Link href={href} className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-medium">
+                        <span className="min-w-0 flex-1 truncate text-sm">
                           {a.party?.name ?? ""}
                         </span>
-                        <span
-                          className={cn(
-                            "text-xs",
-                            "flex items-center gap-1",
-                            a.overdue ? "font-semibold text-red-700" : "text-muted-foreground",
-                          )}
-                        >
-                          <Clock className="size-3" aria-hidden />
-                          {a.overdue
-                            ? t("dsh.overdue", { days: count(diffDays(a.dueDate, today)) })
-                            : a.dueDate === today
-                              ? t("dsh.dueToday")
-                              : t("dsh.dueOn", { date: date(a.dueDate, "short") })}
-                        </span>
-                      </Link>
-                    ) : (
-                      <span className="min-w-0 flex-1 truncate text-sm">{a.party?.name ?? ""}</span>
-                    )}
-                    <span className="tabular text-sm font-semibold">{money(a.duePaise)}</span>
-                    {href && !readOnly && !consolidated ? (
-                      <Button asChild variant="outline" className="h-10 shrink-0 px-2.5 text-xs">
-                        <Link href={`${href}&pay=1`} data-testid="due-alert-pay">
-                          {a.direction === "IN" ? t("dsh.collectNow") : t("dsh.payNow")}
-                        </Link>
-                      </Button>
-                    ) : null}
-                    <WhatsAppButton
-                      phone={a.party?.phone}
-                      text={msg}
-                      className="h-10 px-2"
-                      testId="due-whatsapp"
-                    />
+                      )}
+                      <span className="tabular shrink-0 text-sm font-semibold">
+                        {money(a.duePaise)}
+                      </span>
+                    </div>
+                    <div className="flex flex-wrap justify-end gap-2">
+                      {href && !readOnly && !consolidated ? (
+                        <Button asChild variant="outline" className="h-10 shrink-0 px-2.5 text-xs">
+                          <Link href={`${href}&pay=1`} data-testid="due-alert-pay">
+                            {a.direction === "IN" ? t("dsh.collectNow") : t("dsh.payNow")}
+                          </Link>
+                        </Button>
+                      ) : null}
+                      <WhatsAppButton
+                        phone={a.party?.phone}
+                        text={msg}
+                        className="h-10 px-2"
+                        testId="due-whatsapp"
+                      />
+                    </div>
                   </li>
                 );
               })}

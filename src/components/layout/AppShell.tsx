@@ -42,7 +42,10 @@ export function AppShell({ children }: { children: ReactNode }) {
 
   return (
     <>
-      <div className="flex w-full flex-1">
+      {/* `overflow-x: clip` (not hidden: sticky header / tabs keep working): one too-wide row can
+          never widen the page past the phone screen, which also stretched the bottom bar. The
+          acceptance e2e still finds such rows by their box, so they get fixed at the source. */}
+      <div className="flex w-full flex-1 overflow-x-clip" data-app-frame>
         <Sidebar />
         <div className="flex min-w-0 flex-1 flex-col">
           <header className="glass sticky top-0 z-30 flex h-16 items-center gap-2 border-b border-(--hairline) px-3 shadow-[0_6px_24px_-18px_rgb(20_40_30/0.5)] lg:px-6 print:hidden">

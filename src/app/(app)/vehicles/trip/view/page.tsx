@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { Pencil, Printer } from "lucide-react";
+import { Printer } from "lucide-react";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { Panel, StatusPill } from "@/components/kit/Kit";
 import { WhatsAppButton } from "@/components/kit/WhatsApp";
@@ -85,6 +85,15 @@ function Detail() {
           ) : row.income ? (
             <StatusPill status={row.income.status} />
           ) : null
+        }
+        edit={
+          !voided && !readOnly
+            ? {
+                href: `/vehicles/trip/edit?id=${doc._id}`,
+                label: t("act.edit"),
+                testId: "trip-edit",
+              }
+            : null
         }
       />
       <Panel>
@@ -222,12 +231,6 @@ function Detail() {
 
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Button asChild variant="outline" className="h-12">
-            <Link href={`/vehicles/trip/edit?id=${doc._id}`} data-testid="trip-edit">
-              <Pencil className="size-5" aria-hidden />
-              {t("mill.edit")}
-            </Link>
-          </Button>
           <Button asChild variant="outline" className="h-12">
             <Link href={`/print/trip?id=${doc._id}`} data-testid="trip-print">
               <Printer className="size-5" aria-hidden />
