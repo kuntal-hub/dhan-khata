@@ -13,7 +13,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { Factory, PackageOpen, Pencil, RotateCcw, Scale, Undo2 } from "lucide-react";
+import { Factory, PackageOpen, RotateCcw, Scale, Undo2 } from "lucide-react";
 import { DueDatePanel } from "@/components/entry/DueDate";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { varietyName } from "@/components/entry/Variety";
@@ -25,7 +25,7 @@ import { RefundSheet } from "@/components/mill/RefundSheet";
 import { PageTitle } from "@/components/shell/PageTitle";
 import { PageSuspense, ReadOnlyNotice, useParam, useWriteGodown } from "@/components/system/page";
 import { Button } from "@/components/ui/button";
-import { useActiveGodown, useBusiness } from "@/client/hooks";
+import { riceShown, useActiveGodown, useBusiness } from "@/client/hooks";
 import { dispatchDetail } from "@/client/queries/mill";
 import { voidDoc } from "@/client/repo";
 import { formatWeightNumber } from "@/domain/units";
@@ -85,6 +85,15 @@ function Detail() {
           ) : mm.netValuePaise > 0n ? (
             <StatusPill status={state.status} />
           ) : null
+        }
+        edit={
+          writable
+            ? {
+                href: `/mill/dispatch/edit?id=${doc._id}`,
+                label: t("act.edit"),
+                testId: "dispatch-edit",
+              }
+            : null
         }
       />
       <p className="flex items-start gap-2 rounded-xl bg-emerald-50 px-3 py-2 text-sm text-emerald-900">
@@ -178,12 +187,14 @@ function Detail() {
             </Button>
             {settlement ? null : (
               <>
-                <Button asChild variant="outline" className="h-11">
-                  <Link href={`/mill/conversion/new?dispatch=${doc._id}`}>
-                    <PackageOpen className="size-4" aria-hidden />
-                    {t("mill.addConversion")}
-                  </Link>
-                </Button>
+                {riceShown(business) ? (
+                  <Button asChild variant="outline" className="h-11">
+                    <Link href={`/mill/conversion/new?dispatch=${doc._id}`}>
+                      <PackageOpen className="size-4" aria-hidden />
+                      {t("mill.addConversion")}
+                    </Link>
+                  </Button>
+                ) : null}
                 <Button asChild variant="outline" className="h-11">
                   <Link href={`/mill/settle?dispatch=${doc._id}`} data-testid="dispatch-settle">
                     <Scale className="size-4" aria-hidden />
@@ -393,12 +404,6 @@ function Detail() {
 
       {writable ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Button asChild variant="outline" className="h-12">
-            <Link href={`/mill/dispatch/edit?id=${doc._id}`} data-testid="dispatch-edit">
-              <Pencil className="size-5" aria-hidden />
-              {t("mill.edit")}
-            </Link>
-          </Button>
           <WhatsAppButton phone={mill?.phone} text={waText} className="h-12" />
           {linkedCount > 0 ? (
             <p className="text-muted-foreground col-span-2 self-center text-sm sm:col-span-1">

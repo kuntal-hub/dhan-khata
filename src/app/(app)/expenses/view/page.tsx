@@ -5,11 +5,10 @@
  * date, due date, notes; paid / still to pay; every payment with its own date (edit / reverse /
  * receipt); "+ পেমেন্ট দিন"; edit, void (with its payments), history.
  */
-import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { History, Pencil, Undo2 } from "lucide-react";
+import { History, Undo2 } from "lucide-react";
 import { categoryName } from "@/components/expenses/category";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { Panel, StatusPill } from "@/components/kit/Kit";
@@ -76,6 +75,15 @@ function Detail() {
         subtitle={`${doc.number} · ${categoryName(category, t, doc.categoryCode)}`}
         back="/expenses?tab=all"
         actions={<StatusPill status={voided ? "VOID" : st.status} />}
+        edit={
+          !voided && !readOnly
+            ? {
+                href: `/expenses/edit?id=${doc._id}`,
+                label: t("act.edit"),
+                testId: "expense-edit",
+              }
+            : null
+        }
       />
       <Panel>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
@@ -149,12 +157,6 @@ function Detail() {
       </Panel>
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          <Button asChild variant="outline" className="h-12">
-            <Link href={`/expenses/edit?id=${doc._id}`} data-testid="expense-edit">
-              <Pencil className="size-5" aria-hidden />
-              {t("xp.edit")}
-            </Link>
-          </Button>
           {party ? <WhatsAppButton phone={party.phone} text={waText} className="h-12" /> : null}
           <Button
             variant="outline"

@@ -15,7 +15,7 @@ import { ConfirmDialog } from "@/components/shell/ConfirmDialog";
 import { lazyToast } from "@/components/system/IdleToaster";
 import { Button } from "@/components/ui/button";
 import { errorKey } from "@/client/errors";
-import { useActiveGodown, useBusiness } from "@/client/hooks";
+import { useActiveGodown, useBusiness, useRiceShown } from "@/client/hooks";
 import {
   farmerSummaries,
   purchaseRows,
@@ -211,7 +211,9 @@ export function VarietyManager() {
   const { readOnly } = useWriteGodown();
   const [q, setQ] = useState("");
   const [company, setCompany] = useState<string>("ALL");
-  const [product, setProduct] = useState<"PADDY" | "RICE">("PADDY");
+  const rice = useRiceShown();
+  const [picked, setProduct] = useState<"PADDY" | "RICE">("PADDY");
+  const product = rice ? picked : "PADDY";
   const [adding, setAdding] = useState(false);
   const [merge, setMerge] = useState<{ from: Variety; to?: string } | null>(null);
   const data = useLiveQuery(() => (godownId ? varietyRows(godownId) : undefined), [godownId]);
@@ -257,17 +259,19 @@ export function VarietyManager() {
         )}
       </div>
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
-        {(["PADDY", "RICE"] as const).map((p) => (
-          <button
-            key={p}
-            type="button"
-            aria-pressed={product === p}
-            onClick={() => setProduct(p)}
-            className="chip"
-          >
-            {t(`vari.${p}` as TKey)}
-          </button>
-        ))}
+        {rice
+          ? (["PADDY", "RICE"] as const).map((p) => (
+              <button
+                key={p}
+                type="button"
+                aria-pressed={product === p}
+                onClick={() => setProduct(p)}
+                className="chip"
+              >
+                {t(`vari.${p}` as TKey)}
+              </button>
+            ))
+          : null}
         {(["ALL", "NONE", ...VARIETY_COMPANIES] as const).map((c) => (
           <button
             key={c}

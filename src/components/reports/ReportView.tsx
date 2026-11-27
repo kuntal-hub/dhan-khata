@@ -21,8 +21,8 @@ import { lazyToast } from "@/components/system/IdleToaster";
 import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { downloadWorkbook } from "@/client/export/excel";
-import { useActiveGodown, useBusiness } from "@/client/hooks";
-import { reportById, reportsOf, type ReportDef, type ReportSection } from "@/client/reports/defs";
+import { useActiveGodown, useBusiness, useRiceShown } from "@/client/hooks";
+import { reportsOf, type ReportDef, type ReportSection } from "@/client/reports/defs";
 import { modelToCsv, type CellValue, type ReportModel } from "@/client/reports/model";
 import { excelCell, runReport } from "@/client/reports/run";
 import { todayIST } from "@/domain/dates";
@@ -56,6 +56,7 @@ export function useReportScope() {
 export function useReportModel(def: ReportDef | undefined, p: ReportParams) {
   const { t } = useI18n();
   const scope = useReportScope();
+  const rice = useRiceShown();
   return useLiveQuery(
     () =>
       def && scope.ids.length
@@ -66,9 +67,10 @@ export function useReportModel(def: ReportDef | undefined, p: ReportParams) {
             to: p.to,
             ...(p.opt ? { opt: p.opt } : {}),
             t,
+            rice,
           })
         : undefined,
-    [def?.id, scope.ids.join(","), scope.allIds.join(","), p.from, p.to, p.opt, t],
+    [def?.id, scope.ids.join(","), scope.allIds.join(","), p.from, p.to, p.opt, t, rice],
   );
 }
 
@@ -465,9 +467,10 @@ export function ReportsTab({
   initial?: Partial<ReportParams>;
 }) {
   const { t } = useI18n();
-  const defs = reportsOf(section);
+  const defs = reportsOf(section, useRiceShown());
   const [id, setId] = useState(initial?.id ?? defs[0]!.id);
-  const def = reportById(id) ?? defs[0]!;
+  // Only this section's offered reports (a hidden rice report falls back to the first one).
+  const def = defs.find((r) => r.id === id) ?? defs[0]!;
   const [preset, setPreset] = useState<Preset>("month");
   const [from, setFrom] = useState(initial?.from ?? rangeOf("month").from);
   const [to, setTo] = useState(initial?.to ?? todayIST());

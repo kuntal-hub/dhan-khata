@@ -21,6 +21,8 @@ import { META, getMeta } from "@/client/db/meta";
 import { godownBalances } from "@/client/queries/ledger";
 import { combinedTotals, golaTotals } from "@/client/queries/consolidated/totals";
 import { newId, saveDoc, saveDocs, upsertMaster } from "@/client/repo";
+import { riceShown } from "@/domain/businessSettings";
+import type { Business } from "@/domain/schemas";
 import { normalizeRecoveryCode } from "@/server/recovery";
 import { closeMongo, cols, getDb } from "@/server/db";
 import { expenseDraft, paymentDraft, purchaseDraft, saleDraft } from "../helpers/local";
@@ -180,6 +182,21 @@ describe("business profile and sessions", () => {
       monKg: 37,
       settings: { deductionsEnabled: true },
     });
+    // Rice shown by default (no setting stored yet).
+    expect(riceShown(await getMeta<Business>(META.business))).toBe(true);
+  });
+
+  it("owner hides rice; the switch reaches every device and keeps the other settings", async () => {
+    d1.use();
+    await updateBusinessProfile({ name: "মণ্ডল ধান গোলা", riceEnabled: false });
+    d2.use();
+    await d2.sync();
+    const b = await getMeta<Business>(META.business);
+    expect(b?.settings).toEqual({ deductionsEnabled: true, riceEnabled: false });
+    expect(riceShown(b)).toBe(false);
+    d1.use();
+    await updateBusinessProfile({ name: "মণ্ডল ধান গোলা", riceEnabled: true });
+    expect(riceShown(await getMeta<Business>(META.business))).toBe(true);
   });
 
   it("lists the owner's devices and signs another one out", async () => {

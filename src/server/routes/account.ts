@@ -221,6 +221,7 @@ const BusinessSchema = z.strictObject({
     .optional(),
   monKg: z.number().int().min(1).max(100).optional(),
   deductionsEnabled: z.boolean().optional(),
+  riceEnabled: z.boolean().optional(),
 });
 
 /** Owner: edit the business profile (used on receipts, invoices, reports) and units/settings. */
@@ -260,6 +261,7 @@ export function updateBusiness(request: Request): Promise<Response> {
             ...(body.deductionsEnabled !== undefined
               ? { deductionsEnabled: body.deductionsEnabled }
               : {}),
+            ...(body.riceEnabled !== undefined ? { riceEnabled: body.riceEnabled } : {}),
           },
           rev,
           updatedAt: new Date().toISOString(),

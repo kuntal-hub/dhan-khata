@@ -109,6 +109,11 @@ Keep this list up to date.
 - Change it only with `setDueDate` (push op `dueDate`, same rev, no posting, no day lock, LWW); full edits keep the stored value (device `prepareEdit`, server `keepDueDate`). Legacy `dueDate` on other types is kept and ignored.
 - `BillState` = status (UNPAID / PARTIAL / PAID) + `overdue` flag; lists use `displayStatus` / `matchesPayFilter`. Deal payments can't predate the deal (`PAYMENT_BEFORE_DEAL`, device only). `?pay=1` on a deal page opens the pay sheet.
 
+## Key building blocks (rice switch + page actions, D55)
+- Rice / other products are shown unless `business.settings.riceEnabled === false`: decide with `riceShown()` (`domain/businessSettings`) / `useRiceShown()`, never by reading the field. Display only, never alter data. Rice-only tabs, actions, reports and report columns carry `rice: true` (`SectionTab`, `SectionAction`, `ReportDef`, `Column`).
+- Add buttons live in `Section.actions` (`components/shell/sections.ts`, per tab) and render in the section heading; edit buttons go in `PageTitle edit={…}`. Both use `components/shell/ActionLink`. Don't add in-tab "new" buttons for link forms.
+- The app frame clips sideways overflow; the acceptance e2e checks element boxes, so still fix a too-wide row at its source.
+
 ## Key building blocks (v2 Phase 12)
 - Header: `layout/HeaderTools` (search → `/search`, bell → due reminders), loaded lazily. Settings `/settings` (theme, links, Excel export, JSON backup, integrity check incl. `negativePositions`).
 - Tests that guard the whole app: `tests/e2e/acceptance.spec.ts` (Tests 7, 8, 11: every tab of every section at 360 / 768 / 1280 px with no horizontal scroll), `tests/repo/edit-reversal.test.ts` (Test 10), `tests/unit/i18n*.test.ts` (key + placeholder parity, no unused keys). A new tab must fit 360 px (`min-w-0` on flexible flex children).

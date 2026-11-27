@@ -15,7 +15,6 @@ import {
   CheckCircle2,
   Factory,
   History,
-  Pencil,
   Printer,
   Truck,
   Undo2,
@@ -109,6 +108,11 @@ function Detail() {
         subtitle={`${t("sl.invoice", { number: doc.number })} · ${date(doc.transactionDate)}`}
         back="/sales"
         actions={<StatusPill status={status} />}
+        edit={
+          !voided && !readOnly && !doc.interGola && !doc.consignmentDispatchId
+            ? { href: `/sales/edit?id=${doc._id}`, label: t("act.edit"), testId: "sale-edit" }
+            : null
+        }
       />
       {doc.interGola ? (
         <p
@@ -355,14 +359,7 @@ function Detail() {
             <p className="text-muted-foreground col-span-2 self-center text-sm">
               {doc.interGola ? t("sl.transferNoEdit") : t("mill.legacySalesTitle")}
             </p>
-          ) : (
-            <Button asChild variant="outline" className="h-12">
-              <Link href={`/sales/edit?id=${doc._id}`} data-testid="sale-edit">
-                <Pencil className="size-5" aria-hidden />
-                {t("sl.edit")}
-              </Link>
-            </Button>
-          )}
+          ) : null}
           <Button asChild variant="outline" className="h-12">
             <Link href={`/print/sale?id=${doc._id}`} data-testid="sale-print">
               <Printer className="size-5" aria-hidden />

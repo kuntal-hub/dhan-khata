@@ -10,7 +10,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { History, Pencil, Printer, Undo2 } from "lucide-react";
+import { History, Printer, Undo2 } from "lucide-react";
 import { DueDatePanel } from "@/components/entry/DueDate";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { varietyName } from "@/components/entry/Variety";
@@ -85,6 +85,15 @@ function Detail() {
         subtitle={`${t("pur.bill", { number: doc.number })} · ${date(doc.transactionDate)}`}
         back="/purchase"
         actions={<StatusPill status={status} />}
+        edit={
+          !voided && !readOnly && !doc.interGola
+            ? {
+                href: `/purchase/edit?id=${doc._id}`,
+                label: t("act.edit"),
+                testId: "purchase-edit",
+              }
+            : null
+        }
       />
       <Panel>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
@@ -207,14 +216,7 @@ function Detail() {
             <p className="text-muted-foreground col-span-2 self-center text-sm">
               {t("sl.transferNoEdit")}
             </p>
-          ) : (
-            <Button asChild variant="outline" className="h-12">
-              <Link href={`/purchase/edit?id=${doc._id}`} data-testid="purchase-edit">
-                <Pencil className="size-5" aria-hidden />
-                {t("pur.edit")}
-              </Link>
-            </Button>
-          )}
+          ) : null}
           <Button asChild variant="outline" className="h-12">
             <Link href={`/print/purchase?id=${doc._id}`}>
               <Printer className="size-5" aria-hidden />

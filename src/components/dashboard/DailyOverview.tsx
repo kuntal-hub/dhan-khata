@@ -14,7 +14,7 @@ import { docPath } from "@/components/entry/docPath";
 import { docAmountPaise, docTitle } from "@/components/entry/docLabel";
 import { Panel, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { Button } from "@/components/ui/button";
-import { useActiveGodown, useBusiness } from "@/client/hooks";
+import { riceShown, useActiveGodown, useBusiness } from "@/client/hooks";
 import { dailyRowsFor } from "@/client/queries/consolidated/dashboard";
 import { docsOfDay, type DailyRow } from "@/client/queries/dashboard";
 import { formatWeightNumber } from "@/domain/units";
@@ -113,7 +113,16 @@ export default function DailyOverview() {
     { key: "stockOutG", label: t("dly.stockOut"), kind: "qty", total: "sum" },
     { key: "closingCashPaise", label: t("dly.closingCash"), kind: "money", total: "last" },
     { key: "closingPaddyG", label: t("dly.closingPaddy"), kind: "qty", total: "last" },
-    { key: "closingRiceG", label: t("dly.closingRice"), kind: "qty", total: "last" },
+    ...(riceShown(business)
+      ? [
+          {
+            key: "closingRiceG" as const,
+            label: t("dly.closingRice"),
+            kind: "qty" as const,
+            total: "last" as const,
+          },
+        ]
+      : []),
   ];
   const cell = (kind: "money" | "qty", v: bigint) => (kind === "money" ? money(v) : q(v));
   return (

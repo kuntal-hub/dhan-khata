@@ -5,6 +5,7 @@
 import { useLiveQuery } from "dexie-react-hooks";
 import { useCallback } from "react";
 import { canConsolidate, roleIn, type EffectiveRole } from "@/domain/rbac";
+import { riceShown } from "@/domain/businessSettings";
 import { defaultGodownSettings } from "@/domain/godownSettings";
 import type { Business, Godown, GodownSettings } from "@/domain/schemas";
 import { actions, useAppDispatch, useAppSelector } from "@/store";
@@ -110,4 +111,14 @@ export function useGodownSettings(godownId: string | null): GodownSettings | und
 /** The owner's business profile (name, logo, mon size, deductions switch), pulled from the server. */
 export function useBusiness(): Business | undefined {
   return useLiveQuery(() => getMeta<Business>(META.business), []);
+}
+
+export { riceShown };
+
+/**
+ * Whether rice / other-product screens and options are visible (business profile switch).
+ * Display only: existing rice data stays stored, reported in totals and openable.
+ */
+export function useRiceShown(): boolean {
+  return riceShown(useBusiness());
 }

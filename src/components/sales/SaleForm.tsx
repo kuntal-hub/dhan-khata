@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { VoiceText } from "@/components/voice/VoiceText";
 import { db } from "@/client/db/dexie";
 import { errorKey } from "@/client/errors";
-import { useBusiness, useGodownSettings } from "@/client/hooks";
+import { riceShown, useBusiness, useGodownSettings } from "@/client/hooks";
 import { openTransitPurchases, stockAvailable } from "@/client/queries/sales";
 import { linkFromLoadItem, newId, saveBillWithInitialPayment, type DraftOf } from "@/client/repo";
 import { paiseToInput, parseAmountField, parseRateField } from "@/client/ui/parse";
@@ -141,6 +141,7 @@ export function SaleForm({
   const settings = useGodownSettings(godown._id);
   const monKg = business?.monKg ?? 40;
   const deductions = business?.settings.deductionsEnabled ?? false;
+  const rice = riceShown(business);
   const [s, setS] = useState<State>(() => initial(existing, fromLoad));
   const [dirty, setDirty] = useState(false);
   const [saving, setSaving] = useState(false);
@@ -386,18 +387,21 @@ export function SaleForm({
           onChange={(d) => set({ date: d })}
           testId="sale-date"
         />
-        <FieldBox label={t("sl.product")}>
-          <Segmented
-            label={t("sl.product")}
-            value={s.product}
-            options={[
-              ["PADDY", t("sl.PADDY")],
-              ["RICE", t("sl.RICE")],
-            ]}
-            onChange={(product) => set({ product, varietyId: undefined })}
-            testId="sale-product"
-          />
-        </FieldBox>
+        {/* Rice hidden (business profile): paddy only, unless this sale already is rice. */}
+        {rice || s.product === "RICE" ? (
+          <FieldBox label={t("sl.product")}>
+            <Segmented
+              label={t("sl.product")}
+              value={s.product}
+              options={[
+                ["PADDY", t("sl.PADDY")],
+                ["RICE", t("sl.RICE")],
+              ]}
+              onChange={(product) => set({ product, varietyId: undefined })}
+              testId="sale-product"
+            />
+          </FieldBox>
+        ) : null}
         <VarietyPicker
           godownId={godown._id}
           value={s.varietyId}

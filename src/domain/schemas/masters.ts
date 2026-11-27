@@ -108,6 +108,11 @@ export const BusinessSchema = z.strictObject({
   settings: z.strictObject({
     /** Optional weight deductions (ধলতা etc.), off by default (§6.3). */
     deductionsEnabled: z.boolean(),
+    /**
+     * Show rice and other milled products (rice sales, rice / by-product returns, conversions,
+     * rice stock). Absent = on. Display only: hiding never changes or removes stored data.
+     */
+    riceEnabled: z.boolean().optional(),
   }),
   rev: z.number().int().min(1),
   createdAt: IsoTimestamp,

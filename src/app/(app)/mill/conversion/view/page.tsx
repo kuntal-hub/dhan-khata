@@ -7,14 +7,12 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
-import { Pencil } from "lucide-react";
 import { varietyName } from "@/components/entry/Variety";
 import { Panel, StatusPill } from "@/components/kit/Kit";
 import { Loading } from "@/components/lists/common";
 import { Cell, HistoryPanel, ReverseButton } from "@/components/mill/common";
 import { PageTitle } from "@/components/shell/PageTitle";
 import { PageSuspense, ReadOnlyNotice, useParam, useWriteGodown } from "@/components/system/page";
-import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { conversionBps } from "@/client/queries/mill";
@@ -58,6 +56,15 @@ function Detail() {
         subtitle={`${t("mill.convTitle", { number: doc.number })} · ${date(doc.conversionDate)}`}
         back="/mill?tab=conversion"
         actions={voided ? <StatusPill status="VOID" /> : null}
+        edit={
+          !voided && !readOnly
+            ? {
+                href: `/mill/conversion/edit?id=${doc._id}`,
+                label: t("act.edit"),
+                testId: "conversion-edit",
+              }
+            : null
+        }
       />
       <Panel>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
@@ -114,12 +121,6 @@ function Detail() {
       </Panel>
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3">
-          <Button asChild variant="outline" className="h-12">
-            <Link href={`/mill/conversion/edit?id=${doc._id}`}>
-              <Pencil className="size-5" aria-hidden />
-              {t("mill.edit")}
-            </Link>
-          </Button>
           <ReverseButton
             label={t("mill.convReverse")}
             testId="conversion-reverse"

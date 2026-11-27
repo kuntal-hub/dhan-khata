@@ -4,7 +4,7 @@
  * combined) are built once over all Golas. Read-only.
  */
 import type { CellValue, ReportModel } from "./model";
-import { mergeGolas } from "./model";
+import { mergeGolas, withoutRice } from "./model";
 import type { ReportCtx, ReportDef, T } from "./defs";
 
 export interface RunScope {
@@ -14,9 +14,16 @@ export interface RunScope {
   to: string;
   opt?: string;
   t: T;
+  /** Rice / other products shown (business profile). Absent = shown. */
+  rice?: boolean;
 }
 
 export async function runReport(def: ReportDef, s: RunScope): Promise<ReportModel> {
+  const model = await build(def, s);
+  return s.rice === false ? withoutRice(model) : model;
+}
+
+async function build(def: ReportDef, s: RunScope): Promise<ReportModel> {
   const base: Omit<ReportCtx, "godownId"> = {
     godownIds: s.godownIds,
     golaName: s.golaName,
@@ -24,6 +31,7 @@ export async function runReport(def: ReportDef, s: RunScope): Promise<ReportMode
     to: s.to,
     ...(s.opt ? { opt: s.opt } : {}),
     t: s.t,
+    rice: s.rice !== false,
   };
   if (def.business || s.godownIds.length <= 1) {
     const first = s.godownIds[0];

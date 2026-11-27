@@ -9,7 +9,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { Factory, HandCoins, Link2, Link2Off, Pencil, Printer } from "lucide-react";
+import { Factory, HandCoins, Link2, Link2Off, Printer } from "lucide-react";
 import { varietyName } from "@/components/entry/Variety";
 import { LazyBottomSheet as BottomSheet } from "@/components/forms/LazyBottomSheet";
 import { Panel, QtyTriple, StatusPill } from "@/components/kit/Kit";
@@ -136,6 +136,11 @@ function Detail() {
         subtitle={`${t("ld.title", { number: doc.number })} · ${date(doc.transactionDate)}`}
         back="/loads"
         actions={voided ? <StatusPill status="VOID" /> : null}
+        edit={
+          !voided && !readOnly
+            ? { href: `/loads/edit?id=${doc._id}`, label: t("act.edit"), testId: "load-edit" }
+            : null
+        }
       />
       <Panel>
         <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
@@ -254,14 +259,6 @@ function Detail() {
 
       {!voided ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-          {readOnly ? null : (
-            <Button asChild variant="outline" className="h-12">
-              <Link href={`/loads/edit?id=${doc._id}`} data-testid="load-edit">
-                <Pencil className="size-5" aria-hidden />
-                {t("ld.edit")}
-              </Link>
-            </Button>
-          )}
           <Button asChild variant="outline" className="h-12">
             <Link href={`/print/load?id=${doc._id}`} data-testid="load-print">
               <Printer className="size-5" aria-hidden />

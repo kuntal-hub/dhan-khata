@@ -6,7 +6,6 @@
  * total, paid, remaining, earliest due / overdue, WhatsApp, call) and রিমাইন্ডার (overdue / today /
  * upcoming; done, snooze, change date; manual reminders).
  */
-import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
 import {
@@ -145,7 +144,6 @@ export function DueCategoryList({ category }: { category: DueCategory }) {
   const total = (rows ?? []).reduce((s, r) => s + abs(r.balancePaise), 0n);
   return (
     <div className="flex flex-col gap-3">
-      <PayButtons />
       <SearchBox value={q} onChange={setQ} placeholder={t("common.search")} />
       {rows && rows.length ? (
         <p
@@ -169,28 +167,6 @@ export function DueCategoryList({ category }: { category: DueCategory }) {
           ))}
         </ul>
       )}
-    </div>
-  );
-}
-
-function PayButtons() {
-  const { t } = useI18n();
-  const { readOnly } = useWriteGodown();
-  if (readOnly) return null;
-  return (
-    <div className="grid grid-cols-2 gap-2">
-      <Button asChild variant="outline" className="h-12">
-        <Link href="/dues/pay?direction=OUT" data-testid="due-pay-out">
-          <ArrowUpRight className="size-5" aria-hidden />
-          {t("quick.paid")}
-        </Link>
-      </Button>
-      <Button asChild variant="outline" className="h-12">
-        <Link href="/dues/pay?direction=IN" data-testid="due-pay-in">
-          <ArrowDownLeft className="size-5" aria-hidden />
-          {t("quick.received")}
-        </Link>
-      </Button>
     </div>
   );
 }
@@ -226,7 +202,6 @@ export function DueSummaryTab() {
   };
   return (
     <div className="flex flex-col gap-4" data-testid="due-summary">
-      <PayButtons />
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         {DUE_CATEGORIES.map((c) => (
           <MetricCard

@@ -5,15 +5,12 @@
  * search, "not linked" filter), পার্টি / মিল / গাড়ি (the same loads grouped, with totals).
  * Unlinked loads carry a "যুক্ত নয়" flag so nothing is silently missed.
  */
-import Link from "next/link";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useDeferredValue, useState } from "react";
 import { ClipboardList, Link2Off } from "lucide-react";
 import { varietyName } from "@/components/entry/Variety";
 import { EmptyState, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { SearchBox } from "@/components/sales/SalesTabs";
-import { useWriteGodown } from "@/components/system/page";
-import { Button } from "@/components/ui/button";
 import { db } from "@/client/db/dexie";
 import { useActiveGodown, useBusiness } from "@/client/hooks";
 import { groupLoads, loadRows, type LoadGroupBy, type LoadRow } from "@/client/queries/loads";
@@ -81,16 +78,8 @@ function Toolbar({
   setUnlinked: (v: boolean) => void;
 }) {
   const { t } = useI18n();
-  const { readOnly } = useWriteGodown();
   return (
     <>
-      {readOnly ? null : (
-        <Button asChild className="h-12 self-start">
-          <Link href="/loads/new" data-testid="load-new">
-            {t("ld.new")}
-          </Link>
-        </Button>
-      )}
       <SearchBox value={q} onChange={setQ} placeholder={t("ld.search")} testId="load-search" />
       <div className="flex gap-2">
         <button

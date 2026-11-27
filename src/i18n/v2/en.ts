@@ -76,6 +76,12 @@ export const enV2 = {
     monHint: "Usually 40 kg.",
     deductions: "Weight deductions (dhalta, moisture …)",
     deductionsHint: "When on, purchase and sale forms show the weight-deduction fields.",
+    products: "What you trade",
+    rice: "Show rice and other products",
+    riceOnHint:
+      "Rice sales, rice and by-product returns from mills, milling conversions and rice stock are shown.",
+    riceOffHint:
+      "Only paddy is shown. Rice entries made earlier are not deleted and stay in the books.",
     saved: "Business profile saved",
   },
   gola: {
@@ -166,14 +172,12 @@ export const enV2 = {
     },
     purchaseTabs: {
       list: "Purchases",
-      new: "New purchase",
       farmers: "Farmer history",
       varieties: "Varieties",
       reports: "Reports",
     },
     salesTabs: {
       list: "Sales",
-      new: "New sale",
       customers: "Customer ledger",
       delivery: "Delivery",
       reports: "Reports",
@@ -228,6 +232,18 @@ export const enV2 = {
     load: "Load",
     dispatch: "Send to mill",
     trip: "Vehicle trip",
+  },
+  act: {
+    purchase: "New purchase",
+    sale: "New sale",
+    expense: "New expense",
+    load: "New load",
+    trip: "New trip",
+    entry: "New entry",
+    dispatch: "Send to mill",
+    return: "Record return",
+    conversion: "Conversion",
+    edit: "Edit",
   },
   ui: {
     empty: "Nothing here yet",
@@ -286,7 +302,6 @@ export const enV2 = {
     reverseWithPayments:
       "{count} payments are linked — all are reversed together and the money goes back to cash/bank.",
     reversed: "Purchase reversed",
-    edit: "Edit purchase",
     farmersEmpty: "No farmers yet",
     boughtQty: "Total bought",
     filterAll: "All",
@@ -615,7 +630,6 @@ export const enV2 = {
     remaining: "Still to pay",
     payments: "Payments",
     addPayment: "+ Add payment",
-    edit: "Edit expense",
     reverse: "Void expense",
     reverseConfirm: "This expense ({amount}) will be voided.",
     reverseWithPayments:
@@ -1059,7 +1073,6 @@ export const enV2 = {
     openDetail: "Open detail",
     printSlip: "Loading slip",
     slipTitle: "Loading slip",
-    new: "+ New load",
     search: "Vehicle, party, mill, variety or number",
     empty: "No loads yet",
     emptyHint: "Record paddy loaded onto a vehicle here.",
@@ -1084,7 +1097,6 @@ export const enV2 = {
       "The link between the load and the record is removed. Stock and money don't change.",
     linkedQty: "Linked record {record}: {qty} qtl",
     updateLinked: "Update the linked record to the same weight too",
-    edit: "Edit load",
     reverse: "Reverse load",
     reverseBody:
       "This load will be reversed. A load has no money or stock, so the books don't change.",
@@ -1353,7 +1365,7 @@ export const enV2 = {
     dark: "Dark",
     themeHint: "Remembered on this phone.",
     where: "Where to change what",
-    unitsDeductions: "Mon size, weight deductions (business profile)",
+    unitsDeductions: "Mon size, weight deductions, rice (business profile)",
     thresholds: "Low-stock thresholds (Gola)",
     languageDigits: "Language, digits, password, PIN (profile)",
     backupTitle: "Backup & export",

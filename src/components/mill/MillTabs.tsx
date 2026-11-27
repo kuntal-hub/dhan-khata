@@ -14,7 +14,7 @@ import { EmptyState, Skeleton, TxnCard } from "@/components/kit/Kit";
 import { SearchBox } from "@/components/sales/SalesTabs";
 import { useWriteGodown } from "@/components/system/page";
 import { Button } from "@/components/ui/button";
-import { useActiveGodown, useBusiness } from "@/client/hooks";
+import { useActiveGodown, useBusiness, useRiceShown } from "@/client/hooks";
 import {
   conversionRows,
   dispatchRows,
@@ -46,18 +46,6 @@ function useQtl() {
   const { digits } = useI18n();
   const business = useBusiness();
   return (g: bigint) => formatWeightNumber(g, "QTL", { digits, monKg: business?.monKg });
-}
-
-function NewButton({ href, label, testId }: { href: string; label: string; testId: string }) {
-  const { readOnly } = useWriteGodown();
-  if (readOnly) return null;
-  return (
-    <Button asChild className="h-12 self-start">
-      <Link href={href} data-testid={testId}>
-        {label}
-      </Link>
-    </Button>
-  );
 }
 
 /** A dispatch: what the mill owes us for it (incoming, green), and the paddy still at the mill. */
@@ -119,7 +107,6 @@ export function DispatchList() {
   );
   return (
     <div className="flex flex-col gap-3">
-      <NewButton href="/mill/dispatch/new" label={t("mill.newDispatch")} testId="dispatch-new" />
       <SearchBox value={q} onChange={setQ} placeholder={t("mill.search")} />
       <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
         <Chip on={!open} onClick={() => setOpen(false)}>
@@ -154,6 +141,7 @@ export function ReturnList() {
   const { t, date, money } = useI18n();
   const { godownId } = useActiveGodown();
   const qtl = useQtl();
+  const rice = useRiceShown();
   const [product, setProduct] = useState<"ALL" | "PADDY" | "RICE" | "OTHER">("ALL");
   const rows = useLiveQuery(
     () => (godownId ? returnRows(godownId, { product }) : []),
@@ -161,14 +149,16 @@ export function ReturnList() {
   );
   return (
     <div className="flex flex-col gap-3">
-      <NewButton href="/mill/return/new" label={t("mill.addReturn")} testId="return-new" />
-      <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
-        {(["ALL", "PADDY", "RICE", "OTHER"] as const).map((k) => (
-          <Chip key={k} on={product === k} onClick={() => setProduct(k)}>
-            {k === "ALL" ? t("mill.filterAll") : t(`mill.${k}`)}
-          </Chip>
-        ))}
-      </div>
+      {/* Paddy only (rice hidden): the product filter has nothing to choose. */}
+      {rice ? (
+        <div className="-mx-3 flex gap-2 overflow-x-auto px-3 pb-1 sm:mx-0 sm:px-0">
+          {(["ALL", "PADDY", "RICE", "OTHER"] as const).map((k) => (
+            <Chip key={k} on={product === k} onClick={() => setProduct(k)}>
+              {k === "ALL" ? t("mill.filterAll") : t(`mill.${k}`)}
+            </Chip>
+          ))}
+        </div>
+      ) : null}
       {rows === undefined ? (
         <Skeleton rows={3} />
       ) : rows.length === 0 ? (
@@ -214,11 +204,6 @@ export function ConversionList() {
   const rows = useLiveQuery(() => (godownId ? conversionRows(godownId) : []), [godownId]);
   return (
     <div className="flex flex-col gap-3">
-      <NewButton
-        href="/mill/conversion/new"
-        label={t("mill.addConversion")}
-        testId="conversion-new"
-      />
       {rows === undefined ? (
         <Skeleton rows={3} />
       ) : rows.length === 0 ? (
@@ -318,7 +303,6 @@ export function SecondPartyList() {
   const they = (rows ?? []).reduce((s, r) => s + (r.balancePaise > 0n ? r.balancePaise : 0n), 0n);
   return (
     <div className="flex flex-col gap-3">
-      <NewButton href="/mill/entry/new" label={t("mill.spNewBtn")} testId="sp-new" />
       <SearchBox value={q} onChange={setQ} placeholder={t("common.search")} />
       {rows && rows.length > 0 ? (
         <p
