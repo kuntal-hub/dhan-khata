@@ -22,6 +22,8 @@ export const PAYMENT_DIRECTION: Readonly<Record<PaymentSourceType, DirectionRule
   EXPENSE: "OUT",
   VEHICLE_COST: "OUT",
   VEHICLE_TRIP: "IN",
+  // We pay the vehicle owner the fare a purchase took out of the farmer's money.
+  VEHICLE_FARE: "OUT",
   MILL_RETURN: "NONE",
   SECOND_PARTY: "CHOICE",
   PARTY_ADVANCE: "CHOICE",

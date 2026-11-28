@@ -7,7 +7,7 @@
 import { divRoundHalfUp, minBig, sumBig } from "../rounding";
 import { compareYmd, diffDays } from "../dates";
 import { directionFor } from "./direction";
-import type { Doc, Payment, PaymentSourceType, Trip } from "./schemas";
+import type { Doc, Payment, PaymentSourceType, Purchase, Trip } from "./schemas";
 
 export type Direction = "IN" | "OUT";
 /** Derived, never stored: no payments / some paid / nothing left. Overdue is a separate flag. */
@@ -30,10 +30,32 @@ export interface Bill {
 export function billsOf(d: Doc): Bill[] {
   if (d.status !== "active") return [];
   switch (d.type) {
-    case "PURCHASE":
+    case "PURCHASE": {
+      // The farmer is owed the total less the vehicle fare; the fare is the owner's own bill
+      // (kept second, so `billsOf(purchase)[0]` stays the farmer's bill).
+      const fare = vehicleFareOf(d);
+      const farmer = bill(
+        "PURCHASE",
+        d._id,
+        "OUT",
+        (BigInt(d.totalPaise) - fare).toString(),
+        d.transactionDate,
+        d.partyId,
+        d.dueDate,
+      );
+      if (!d.vehicleFare || fare <= 0n) return [farmer];
       return [
-        bill("PURCHASE", d._id, "OUT", d.totalPaise, d.transactionDate, d.partyId, d.dueDate),
+        farmer,
+        bill(
+          "VEHICLE_FARE",
+          vehicleFareSourceId(d._id),
+          "OUT",
+          d.vehicleFare.amountPaise,
+          d.transactionDate,
+          d.vehicleFare.ownerPartyId,
+        ),
       ];
+    }
     case "SALE":
       return [bill("SALE", d._id, "IN", d.totalPaise, d.transactionDate, d.partyId, d.dueDate)];
     case "EXPENSE":
@@ -158,6 +180,14 @@ function bill(
 
 export const vehicleCostSourceId = (trip: Pick<Trip, "_id">, costId: string) =>
   `${trip._id}:${costId}`;
+/** Payment source id of a purchase's vehicle fare (paid to the vehicle owner). */
+export const vehicleFareSourceId = (purchaseId: string) => `${purchaseId}:fare`;
+/** A purchase's vehicle fare (0 when none). */
+export const vehicleFareOf = (p: Pick<Purchase, "vehicleFare">): bigint =>
+  p.vehicleFare ? BigInt(p.vehicleFare.amountPaise) : 0n;
+/** What the farmer of a purchase is owed: the total less the vehicle fare. */
+export const farmerNetOf = (p: Pick<Purchase, "totalPaise" | "vehicleFare">): bigint =>
+  BigInt(p.totalPaise) - vehicleFareOf(p);
 export const openingDueSourceId = (openingId: string, partyId: string) => `${openingId}:${partyId}`;
 
 /** Active payments that settle `sourceId` (any type). */

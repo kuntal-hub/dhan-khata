@@ -225,6 +225,9 @@ export const en = {
         "Wrong money direction — money from a mill is 'Received', a refund to a mill is 'Gave'",
       DUE_BEFORE_DEAL: "The due date can't be before the deal's date",
       PAYMENT_BEFORE_DEAL: "The payment date can't be before the deal's date",
+      FARE_EXCEEDS_PURCHASE: "The vehicle fare can't be more than the paddy's total value",
+      DUPLICATE_PARTY:
+        "Someone with this name (and mobile) is already saved — pick them from the list",
     },
     api: {
       UNAUTHORIZED: "Please log in again",

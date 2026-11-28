@@ -34,6 +34,8 @@ const ROUTES = [
   "/purchase/view?id=x",
   "/purchase/farmer?id=x",
   "/purchase?tab=varieties",
+  "/purchase?tab=fares",
+  "/purchase/vehicle-owner?id=x",
   "/banks",
   "/print/purchase?id=x",
   "/print/payment?id=x",

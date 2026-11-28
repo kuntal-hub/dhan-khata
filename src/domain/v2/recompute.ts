@@ -195,6 +195,17 @@ export function validateDocRules(d: Doc, today: string): void {
     case "EXPENSE":
       if (d.categoryCode === FARMER_PAYMENT_CODE) fail("CATEGORY_IS_PAYMENT");
       break;
+    case "PURCHASE":
+      if (d.vehicleFare) {
+        // The fare comes out of the farmer's money: never more than the purchase, never the
+        // farmer himself, and not on an inter-Gola transfer (no farmer, no vehicle).
+        if (d.interGola) fail("VALIDATION_FAILED", "vehicleFare");
+        if (d.vehicleFare.ownerPartyId === d.partyId)
+          fail("VALIDATION_FAILED", "vehicleFare.ownerPartyId");
+        if (BigInt(d.vehicleFare.amountPaise) > BigInt(d.totalPaise))
+          fail("FARE_EXCEEDS_PURCHASE", "vehicleFare.amountPaise");
+      }
+      break;
     case "SALE":
       if (d.source === "MILL" && !d.sourceMillId) fail("MILL_REQUIRED");
       if (d.product === "RICE" && d.source !== "WAREHOUSE") fail("VALIDATION_FAILED", "source");

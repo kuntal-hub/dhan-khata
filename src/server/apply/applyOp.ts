@@ -46,7 +46,7 @@ import {
   dueDateOf,
   isDueDateType,
 } from "@/domain/v2/dueDate";
-import { linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
+import { fareBillChanged, linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
 import { recomputeDoc, validateDocRules, verifyDoc } from "@/domain/v2/recompute";
 import { audit, logChanges, type ChangeEntry } from "../changelog";
 import { publicDoc } from "../convert";
@@ -356,6 +356,15 @@ async function applyDoc(
       current.partyId !== incoming.partyId
     ) {
       if (await hasActivePayments(db, session, current._id)) throw new Reject("LINKED_PAYMENTS");
+    }
+    // A purchase's vehicle fare can't lose its owner (or go) under its payments.
+    const fareSource = current ? fareBillChanged(current, incoming) : null;
+    if (fareSource) {
+      const paid = await k.vouchers.findOne(
+        { type: "PAYMENT", status: "active", "source.id": fareSource },
+        { session, projection: { _id: 1 } },
+      );
+      if (paid) throw new Reject("LINKED_PAYMENTS", fareSource);
     }
   } else if (current) {
     if (await hasActivePayments(db, session, current._id)) throw new Reject("LINKED_PAYMENTS");

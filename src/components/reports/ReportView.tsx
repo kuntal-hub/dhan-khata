@@ -414,6 +414,7 @@ function OptionControl({
           "LABOUR",
           "OTHER",
           "GOLA",
+          "TRANSPORTER",
         ]}
         createRole="OTHER"
         value={value || undefined}

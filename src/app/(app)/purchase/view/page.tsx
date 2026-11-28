@@ -10,7 +10,10 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useLiveQuery } from "dexie-react-hooks";
 import { useState } from "react";
-import { History, Printer, Undo2 } from "lucide-react";
+import { History, Printer, Truck, Undo2 } from "lucide-react";
+import { todayIST } from "@/domain/dates";
+import { billState, billsOf, vehicleFareSourceId } from "@/domain/v2/payments";
+import type { TKey } from "@/i18n/translate";
 import { DueDatePanel } from "@/components/entry/DueDate";
 import { AddPaymentSheet, PaymentList } from "@/components/entry/Payments";
 import { varietyName } from "@/components/entry/Variety";
@@ -42,7 +45,7 @@ function Detail() {
     if (!id) return null;
     const doc = await db().vouchers.get(id);
     if (!doc || doc.type !== "PURCHASE") return null;
-    const [party, variety, payments, audit] = await Promise.all([
+    const [party, variety, payments, audit, owner] = await Promise.all([
       db().parties.get(doc.partyId),
       db().varieties.get(doc.varietyId),
       paymentsOf(doc._id),
@@ -51,18 +54,28 @@ function Detail() {
         .above("")
         .filter((a) => a.entityId === doc._id)
         .toArray(),
+      doc.vehicleFare ? db().parties.get(doc.vehicleFare.ownerPartyId) : undefined,
     ]);
-    return { doc, party, variety, payments, audit };
+    return { doc, party, variety, payments, audit, owner };
   }, [id]);
   const [paying, setPaying] = useState(useParam("pay") === "1");
+  const [payingFare, setPayingFare] = useState(false);
   const [reversing, setReversing] = useState(false);
   const [reason, setReason] = useState("");
   if (data === undefined) return <Loading />;
   if (data === null || !godown || data.doc.godownId !== godown._id)
     return <ReadOnlyNotice reason="notFound" />;
-  const { doc, party, variety, payments } = data;
+  const { doc, party, variety, payments, owner } = data;
   const active = payments.filter((p) => p.status === "active");
   const st = stateOf(doc, active)!;
+  // The farmer's payments and the vehicle owner's fare payments are kept apart (D56).
+  const fareSource = vehicleFareSourceId(doc._id);
+  const farmerPays = payments.filter((p) => p.source.id !== fareSource);
+  const farePays = payments.filter((p) => p.source.id === fareSource);
+  const fareBill = billsOf({ ...doc, status: "active" }).find(
+    (b) => b.sourceType === "VEHICLE_FARE",
+  );
+  const fareSt = fareBill ? billState(fareBill, farePays, todayIST()) : undefined;
   const voided = doc.status === "void";
   const status = voided ? "VOID" : st.status;
   const o = { digits, monKg: business?.monKg };
@@ -164,6 +177,25 @@ function Detail() {
       </Panel>
 
       <Panel>
+        {doc.vehicleFare ? (
+          <dl
+            className="bg-muted/50 mb-3 grid grid-cols-[1fr_auto] gap-x-3 gap-y-1.5 rounded-xl p-3 text-sm"
+            data-testid="detail-fare-breakdown"
+          >
+            <dt className="text-muted-foreground">{t("fare.paddyValue")}</dt>
+            <dd className="tabular text-right">{money(BigInt(doc.totalPaise))}</dd>
+            <dt className="text-muted-foreground">{t("fare.lessFare")}</dt>
+            <dd className="tabular text-right">{money(BigInt(doc.vehicleFare.amountPaise))}</dd>
+            <dt className="font-medium">{t("fare.farmerNet")}</dt>
+            <dd
+              className="tabular text-right font-semibold"
+              data-testid="detail-farmer-net"
+              data-paise={st.bill.totalPaise.toString()}
+            >
+              {money(st.bill.totalPaise)}
+            </dd>
+          </dl>
+        ) : null}
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-forest-100/60 rounded-xl p-3">
             <span className="text-muted-foreground text-xs">{t("pur.paid")}</span>
@@ -204,11 +236,98 @@ function Detail() {
         }
       >
         <PaymentList
-          payments={payments}
+          payments={farmerPays}
           godownId={godown._id}
           bill={{ totalPaise: st.bill.totalPaise, direction: "OUT", date: doc.transactionDate }}
         />
       </Panel>
+
+      {doc.vehicleFare && fareSt ? (
+        <Panel
+          title={t("fare.title")}
+          icon={Truck}
+          tone="blue"
+          action={
+            !voided && !readOnly && fareSt.duePaise > 0n ? (
+              <Button
+                className="h-11"
+                onClick={() => setPayingFare(true)}
+                data-testid="fare-pay-button"
+              >
+                {t("fare.payFare")}
+              </Button>
+            ) : null
+          }
+        >
+          <div data-testid="detail-fare">
+            <dl className="grid grid-cols-2 gap-x-4 gap-y-3 text-[15px]">
+              <div>
+                <dt className="text-muted-foreground text-xs">{t("fare.owner")}</dt>
+                <dd className="font-medium">
+                  {owner ? (
+                    <Link
+                      className="text-primary underline-offset-2 hover:underline"
+                      href={`/purchase/vehicle-owner?id=${owner._id}`}
+                      data-testid="detail-fare-owner"
+                    >
+                      {owner.name}
+                    </Link>
+                  ) : null}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">{t("fare.vehicleKind")}</dt>
+                <dd className="font-medium">
+                  {t(`fare.kind.${doc.vehicleFare.vehicleKind}` as TKey)}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">{t("fare.amount")}</dt>
+                <dd className="tabular font-semibold" data-testid="detail-fare-amount">
+                  {money(BigInt(doc.vehicleFare.amountPaise))}
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">{t("fare.payStatus")}</dt>
+                <dd>
+                  <StatusPill status={voided ? "VOID" : fareSt.status} />
+                </dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">{t("pur.paid")}</dt>
+                <dd className="tabular">{money(fareSt.paidPaise)}</dd>
+              </div>
+              <div>
+                <dt className="text-muted-foreground text-xs">{t("fare.outstanding")}</dt>
+                <dd
+                  className="tabular font-semibold text-red-800"
+                  data-testid="detail-fare-due"
+                  data-paise={fareSt.duePaise.toString()}
+                >
+                  {money(fareSt.duePaise > 0n ? fareSt.duePaise : 0n)}
+                </dd>
+              </div>
+              {doc.vehicleFare.note ? (
+                <div className="col-span-2">
+                  <dt className="text-muted-foreground text-xs">{t("fare.note")}</dt>
+                  <dd>{doc.vehicleFare.note}</dd>
+                </div>
+              ) : null}
+            </dl>
+            <div className="mt-3">
+              <PaymentList
+                payments={farePays}
+                godownId={godown._id}
+                bill={{
+                  totalPaise: fareSt.bill.totalPaise,
+                  direction: "OUT",
+                  date: doc.transactionDate,
+                }}
+              />
+            </div>
+          </div>
+        </Panel>
+      ) : null}
 
       {!voided && !readOnly ? (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
@@ -265,6 +384,19 @@ function Detail() {
           direction="OUT"
           totalPaise={st.bill.totalPaise}
           paidPaise={st.paidPaise}
+        />
+      ) : null}
+      {payingFare && fareSt && !voided && !readOnly && fareSt.duePaise > 0n ? (
+        <AddPaymentSheet
+          open={payingFare}
+          onOpenChange={setPayingFare}
+          godownId={godown._id}
+          source={doc}
+          sourceId={fareSource}
+          duePaise={fareSt.duePaise}
+          direction="OUT"
+          totalPaise={fareSt.bill.totalPaise}
+          paidPaise={fareSt.paidPaise}
         />
       ) : null}
       <ConfirmDialog

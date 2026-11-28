@@ -19,7 +19,7 @@ import { assertGodownUnchanged, checkSameGodown, collectRefs } from "@/domain/sc
 import { cashEffects } from "@/domain/v2/cashbook";
 import { applyDocDerived } from "@/domain/v2/derive";
 import { DUE_DATE_FIELD_TYPES, checkDueDate, isDueDateType } from "@/domain/v2/dueDate";
-import { linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
+import { fareBillChanged, linkedDocIds, settlementGuard, validateLinks } from "@/domain/v2/links";
 import { recomputeDoc, validateDocRules } from "@/domain/v2/recompute";
 import { DocSchema, businessDate, type Doc, type DocType } from "@/domain/v2/schemas";
 import { DomainError } from "@/domain/errors";
@@ -428,6 +428,13 @@ async function prepareEdit(
   if ("partyId" in existing && "partyId" in next && existing.partyId !== next.partyId) {
     if ((await paymentsOfSource(existing._id)).length > 0) throw new RepoError("LINKED_PAYMENTS");
   }
+  // Same for a purchase's vehicle fare: its owner can't change (or the fare go) under payments.
+  const fareSource = fareBillChanged(existing, next);
+  if (fareSource) {
+    const paid = await db().vouchers.where("source.id").equals(fareSource).toArray();
+    if (paid.some((p) => p.status === "active" && p.type === "PAYMENT"))
+      throw new RepoError("LINKED_PAYMENTS", fareSource);
+  }
   return next;
 }
 
@@ -581,6 +588,31 @@ export async function voidDoc(
     const ctx = await writeContext(godownId);
     const existing = await loadForChange(ctx, id, "voucher.void");
     return voidWithDependentsInTx(ctx, existing, reason.trim(), opts.withPayments === true);
+  });
+  emitLocalWrite();
+  return out;
+}
+
+/**
+ * Void several documents of one Gola in ONE transaction (e.g. the per-bill parts of one payment
+ * made across several bills). Each follows the `voidDoc` rules without `withPayments`.
+ */
+export async function voidDocs(
+  godownId: string,
+  ids: readonly string[],
+  reason: string,
+): Promise<Doc[]> {
+  if (!reason.trim()) throw new RepoError("NOTE_REQUIRED");
+  if (ids.length === 0) return [];
+  const d = db();
+  const out = await d.transaction("rw", writeTables(d), async () => {
+    const ctx = await writeContext(godownId);
+    const done: Doc[] = [];
+    for (const id of ids) {
+      const existing = await loadForChange(ctx, id, "voucher.void");
+      done.push(...(await voidWithDependentsInTx(ctx, existing, reason.trim(), false)));
+    }
+    return done;
   });
   emitLocalWrite();
   return out;

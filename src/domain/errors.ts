@@ -50,7 +50,10 @@ export type DomainErrorCode =
   | "PAYMENT_DIRECTION_MISMATCH"
   // Due dates are references only (DECISIONS D54).
   | "DUE_BEFORE_DEAL"
-  | "PAYMENT_BEFORE_DEAL";
+  | "PAYMENT_BEFORE_DEAL"
+  // Purchase vehicle fare (DECISIONS D56).
+  | "FARE_EXCEEDS_PURCHASE"
+  | "DUPLICATE_PARTY";
 
 export class DomainError extends Error {
   constructor(

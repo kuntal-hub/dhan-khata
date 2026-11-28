@@ -134,7 +134,9 @@ export function PayAcross({
                 <li key={sid} className="bg-card flex items-end gap-3 rounded-xl border p-3">
                   <div className="flex min-w-0 flex-1 flex-col text-sm">
                     <span className="font-medium">
-                      {t(`voucherType.${o.doc.type}` as TKey)} · {o.doc.number}
+                      {o.state.bill.sourceType === "VEHICLE_FARE"
+                        ? t("fare.billLabel", { number: o.doc.number })
+                        : `${t(`voucherType.${o.doc.type}` as TKey)} · ${o.doc.number}`}
                     </span>
                     <span className="text-muted-foreground text-xs">
                       {date(o.state.bill.date, "short")} ·{" "}
