@@ -10,7 +10,7 @@
 import { DomainError } from "../errors";
 import { sourceDocId } from "../scope";
 import { assertPaymentDirection } from "./direction";
-import { billsOf } from "./payments";
+import { billsOf, vehicleFareSourceId } from "./payments";
 import type { Doc, DocOf } from "./schemas";
 
 export type DocGetter = (id: string) => Doc | undefined;
@@ -135,6 +135,18 @@ export function settlementGuard(
     default:
       return null;
   }
+}
+
+/**
+ * Vehicle-fare guard for a purchase edit (device and server): when the edit removes the fare or
+ * changes its vehicle owner, returns the fare's payment source id. The caller refuses the edit
+ * with LINKED_PAYMENTS if that source has active payments (they'd settle someone else's fare).
+ */
+export function fareBillChanged(existing: Doc, next: Doc): string | null {
+  if (existing.type !== "PURCHASE" || !existing.vehicleFare) return null;
+  const fare = next.type === "PURCHASE" ? next.vehicleFare : undefined;
+  if (fare && fare.ownerPartyId === existing.vehicleFare.ownerPartyId) return null;
+  return vehicleFareSourceId(existing._id);
 }
 
 /** Document ids a document needs resolved for `validateLinks`. */

@@ -38,6 +38,9 @@ import {
   type WeightState,
 } from "@/components/entry/WeightBlockInput";
 import { paiseToInput } from "@/client/ui/parse";
+import { FareFields, fareStateOf, parseFare, type FareState } from "@/components/fares/FareFields";
+import { farePaymentItem } from "@/client/repo";
+import { vehicleFareSourceId } from "@/domain/v2/payments";
 
 interface State {
   partyId?: string;
@@ -49,6 +52,8 @@ interface State {
   dueDate: string;
   notes: string;
   storeAt: "WAREHOUSE" | "TRANSIT";
+  /** Optional vehicle fare (D56). */
+  fare: FareState;
 }
 
 function initial(existing?: Purchase): State {
@@ -63,6 +68,7 @@ function initial(existing?: Purchase): State {
       dueDate: existing.dueDate ?? "",
       notes: existing.notes ?? "",
       storeAt: existing.storeAt,
+      fare: fareStateOf(existing.transactionDate, existing.vehicleFare),
     };
   }
   const today = todayIST();
@@ -74,6 +80,7 @@ function initial(existing?: Purchase): State {
     dueDate: "",
     notes: "",
     storeAt: "WAREHOUSE",
+    fare: fareStateOf(today),
   };
 }
 
@@ -99,6 +106,9 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
       ...(patch.date && !existing && x.pay.date === x.date
         ? { pay: { ...x.pay, date: patch.date } }
         : {}),
+      ...(patch.date && !existing && x.fare.pay.date === x.date
+        ? { fare: { ...(patch.fare ?? x.fare), pay: { ...x.fare.pay, date: patch.date } } }
+        : {}),
     }));
     setDirty(true);
   };
@@ -112,7 +122,18 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
   const payPart = existing ? { part: null } : toPart(s.pay, true, s.date);
   const dueCheck = checkDueDate(existing ? undefined : s.dueDate || undefined, s.date, todayIST());
   const paid = payPart.part ? BigInt(payPart.part.amountPaise) : 0n;
-  const due = bill ? bill.totalPaise - paid : undefined;
+  const fare = parseFare(s.fare, s.date, bill?.totalPaise, !existing);
+  // The farmer is owed the total less the vehicle fare (D56).
+  const farmerNet = bill ? bill.totalPaise - fare.amountPaise : undefined;
+  const due = farmerNet !== undefined ? farmerNet - paid : undefined;
+  const farePaid = useLiveQuery(async () => {
+    if (!existing?.vehicleFare) return false;
+    const rows = await db()
+      .vouchers.where("source.id")
+      .equals(vehicleFareSourceId(existing._id))
+      .toArray();
+    return rows.some((p) => p.type === "PAYMENT" && p.status === "active");
+  }, [existing?._id, existing?.vehicleFare?.ownerPartyId]);
 
   const lastRate = useLiveQuery(async () => {
     if (!s.partyId || existing) return undefined;
@@ -133,12 +154,14 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
     }
     if (payPart.error) return setError(t(payPart.error));
     if (dueCheck.error) return setError(t("errors.domain.DUE_BEFORE_DEAL"));
-    if (paid > bill.totalPaise) return setError(t("errors.domain.OVERPAYMENT"));
+    if (fare.error) return setError(t(fare.error));
+    if (paid > bill.totalPaise - fare.amountPaise) return setError(t("errors.domain.OVERPAYMENT"));
     setSaving(true);
     try {
+      const id = existing?._id ?? newId();
       const draft: DraftOf<"PURCHASE"> = {
         type: "PURCHASE",
-        ...(existing ? {} : { _id: newId() }),
+        ...(existing ? {} : { _id: id }),
         transactionDate: s.date,
         partyId: s.partyId,
         varietyId: s.varietyId,
@@ -153,12 +176,17 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
         ...(s.notes.trim() ? { notes: s.notes.trim() } : {}),
         ...(existing?.linkedLoadId ? { linkedLoadId: existing.linkedLoadId } : {}),
         ...(existing?.legacyCharges ? { legacyCharges: existing.legacyCharges } : {}),
+        ...(fare.fare ? { vehicleFare: fare.fare } : {}),
       };
       const r = await saveBillWithInitialPayment(
         godown._id,
         draft,
         payPart.part,
-        existing ? { id: existing._id } : {},
+        existing
+          ? { id: existing._id }
+          : fare.fare && fare.part
+            ? { extra: [farePaymentItem(id, s.date, fare.fare, fare.part)] }
+            : {},
       );
       setDirty(false);
       if (existing) router.replace(`/purchase/view?id=${existing._id}`);
@@ -299,6 +327,16 @@ export function PurchaseForm({ godown, existing }: { godown: Godown; existing?: 
             <span className="text-muted-foreground text-xs">{t("ui.showCalc")}</span>
           )}
         </button>
+        <FareFields
+          godownId={godown._id}
+          value={s.fare}
+          onChange={(f) => set({ fare: f })}
+          purchaseDate={s.date}
+          totalPaise={bill?.totalPaise}
+          showErrors={showErrors}
+          withPayment={!existing}
+          ownerLocked={farePaid === true}
+        />
         {existing ? null : (
           <section className="bg-card shadow-card flex flex-col gap-3 rounded-2xl border p-4">
             <PaymentFields

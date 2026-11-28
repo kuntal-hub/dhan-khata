@@ -98,6 +98,23 @@ const BillShape = {
   totalPaise: NonNegIntStr,
 };
 
+/** Vehicles that bring paddy to the Gola for a farmer (purchase vehicle fare). */
+export const FARE_VEHICLE_KINDS = ["TOTO", "VAN", "TROLLEY", "OTHER"] as const;
+export type FareVehicleKind = (typeof FARE_VEHICLE_KINDS)[number];
+
+/**
+ * Transport fare of a purchase: the farmer's vehicle owner is paid out of the farmer's money.
+ * The purchase value (stock) stays the full total; the farmer is owed total − fare and the owner
+ * is owed the fare (Dr PARTY:farmer / Cr PARTY:owner). Never an expense.
+ */
+export const VehicleFareSchema = z.strictObject({
+  ownerPartyId: Id,
+  vehicleKind: z.enum(FARE_VEHICLE_KINDS),
+  amountPaise: PosIntStr,
+  note: z.string().max(200).optional(),
+});
+export type VehicleFare = z.infer<typeof VehicleFareSchema>;
+
 export const PurchaseSchema = z.strictObject({
   ...DocBaseShape,
   type: z.literal("PURCHASE"),
@@ -123,6 +140,8 @@ export const PurchaseSchema = z.strictObject({
   dueDate: YmdStr.optional(),
   linkedLoadId: Id.optional(),
   interGola: InterGolaSchema.optional(),
+  /** Optional transport fare paid to the vehicle owner out of the farmer's money. */
+  vehicleFare: VehicleFareSchema.optional(),
 });
 export type Purchase = z.infer<typeof PurchaseSchema>;
 
@@ -183,6 +202,8 @@ export const PAYMENT_SOURCE_TYPES = [
   "OPENING_DUE",
   /** Money given back to a mill that paid more than it owed (OUT). id = a dispatch or null. */
   "MILL_REFUND",
+  /** A purchase's vehicle fare paid to the vehicle owner (OUT). id = `${purchaseId}:fare`. */
+  "VEHICLE_FARE",
 ] as const;
 export type PaymentSourceType = (typeof PAYMENT_SOURCE_TYPES)[number];
 

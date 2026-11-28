@@ -443,6 +443,7 @@ function NewReminderSheet({ onClose }: { onClose: () => void }) {
           "DRIVER",
           "LABOUR",
           "OTHER",
+          "TRANSPORTER",
         ]}
         createRole="OTHER"
         value={partyId}

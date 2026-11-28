@@ -27,6 +27,7 @@ const SOURCE_VIEW: Partial<Record<string, string>> = {
   VEHICLE_TRIP: "/vehicles/trip/view",
   VEHICLE_COST: "/vehicles/trip/view",
   MILL_REFUND: "/mill/dispatch/view",
+  VEHICLE_FARE: "/purchase/view",
 };
 
 export function docPath(d: Doc): string | undefined {

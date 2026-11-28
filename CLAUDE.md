@@ -114,6 +114,10 @@ Keep this list up to date.
 - Add buttons live in `Section.actions` (`components/shell/sections.ts`, per tab) and render in the section heading; edit buttons go in `PageTitle edit={…}`. Both use `components/shell/ActionLink`. Don't add in-tab "new" buttons for link forms.
 - The app frame clips sideways overflow; the acceptance e2e checks element boxes, so still fix a too-wide row at its source.
 
+## Key building blocks (purchase vehicle fare, D56)
+- `Purchase.vehicleFare` (owner party with role `TRANSPORTER`, vehicle kind, amount, note) posts Dr PARTY:farmer / Cr PARTY:owner; purchase value and stock unchanged; never an expense. `billsOf(purchase)[0]` is the farmer's bill (total − fare); a second `VEHICLE_FARE` bill (`vehicleFareSourceId` = `${id}:fare`) is the owner's. Filter a purchase's payments by `source.id` to keep farmer and fare payments apart.
+- Repo `repo/fares.ts`: `saveVehicleOwner` (no duplicates, `DUPLICATE_PARTY`), `adoptVehicleOwner`, `importVehicleOwner` (copy from another Gola), `farePaymentItem` (paid now, `extra` of `saveBillWithInitialPayment`), `payVehicleOwner` (FIFO, never over); `voidDocs` reverses a grouped payment. Edit guard `fareBillChanged` (device + server). Reads `queries/fares.ts`; other Golas only via `queries/consolidated/vehicleOwners.ts`. UI `components/fares/*`, page `/purchase/vehicle-owner`, tab `fares`.
+
 ## Key building blocks (v2 Phase 12)
 - Header: `layout/HeaderTools` (search → `/search`, bell → due reminders), loaded lazily. Settings `/settings` (theme, links, Excel export, JSON backup, integrity check incl. `negativePositions`).
 - Tests that guard the whole app: `tests/e2e/acceptance.spec.ts` (Tests 7, 8, 11: every tab of every section at 360 / 768 / 1280 px with no horizontal scroll), `tests/repo/edit-reversal.test.ts` (Test 10), `tests/unit/i18n*.test.ts` (key + placeholder parity, no unused keys). A new tab must fit 360 px (`min-w-0` on flexible flex children).

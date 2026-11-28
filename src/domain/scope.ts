@@ -35,6 +35,7 @@ export function collectRefs(d: Doc): Ref[] {
       add("party", d.partyId);
       add("variety", d.varietyId);
       add("voucher", d.linkedLoadId);
+      add("party", d.vehicleFare?.ownerPartyId);
       break;
     case "SALE":
       add("party", d.partyId);

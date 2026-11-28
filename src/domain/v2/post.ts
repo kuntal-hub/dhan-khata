@@ -221,6 +221,17 @@ export function postDoc(d: Doc, ctx: PostingContextV2 = EMPTY_CONTEXT_V2): Posti
         { varietyId: d.varietyId },
         { partyId: d.partyId },
       );
+      // Vehicle fare: part of what we owe the farmer is owed to the vehicle owner instead. The
+      // purchase value and stock are unchanged; no expense, no cash (paid later as a payment).
+      if (d.vehicleFare) {
+        b.entry(
+          partyKey(d.partyId),
+          partyKey(d.vehicleFare.ownerPartyId),
+          BigInt(d.vehicleFare.amountPaise),
+          { partyId: d.partyId },
+          { partyId: d.vehicleFare.ownerPartyId },
+        );
+      }
       break;
     }
 

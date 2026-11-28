@@ -18,6 +18,7 @@ import { expenseRows } from "../queries/expenses";
 import { groupLoads, loadRows, type LoadGroupBy } from "../queries/loads";
 import { conversionRows, dispatchRows, returnRows, secondPartySummaries } from "../queries/mill";
 import { farmerSummaries, partyLedger, purchaseRows } from "../queries/purchases";
+import { fareRows, vehicleOwnerSummaries } from "../queries/fares";
 import { customerSummaries, saleRows } from "../queries/sales";
 import { pnlByPeriod, tripRows, vehicleSummaries } from "../queries/vehicles";
 import { autoTotals, type CellValue, type Column, type ReportModel } from "./model";
@@ -205,6 +206,116 @@ const farmerLedger: ReportDef = {
         m(r.amountPaise),
         m(r.balancePaise < 0n ? -r.balancePaise : 0n),
         m(r.balancePaise > 0n ? r.balancePaise : 0n),
+      ]),
+      t,
+    );
+  },
+};
+
+// ── Purchase: vehicle fare (D56) ─────────────────────────────────────────────────────────────
+
+const vehicleFareRegister: ReportDef = {
+  id: "vehicle-fare",
+  section: "purchase",
+  title: "rep.r.vehicle-fare",
+  period: "range",
+  async build({ godownId, from, to, t }) {
+    const rows = await fareRows(godownId, from, to);
+    const columns = [
+      col(t("rep.c.date"), "date"),
+      col(t("rep.c.number")),
+      col(t("rep.c.owner")),
+      col(t("rep.c.farmer")),
+      col(t("rep.c.kind")),
+      col(t("rep.c.fare"), "money"),
+      col(t("rep.c.paid"), "money"),
+      col(t("rep.c.due"), "money"),
+      col(t("rep.c.status")),
+    ];
+    return withTotals(
+      columns,
+      rows.map((r) => [
+        d(r.purchase.transactionDate),
+        r.purchase.number,
+        r.owner?.name ?? "",
+        r.farmer?.name ?? "",
+        t(`fare.kind.${r.purchase.vehicleFare!.vehicleKind}` as TKey),
+        m(r.state.bill.totalPaise),
+        m(r.state.paidPaise),
+        m(r.state.duePaise > 0n ? r.state.duePaise : 0n),
+        status(t, r.state.status),
+      ]),
+      t,
+    );
+  },
+};
+
+const vehicleFareMonths: ReportDef = {
+  id: "vehicle-fare-months",
+  section: "purchase",
+  title: "rep.r.vehicle-fare-months",
+  period: "range",
+  async build({ godownId, from, to, t }) {
+    const rows = await fareRows(godownId, from, to);
+    const by = new Map<string, { n: number; fare: bigint; paid: bigint; due: bigint }>();
+    for (const r of rows) {
+      const k = r.purchase.transactionDate.slice(0, 7);
+      const e = by.get(k) ?? { n: 0, fare: 0n, paid: 0n, due: 0n };
+      e.n++;
+      e.fare += r.state.bill.totalPaise;
+      e.paid += r.state.paidPaise;
+      e.due += r.state.duePaise > 0n ? r.state.duePaise : 0n;
+      by.set(k, e);
+    }
+    const keys = [...by.keys()].sort();
+    const columns = [
+      col(t("rep.c.month")),
+      col(t("rep.c.trips"), "count"),
+      col(t("rep.c.fare"), "money"),
+      col(t("rep.c.paid"), "money"),
+      col(t("rep.c.due"), "money"),
+    ];
+    return withTotals(
+      columns,
+      keys.map((k) => {
+        const e = by.get(k)!;
+        return [k, n(e.n), m(e.fare), m(e.paid), m(e.due)];
+      }),
+      t,
+      {
+        chart: {
+          labels: keys,
+          series: [{ name: t("rep.c.fare"), values: keys.map((k) => by.get(k)!.fare) }],
+        },
+      },
+    );
+  },
+};
+
+const vehicleOwnersReport: ReportDef = {
+  id: "vehicle-owners",
+  section: "purchase",
+  title: "rep.r.vehicle-owners",
+  period: "none",
+  async build({ godownId, t }) {
+    const rows = await vehicleOwnerSummaries(godownId);
+    const columns = [
+      col(t("rep.c.owner")),
+      col(t("rep.c.mobile")),
+      col(t("rep.c.trips"), "count"),
+      col(t("rep.c.fare"), "money"),
+      col(t("rep.c.paid"), "money"),
+      col(t("rep.c.due"), "money"),
+    ];
+    return withTotals(
+      columns,
+      rows.map((r) => [
+        r.party.name,
+        r.party.phone ?? "",
+        n(r.jobs),
+        m(r.earnedPaise),
+        m(r.paidPaise),
+        m(r.outstandingPaise),
       ]),
       t,
     );
@@ -1466,6 +1577,9 @@ export const REPORTS: readonly ReportDef[] = [
   purchaseDaily,
   purchaseRegister,
   farmerLedger,
+  vehicleFareRegister,
+  vehicleFareMonths,
+  vehicleOwnersReport,
   salesDaily,
   salesRegister,
   customerLedger,

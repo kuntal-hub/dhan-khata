@@ -20,6 +20,8 @@ export const PARTY_ROLES = [
   "LABOUR",
   "OTHER",
   "GOLA",
+  /** Owner of a toto / van / trolley that brings farmers' paddy (purchase vehicle fare). */
+  "TRANSPORTER",
 ] as const;
 export const PartyRoleSchema = z.enum(PARTY_ROLES);
 export type PartyRole = z.infer<typeof PartyRoleSchema>;

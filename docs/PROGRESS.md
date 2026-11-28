@@ -555,3 +555,12 @@ Each phase appends one entry using this template. Next sessions **must** read ev
 **Tests:** `tests/unit/test12-mill-direction.test.ts` (Test 12 + property tests), `tests/repo/mill.test.ts` rewritten, `tests/sync/isolation.test.ts` (server rejects wrong directions), `tests/sync/fix-mill-direction.test.ts`, Playwright Test 12 in `tests/e2e/mill.spec.ts` (bn + en). Old tests that encoded milling charges / consignment sales were updated.
 
 **Known issues / notes:** opening stock and stock adjustments located at a mill still post to `STOCK_AT_MILL` (rare; their cost isn't in COGS). Gross profit in the UI e2e isn't asserted (shared e2e Gola); it is asserted in the domain test. The v2.0 consignment-sale detail page is read-only (converted by the data fix).
+
+### Purchase vehicle fare & vehicle owner ledger (D56) — 2026-11-28
+**What was built:** optional vehicle fare inside the purchase form (owner picker with saved / other-Gola owners and duplicate check, vehicle type, fare, paid now / unpaid, note, live farmer-net breakdown); farmer payable = total − fare; the owner's fare as its own bill; Purchase → Vehicle fare tab; vehicle owner ledger (jobs, earned, paid, outstanding, deliveries with farmer / Gola / status, payment history with reversal, pay later in parts, edit owner, all-Golas totals); three purchase reports; receipts and Due & Advance aware of fare bills. Details and rules: DECISIONS D56. No existing record, posting or screen behaviour changes for purchases without a fare.
+
+**Tests:** `tests/unit/vehicle-fare.test.ts` (posting, bills, rules, guard, owner matching), `tests/repo/vehicle-fare.test.ts` (the client's 9-step validation incl. cash once / never for unpaid and variety stock, duplicates, other-Gola import, edits, reversal), `tests/sync/vehicle-fare.test.ts` (server = device ledger, server refuses fare > total and owner change under payments), `tests/e2e/vehicle-fare.spec.ts` (360 px flow, বাংলা + English); offline route list extended.
+
+**Exit criteria:** `pnpm typecheck` ✅ · `pnpm lint` ✅ · `pnpm check:no-float` ✅ · `pnpm format:check` ✅ · `pnpm test` ✅ 396 passed (43 files) · `pnpm build` ✅ · `pnpm check:bundle` ✅ Home JS 246.6 KB · `pnpm test:e2e` ✅ 26/26 (incl. the new vehicle-fare flow in বাংলা and English).
+
+**Notes:** server and devices must update together (new party role and payment source in the strict schemas). Owners are per-Gola copies by design; editing an owner in one Gola does not rename his copy in the other.

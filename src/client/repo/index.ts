@@ -2,6 +2,7 @@ export {
   saveDoc,
   saveDocs,
   voidDoc,
+  voidDocs,
   newId,
   sameDocContent,
   paymentsOfSource,
@@ -42,6 +43,14 @@ export {
   type LoadLinkType,
 } from "./loads";
 export { saveTrip, type TripPayments } from "./trips";
+export {
+  saveVehicleOwner,
+  adoptVehicleOwner,
+  importVehicleOwner,
+  farePaymentItem,
+  payVehicleOwner,
+  type OwnerInput,
+} from "./fares";
 export { mergeVarieties } from "./varieties";
 export {
   findDuplicateReturn,

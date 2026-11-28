@@ -90,6 +90,7 @@ export const SECTIONS: readonly Section[] = [
       { key: "list", label: "sections.purchaseTabs.list" },
       { key: "farmers", label: "sections.purchaseTabs.farmers" },
       { key: "varieties", label: "sections.purchaseTabs.varieties" },
+      { key: "fares", label: "sections.purchaseTabs.fares" },
       { key: "reports", label: "sections.purchaseTabs.reports" },
     ],
     actions: [

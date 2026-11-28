@@ -47,6 +47,8 @@ export function dueCategory(roles: readonly PartyRole[], balancePaise: bigint): 
   // We owe them (দেনা). A mill here paid more than it owed: to refund, shown under অন্যান্য.
   if (roles.includes("MILL")) return "other";
   if (has(roles, BUY_SIDE)) return "payable";
+  // A vehicle owner we still owe purchase fares to (D56).
+  if (roles.includes("TRANSPORTER")) return "payable";
   if (roles.includes("CUSTOMER") || roles.includes("VEHICLE_CUSTOMER")) return "advance";
   return "other";
 }
@@ -146,10 +148,12 @@ export async function partyDues(godownId: string, today = todayIST()): Promise<P
   const opening = new Map<string, bigint>();
   const last = new Map<string, string>();
   for (const doc of docs) {
-    const pid = partyOf(doc);
-    if (pid) {
-      const dt = dateOf(doc);
-      if ((last.get(pid) ?? "") < dt) last.set(pid, dt);
+    const dt = dateOf(doc);
+    for (const pid of [
+      partyOf(doc),
+      doc.type === "PURCHASE" ? doc.vehicleFare?.ownerPartyId : undefined,
+    ]) {
+      if (pid && (last.get(pid) ?? "") < dt) last.set(pid, dt);
     }
     if (doc.type === "OPENING") {
       for (const it of doc.items) {

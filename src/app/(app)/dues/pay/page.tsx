@@ -46,6 +46,7 @@ function Pay() {
           "LABOUR",
           "OTHER",
           "GOLA",
+          "TRANSPORTER",
         ]}
         createRole={direction === "OUT" ? "FARMER" : "CUSTOMER"}
         value={partyId}

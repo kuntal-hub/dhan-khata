@@ -141,7 +141,9 @@ function PartyLedger() {
                 >
                   <div className="flex items-center justify-between gap-2">
                     <span className="min-w-0">
-                      {t(`voucherType.${o.doc.type}` as TKey)} · {o.doc.number}
+                      {b.sourceType === "VEHICLE_FARE"
+                        ? t("fare.billLabel", { number: o.doc.number })
+                        : `${t(`voucherType.${o.doc.type}` as TKey)} · ${o.doc.number}`}
                       <span
                         className={`block text-xs ${o.state.overdue ? "font-semibold text-red-700" : "text-muted-foreground"}`}
                       >
@@ -170,7 +172,8 @@ function PartyLedger() {
                       >
                         {b.direction === "OUT" ? t("pur.addDuePayment") : t("sl.addCollection")}
                       </Button>
-                      {isDueDateType(o.doc.type) ? (
+                      {/* The deal's own bill only (a vehicle fare bill has no due date). */}
+                      {isDueDateType(o.doc.type) && b.sourceId === o.doc._id ? (
                         <Button
                           variant="outline"
                           className="h-11"
